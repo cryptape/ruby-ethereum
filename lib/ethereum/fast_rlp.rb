@@ -19,6 +19,13 @@ module Ethereum
       "#{prefix}#{item}"
     end
 
+    ##
+    # Alias to encode_nested_bytes, override default encode.
+    #
+    def encode(item)
+      encode_nested_bytes item
+    end
+
     extend self
   end
 end
