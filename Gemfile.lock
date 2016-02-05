@@ -5,13 +5,17 @@ PATH
       digest-sha3 (~> 1.1.0)
       rlp (~> 0.5.2)
 
+PATH
+  remote: /home/jan/projects/mine/ruby-rlp
+  specs:
+    rlp (0.5.2)
+
 GEM
   remote: https://rubygems.org/
   specs:
     digest-sha3 (1.1.0)
     minitest (5.8.3)
     rake (10.5.0)
-    rlp (0.5.2)
     yard (0.8.7.6)
 
 PLATFORMS
@@ -20,6 +24,7 @@ PLATFORMS
 DEPENDENCIES
   minitest (= 5.8.3)
   rake (~> 10.5.0)
+  rlp!
   ruby-ethereum!
   yard (= 0.8.7.6)
 
