@@ -14,9 +14,4 @@ class UtilsTest < Minitest::Test
     assert_equal "YZ\xef\x85BA8\x89\x08?\x83\x13\x88\xcfv\x10\x0f\xd8a:\x97\xaf\xb8T\xdb#z#PF89".b, keccak_rlp([1, [2,3], "4", ["5", [6]]])
   end
 
-  def test_str_to_nibbles
-    assert_equal [], str_to_nibbles('')
-    assert_equal [6, 8], str_to_nibbles('h')
-    assert_equal [6, 8, 6, 5, 6, 12, 6, 12, 6, 15], str_to_nibbles('hello')
-  end
 end

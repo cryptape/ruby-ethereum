@@ -1,3 +1,5 @@
+require 'ethereum/trie/nibble_key'
+
 module Ethereum
 
   ##
@@ -6,10 +8,6 @@ module Ethereum
   # @see https://github.com/ethereum/wiki/wiki/Patricia-Tree
   #
   class Trie
-
-    NIBBLE_TERM_FLAG  = 0b0010
-    NIBBLE_ODD_FLAG   = 0b0001
-    NIBBLE_TERMINATOR = 16
 
     NODE_TYPES = %i(blank leaf extension branch).freeze
     NODE_KV_TYPE = %i(leaf extension).freeze
@@ -71,7 +69,7 @@ module Ethereum
     end
 
     def get(key)
-      find @root_node, str_to_nibbles(key)
+      find @root_node, NibbleKey.from_str(key)
     end
 
     ##
@@ -89,29 +87,29 @@ module Ethereum
     # get value inside a node
     #
     # @param node [Array, BLANK_NODE] node in form of list, or BLANK_NODE
-    # @param nibbles [Array] nibble array without terminator
+    # @param nbk [NibbleKey] nibble array without terminator
     #
     # @return [String] BLANK_NODE if does not exist, otherwise value or hash
     #
-    def find(node, nibbles)
+    def find(node, nbk)
       node_type = get_node_type node
 
       case node_type
       when :blank
         BLANK_NODE
       when :branch
-        return node.last if nibbles.empty?
+        return node.last if nbk.empty?
 
-        sub_node = decode_to_node node[nibbles[0]]
-        find sub_node, nibbles[1..-1]
+        sub_node = decode_to_node node[nbk[0]]
+        find sub_node, nbk[1..-1]
       when :leaf
-        node_nibbles = without_terminator unpack_to_nibbles(node[0])
-        nibbles == node_nibbles ? node[1] : BLANK_NODE
+        node_key = NibbleKey.decode(node[0]).without_terminator
+        nbk == node_key ? node[1] : BLANK_NODE
       when :extension
-        node_nibbles = without_terminator unpack_to_nibbles(node[0])
-        if starts_with(nibbles, node_nibbles)
+        node_key = NibbleKey.decode(node[0]).without_terminator
+        if node_key.prefix?(nbk)
           sub_node = decode_to_node node[1]
-          find sub_node, nibbles[node_nibbles.size..-1]
+          find sub_node, nbk[node_key.size..-1]
         else
           BLANK_NODE
         end
@@ -183,7 +181,7 @@ module Ethereum
       # FIXME: in current trie implementation two nodes can share identical
       # subtree thus we can not safely delete nodes for now
       #
-      # @db.delete encoded
+      # \@db.delete encoded
     end
 
     def delete_child_storage(node)
@@ -210,53 +208,13 @@ module Ethereum
 
       case node.size
       when 2 # [k,v]
-        nibbles = unpack_to_nibbles node[0]
-        has_terminator = (nibbles && nibbles.last == NIBBLE_TERMINATOR)
-        has_terminator ? :leaf : :extension
+        NibbleKey.decode(node[0]).terminate? ? :leaf : :extension
       when 17 # [k0, ... k15, v]
         :branch
       else
         raise InvalidNode, "node size must be 2 or 17"
       end
     end
-
-    ###
-    # unpack packed binary data to nibbles.
-    #
-    # @param bindata [String] binary packed from nibbles
-    #
-    # @return [Array] nibbles array, may have a terminator
-    #
-    def unpack_to_nibbles(bindata)
-      o = str_to_nibbles bindata
-      flags = o[0]
-
-      o.push NIBBLE_TERMINATOR if flags & NIBBLE_TERM_FLAG == 1
-
-      fill = flags & NIBBLE_ODD_FLAG == 1 ? 1 : 2
-      o[fill..-1]
-    end
-
-    ##
-    # test whether the items in the part is the leading items of the full
-    #
-    def starts_with(full, part)
-      return false if full.size < part.size
-      full.take(part.size) == part
-    end
-
-    def without_terminator(nibbles)
-      nibbles.dup.tap do |ary|
-        ary.push NIBBLE_TERMINATOR if nibbles.last != NIBBLE_TERMINATOR
-      end
-    end
-
-    def without_terminator(nibbles)
-      nibbles.dup.tap do |ary|
-        ary.pop if ary.last == NIBBLE_TERMINATOR
-      end
-    end
-
   end
 
 end
