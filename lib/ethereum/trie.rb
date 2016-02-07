@@ -68,8 +68,22 @@ module Ethereum
       end
     end
 
+    ##
+    # Get value from trie.
+    #
+    # @param key [String]
+    #
+    # @return [String] BLANK_NODE if does not exist, otherwise node value
+    #
     def get(key)
       find @root_node, NibbleKey.from_str(key)
+    end
+
+    ##
+    # Get count of all nodes of the trie.
+    #
+    def size
+      get_size @root_node
     end
 
     ##
@@ -81,15 +95,13 @@ module Ethereum
       @root_node = BLANK_NODE
     end
 
-    private
-
     ##
-    # get value inside a node
+    # Get value inside a node.
     #
     # @param node [Array, BLANK_NODE] node in form of list, or BLANK_NODE
     # @param nbk [NibbleKey] nibble array without terminator
     #
-    # @return [String] BLANK_NODE if does not exist, otherwise value or hash
+    # @return [String] BLANK_NODE if does not exist, otherwise node value
     #
     def find(node, nbk)
       node_type = get_node_type node
@@ -115,6 +127,32 @@ module Ethereum
         end
       else
         raise InvalidNodeType, "node type must be in #{NODE_TYPES}, given: #{node_type}"
+      end
+    end
+
+    private
+
+    ##
+    # Get counts of (key, value) stored in this and the descendant nodes.
+    #
+    # TODO: refactor into Node class
+    #
+    # @param node [Array, BLANK_NODE] node in form of list, or BLANK_NODE
+    #
+    # @return [Integer]
+    #
+    def get_size(node)
+      case get_node_type(node)
+      when :branch
+        sizes = node[0,16].map {|n| get_size decode_to_node(n) }
+        sizes.push(node.last.nil? ? 0 : 1)
+        sizes.reduce(0, &:+)
+      when :extension
+        get_size decode_to_node(node[1])
+      when :leaf
+        1
+      when :blank
+        0
       end
     end
 
