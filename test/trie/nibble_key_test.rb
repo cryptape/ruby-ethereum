@@ -25,5 +25,14 @@ class Ethereum::Trie
       assert_equal NibbleKey, NibbleKey.new([1,2,3])[1..-1].class
     end
 
+    def test_to_key
+      assert_equal "\x00", NibbleKey.new([]).to_key
+      assert_equal "\x00h", NibbleKey.from_str('h').to_key
+
+      assert_equal "\x11h", NibbleKey.new([1,6,8]).to_key
+      assert_equal " h", NibbleKey.new([6,8,NibbleKey::NIBBLE_TERMINATOR]).to_key
+      assert_equal "0h", NibbleKey.new([0,6,8,NibbleKey::NIBBLE_TERMINATOR]).to_key
+    end
+
   end
 end

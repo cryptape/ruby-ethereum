@@ -81,6 +81,33 @@ module Ethereum
         return false if another_key.size < size
         another_key.take(size) == self
       end
+
+      ##
+      # Pack nibbles to string.
+      #
+      def to_key
+        nibbles = self
+        flags = 0
+
+        if nibbles.last == NIBBLE_TERMINATOR
+          flags |= NIBBLE_TERM_FLAG
+          nibbles = nibbles[0...-1]
+        end
+
+        odd = nibbles.size % 2
+        flags |= odd
+        if odd == 1
+          nibbles = [flags] + nibbles
+        else
+          nibbles = [flags, 0b0000] + nibbles
+        end
+
+        (nibbles.size/2).times.reduce('') do |key, i|
+          base = 2*i
+          key += (16*nibbles[base] + nibbles[base+1]).chr
+        end
+      end
+
     end
 
   end
