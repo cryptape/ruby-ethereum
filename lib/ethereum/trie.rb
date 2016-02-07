@@ -18,6 +18,7 @@ module Ethereum
     BLANK_ROOT = Utils.keccak_rlp('').freeze
 
     class InvalidNode < StandardError; end
+    class InvalidNodeType < StandardError; end
     class InvalidSPVProof < StandardError; end
 
     ##
@@ -45,7 +46,7 @@ module Ethereum
       return @transient_root_hash if @transient
       return BLANK_ROOT if @root_node == BLANK_NODE
 
-      raise InvalidNode, "invalid root node" unless Utils.list?(@root_node)
+      raise InvalidNode, "invalid root node" unless @root_node.instance_of?(Array)
 
       val = FastRLP.encode @root_node
       key = Utils.keccak_256 val
@@ -69,6 +70,10 @@ module Ethereum
       end
     end
 
+    def get(key)
+      find @root_node, str_to_nibbles(key)
+    end
+
     ##
     # clear all tree data
     #
@@ -80,8 +85,53 @@ module Ethereum
 
     private
 
+    ##
+    # get value inside a node
+    #
+    # @param node [Array, BLANK_NODE] node in form of list, or BLANK_NODE
+    # @param nibbles [Array] nibble array without terminator
+    #
+    # @return [String] BLANK_NODE if does not exist, otherwise value or hash
+    #
+    def find(node, nibbles)
+      node_type = get_node_type node
+
+      case node_type
+      when :blank
+        BLANK_NODE
+      when :branch
+        return node.last if nibbles.empty?
+
+        sub_node = decode_to_node node[nibbles[0]]
+        find sub_node, nibbles[1..-1]
+      when :leaf
+        node_nibbles = without_terminator unpack_to_nibbles(node[0])
+        nibbles == node_nibbles ? node[1] : BLANK_NODE
+      when :extension
+        node_nibbles = without_terminator unpack_to_nibbles(node[0])
+        if starts_with(nibbles, node_nibbles)
+          sub_node = decode_to_node node[1]
+          find sub_node, nibbles[node_nibbles.size..-1]
+        else
+          BLANK_NODE
+        end
+      else
+        raise InvalidNodeType, "node type must be in #{NODE_TYPES}, given: #{node_type}"
+      end
+    end
+
     def encode_node(node)
-      # TODO
+      return BLANK_NODE if node == BLANK_NODE
+      raise ArgumentError, "node must be an array" unless node.instance_of?(Array)
+
+      rlp_node = FastRLP.encode node
+      return rlp_node if rlp_node.size < 32
+
+      hashkey = Utils.keccak_256 rlp_node
+      @db.put hashkey, rlp_node
+      spv_storing node
+
+      hashkey
     end
 
     def decode_to_node(encoded)
@@ -185,6 +235,26 @@ module Ethereum
 
       fill = flags & NIBBLE_ODD_FLAG == 1 ? 1 : 2
       o[fill..-1]
+    end
+
+    ##
+    # test whether the items in the part is the leading items of the full
+    #
+    def starts_with(full, part)
+      return false if full.size < part.size
+      full.take(part.size) == part
+    end
+
+    def without_terminator(nibbles)
+      nibbles.dup.tap do |ary|
+        ary.push NIBBLE_TERMINATOR if nibbles.last != NIBBLE_TERMINATOR
+      end
+    end
+
+    def without_terminator(nibbles)
+      nibbles.dup.tap do |ary|
+        ary.pop if ary.last == NIBBLE_TERMINATOR
+      end
     end
 
   end
