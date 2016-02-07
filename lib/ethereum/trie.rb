@@ -75,7 +75,7 @@ module Ethereum
     #
     # @return [String] BLANK_NODE if does not exist, otherwise node value
     #
-    def get(key)
+    def [](key)
       find @root_node, NibbleKey.from_str(key)
     end
 
