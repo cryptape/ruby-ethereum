@@ -12,6 +12,10 @@ module Ethereum
     NODE_TYPES = %i(blank leaf extension branch).freeze
     NODE_KV_TYPE = %i(leaf extension).freeze
 
+    BRANCH_CARDINAL = 16
+    BRANCH_WIDTH = BRANCH_CARDINAL + 1
+    KV_WIDTH = 2
+
     BLANK_NODE = "".freeze
     BLANK_ROOT = Utils.keccak_rlp('').freeze
 
@@ -54,6 +58,7 @@ module Ethereum
 
       key
     end
+    alias :update_root_hash :root_hash
 
     def set_root_hash(hash)
       raise TypeError, "root hash must be String" unless hash.instance_of?(String)
@@ -77,6 +82,25 @@ module Ethereum
     #
     def [](key)
       find @root_node, NibbleKey.from_str(key)
+    end
+
+    ##
+    # Set value of key.
+    #
+    # @param key [String]
+    # @param value [String]
+    #
+    def []=(key, value)
+      raise ArgumentError, "key must be string" unless key.instance_of?(String)
+      raise ArgumentError, "value must be string" unless value.instance_of?(String)
+
+      @root_node = update_and_delete_storage(
+        @root_node,
+        NibbleKey.from_str(key),
+        value
+      )
+
+      update_root_hash
     end
 
     ##
@@ -115,10 +139,10 @@ module Ethereum
         sub_node = decode_to_node node[nbk[0]]
         find sub_node, nbk[1..-1]
       when :leaf
-        node_key = NibbleKey.decode(node[0]).without_terminator
+        node_key = NibbleKey.decode(node[0]).terminate(false)
         nbk == node_key ? node[1] : BLANK_NODE
       when :extension
-        node_key = NibbleKey.decode(node[0]).without_terminator
+        node_key = NibbleKey.decode(node[0]).terminate(false)
         if node_key.prefix?(nbk)
           sub_node = decode_to_node node[1]
           find sub_node, nbk[node_key.size..-1]
@@ -144,7 +168,7 @@ module Ethereum
     def get_size(node)
       case get_node_type(node)
       when :branch
-        sizes = node[0,16].map {|n| get_size decode_to_node(n) }
+        sizes = node[0,BRANCH_CARDINAL].map {|n| get_size decode_to_node(n) }
         sizes.push(node.last.nil? ? 0 : 1)
         sizes.reduce(0, &:+)
       when :extension
@@ -178,6 +202,164 @@ module Ethereum
         .tap {|o| spv_grabbing(o) }
     end
 
+    def update_and_delete_storage(node, key, value)
+      old_node = node.dup
+      new_node = update_node(node, key, value)
+      delete_node_storage(old_node) if old_node != new_node
+      new_node
+    end
+
+    ##
+    # Update item inside a node.
+    #
+    # If this node is changed to a new node, it's parent will take the
+    # responsibility to **store** the new node storage, and delete the old node
+    # storage.
+    #
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
+    # @param key [NibbleKey] nibble key without terminator
+    # @param value [String] value string
+    #
+    # @return [Array, BLANK_NODE] new node
+    #
+    def update_node(node, key, value)
+      node_type = get_node_type node
+
+      case node_type
+      when :blank
+        [key.terminate(true).encode, value]
+      when :branch
+        if key.empty?
+          node.last = value
+        else
+          new_node = update_and_delete_storage(
+            decode_to_node(node[key[0]]),
+            key[1..-1],
+            value
+          )
+          node[key[0]] = encode_node new_node
+        end
+
+        node
+      else # kv node type
+        update_kv_node(node, key, value)
+      end
+    end
+
+    # TODO: refactor this crazy tall guy
+    def update_kv_node(node, key, value)
+      node_type = get_node_type node
+      node_key = NibbleKey.decode(node[0]).terminate(false)
+      inner = node_type == :extension
+
+      common_key = node_key.common_prefix(key)
+      remain_key = key[common_key.size..-1]
+      remain_node_key = node_key[common_key.size..-1]
+
+      if remain_key.empty? && remain_node_key.empty? # target key equals node's key
+        if inner
+          new_node = update_and_delete_storage(
+            decode_to_node(node[1]),
+            remain_key,
+            value
+          )
+        else
+          return [node[0], value]
+        end
+      elsif remain_node_key.empty? # target key includes node's key
+        if inner
+          new_node = update_and_delete_storage(
+            decode_to_node(node[1]),
+            remain_key,
+            value
+          )
+        else # node is a leaf, we need to replace it with branch node first
+          new_node = [BLANK_NODE] * BRANCH_WIDTH
+          new_node[-1] = node[1]
+          new_node[remain_key[0]] = encode_node([
+            remain_key[1..-1].terminate(true).encode,
+            value
+          ])
+        end
+      else
+        new_node = [BLANK_NODE] * BRANCH_WIDTH
+
+        if remain_node_key.size == 1 && inner
+          new_node[remain_node_key[0]] = node[1]
+        else
+          new_node[remain_node_key[0]] = encode_node([
+            remain_node_key[1..-1].terminate(!inner).encode,
+            node[1]
+          ])
+        end
+
+        if remain_key.empty? # node's key include target key
+          new_node[-1] = value
+        else
+          new_node[remain_key[0]] = encode_node([
+            remain_key[1..-1].terminate(true).encode,
+            value
+          ])
+        end
+      end
+
+      if common_key.empty?
+        new_node
+      else
+        [node_key[0, common_key.size].encode, encode_node(new_node)]
+      end
+    end
+
+    ##
+    # Delete node storage.
+    #
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
+    #
+    def delete_node_storage(node)
+      return if node == BLANK_NODE
+      raise ArgumentError, "node must be Array or BLANK_NODE"
+
+      encoded = encode_node node
+      return if encoded.size < 32
+
+      # FIXME: in current trie implementation two nodes can share identical
+      # subtree thus we can not safely delete nodes for now
+      #
+      # \@db.delete encoded
+    end
+
+    def delete_child_storage(node)
+      node_type = get_node_type node
+      case node_type
+      when :branch
+        node[0,BRANCH_CARDINAL].each {|item| delete_child_storage decode_to_node(item) }
+      when :extension
+        delete_child_storage decode_to_node(node[1])
+      else
+        # do nothing
+      end
+    end
+
+    ##
+    # get node type and content
+    #
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
+    #
+    # @return [Symbol] node type
+    #
+    def get_node_type(node)
+      return :blank if node == BLANK_NODE
+
+      case node.size
+      when KV_WIDTH # [k,v]
+        NibbleKey.decode(node[0]).terminate? ? :leaf : :extension
+      when BRANCH_WIDTH # [k0, ... k15, v]
+        :branch
+      else
+        raise InvalidNode, "node size must be #{KV_WIDTH} or #{BRANCH_WIDTH}"
+      end
+    end
+
     def spv_grabbing(node)
       return unless @proof.proving?
 
@@ -204,55 +386,6 @@ module Ethereum
       end
     end
 
-    ##
-    # delete storage
-    #
-    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
-    #
-    def delete_node_storage(node)
-      return if node == BLANK_NODE
-      raise ArgumentError, "node must be Array or BLANK_NODE"
-
-      encoded = encode_node node
-      return if encoded.size < 32
-
-      # FIXME: in current trie implementation two nodes can share identical
-      # subtree thus we can not safely delete nodes for now
-      #
-      # \@db.delete encoded
-    end
-
-    def delete_child_storage(node)
-      node_type = get_node_type node
-      case node_type
-      when :branch
-        node[0,16].each {|item| delete_child_storage decode_to_node(item) }
-      when :extension
-        delete_child_storage decode_to_node(node[1])
-      else
-        # do nothing
-      end
-    end
-
-    ##
-    # get node type and content
-    #
-    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
-    #
-    # @return [Symbol] node type
-    #
-    def get_node_type(node)
-      return :blank if node == BLANK_NODE
-
-      case node.size
-      when 2 # [k,v]
-        NibbleKey.decode(node[0]).terminate? ? :leaf : :extension
-      when 17 # [k0, ... k15, v]
-        :branch
-      else
-        raise InvalidNode, "node size must be 2 or 17"
-      end
-    end
   end
 
 end

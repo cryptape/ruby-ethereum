@@ -91,12 +91,22 @@ module Ethereum
         last == NIBBLE_TERMINATOR
       end
 
-      def with_terminator
-        dup.tap {|k| k.push NIBBLE_TERMINATOR unless copy.terminate }
-      end
-
-      def without_terminator
-        dup.tap {|k| k.pop if k.terminate? }
+      ##
+      # Get with or without terminator copy of this {NibbleKey}.
+      #
+      # @param flag [Bool] set true to get a copy with terminator, otherwise
+      #   set false
+      #
+      # @return [NibbleKey] a copy with or without terminator at end
+      #
+      def terminate(flag)
+        dup.tap do |copy|
+          if flag
+            copy.push NIBBLE_TERMINATOR unless copy.terminate?
+          else
+            copy.pop if copy.terminate?
+          end
+        end
       end
 
       ##
