@@ -21,6 +21,11 @@ class Ethereum::Trie
       assert_equal false, NibbleKey.new([1,2]).prefix?(NibbleKey.new([1,3,4,5]))
     end
 
+    def test_common_prefix
+      assert_equal [], NibbleKey.new([1,2,3]).common_prefix([2,3,4])
+      assert_equal [1,2,3], NibbleKey.new([1,2,3,4,5]).common_prefix([1,2,3,5,6,7])
+    end
+
     def test_slice_is_also_nibble_key
       assert_equal NibbleKey, NibbleKey.new([1,2,3])[1..-1].class
     end

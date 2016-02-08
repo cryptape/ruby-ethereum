@@ -111,6 +111,24 @@ module Ethereum
         another_key.take(size) == self
       end
 
+      ##
+      # Find common prefix to another key.
+      #
+      # @param another_key [Array] another array of nibbles
+      #
+      # @return [Array] common prefix of both nibbles array
+      #
+      def common_prefix(another_key)
+        prefix = []
+
+        [size, another_key.size].min.times do |i|
+          break if self[i] != another_key[i]
+          prefix.push self[i]
+        end
+
+        self.class.new prefix
+      end
+
       def encode
         self.class.encode self
       end
