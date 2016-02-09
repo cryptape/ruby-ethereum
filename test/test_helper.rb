@@ -10,13 +10,13 @@ def fixture_path(path)
   File.join fixture_root, path
 end
 
-def fixture_json(path)
+def load_fixture(path)
   fixture = {}
-  basename = File.basename path
+  name = File.basename(path).sub(/#{File.extname(path)}$/, '')
 
   json = File.open(fixture_path(path)) {|f| JSON.load f }
   json.each do |k, v|
-    fixture["#{basename}_#{k}"] = v
+    fixture["#{name}_#{k}"] = v
   end
 
   to_bytes fixture
@@ -37,5 +37,23 @@ def to_bytes(obj)
     h
   else
     obj
+  end
+end
+
+class Minitest::Test
+  class <<self
+    def run_fixture(path)
+      fixture = load_fixture path
+
+      fixture.each do |name, pairs|
+        define_method("test_fixture_#{name}") do
+          on_fixture_test name, pairs
+        end
+      end
+    end
+  end
+
+  def on_fixture_test(name, pairs)
+    raise NotImplementedError, "override this method to customize fixture testing"
   end
 end
