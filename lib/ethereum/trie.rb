@@ -8,6 +8,7 @@ module Ethereum
   # @see https://github.com/ethereum/wiki/wiki/Patricia-Tree
   #
   class Trie
+    include Enumerable
 
     NODE_TYPES = %i(blank leaf extension branch).freeze
     NODE_KV_TYPE = %i(leaf extension).freeze
@@ -86,7 +87,7 @@ module Ethereum
     # @return [String] BLANK_NODE if does not exist, otherwise node value
     #
     def [](key)
-      find @root_node, NibbleKey.from_str(key)
+      find @root_node, NibbleKey.from_string(key)
     end
 
     ##
@@ -101,7 +102,7 @@ module Ethereum
 
       @root_node = update_and_delete_storage(
         @root_node,
-        NibbleKey.from_str(key),
+        NibbleKey.from_string(key),
         value
       )
 
@@ -119,10 +120,28 @@ module Ethereum
 
       @root_node = delete_and_delete_storage(
         @root_node,
-        NibbleKey.from_str(key)
+        NibbleKey.from_string(key)
       )
 
       update_root_hash
+    end
+
+    ##
+    # Convert to hash.
+    #
+    def to_h
+      hash = {}
+
+      to_hash(@root_node).each do |k, v|
+        key = k.terminate(false).to_string
+        hash[key] = v
+      end
+
+      hash
+    end
+
+    def each(&block)
+      to_h.each(&block)
     end
 
     def has_key?(key)
@@ -490,6 +509,42 @@ module Ethereum
         :branch
       else
         raise InvalidNode, "node size must be #{KV_WIDTH} or #{BRANCH_WIDTH}"
+      end
+    end
+
+    ##
+    # Convert [key, value] stored in this and the descendant nodes to hash.
+    #
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
+    #
+    # @return [Hash] equivalent hash. Hash key is in full form (Array).
+    def to_hash(node)
+      node_type = get_node_type node
+
+      case node_type
+      when :blank
+        {}
+      when :branch
+        hash = {}
+
+        16.times do |i|
+          sub_hash = to_hash decode_to_node(node[i])
+          sub_hash.each {|k, v| hash[[i] + k] = v }
+        end
+
+        hash[NibbleKey.terminator] = node.last if node.last
+        hash
+      when *NODE_KV_TYPE
+        nibbles = NibbleKey.decode(node[0]).terminate(false)
+
+        sub_hash = node_type == :extension ?
+          to_hash(decode_to_node(node[1])) : {NibbleKey.terminator => node[1]}
+
+        {}.tap do |hash|
+          sub_hash.each {|k, v| hash[nibbles + k] = v }
+        end
+      else
+        # do nothing
       end
     end
 

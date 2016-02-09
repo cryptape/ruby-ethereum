@@ -85,11 +85,11 @@ module Ethereum
         end
 
         ##
-        # Convert {Array} of nibbles to {String}.
+        # Convert array of nibbles to string.
         #
         # @see `nibbles_to_bin` in pyethereum
         #
-        # @param key [Array] array of nibbles
+        # @param nibbles [Array] array of nibbles
         #
         # @return [String] string represented by nibbles
         #
