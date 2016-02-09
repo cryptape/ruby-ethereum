@@ -73,6 +73,11 @@ module Ethereum
       end
     end
 
+    def root_hash_valid?
+      return true if @root_hash == BLANK_ROOT
+      return @db.include?(@root_hash)
+    end
+
     ##
     # Get value from trie.
     #
@@ -119,6 +124,11 @@ module Ethereum
 
       update_root_hash
     end
+
+    def has_key?(key)
+      self[key] != BLANK_NODE
+    end
+    alias :include? :has_key?
 
     ##
     # Get count of all nodes of the trie.
