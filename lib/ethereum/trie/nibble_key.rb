@@ -16,6 +16,8 @@ module Ethereum
         ##
         # Encode nibbles to string.
         #
+        # @see `pack_nibbles` in pyethereum
+        #
         # @param nibbles [Array[Integer]] array of nibbles to encode
         #
         # @return [String] encoded string

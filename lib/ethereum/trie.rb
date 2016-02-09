@@ -104,6 +104,23 @@ module Ethereum
     end
 
     ##
+    # Delete value at key.
+    #
+    # @param key [String] a string with length of [0,32]
+    #
+    def delete(key)
+      raise ArgumentError, "key must be string" unless key.instance_of?(String)
+      raise ArgumentError, "max key size is 32" if key.size > 32
+
+      @root_node = delete_and_delete_storage(
+        @root_node,
+        NibbleKey.from_str(key)
+      )
+
+      update_root_hash
+    end
+
+    ##
     # Get count of all nodes of the trie.
     #
     def size
@@ -122,8 +139,8 @@ module Ethereum
     ##
     # Get value inside a node.
     #
-    # @param node [Array, BLANK_NODE] node in form of list, or BLANK_NODE
-    # @param nbk [NibbleKey] nibble array without terminator
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
+    # @param nbk [Array] nibble array without terminator
     #
     # @return [String] BLANK_NODE if does not exist, otherwise node value
     #
@@ -161,7 +178,7 @@ module Ethereum
     #
     # TODO: refactor into Node class
     #
-    # @param node [Array, BLANK_NODE] node in form of list, or BLANK_NODE
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
     #
     # @return [Integer]
     #
@@ -202,9 +219,17 @@ module Ethereum
         .tap {|o| spv_grabbing(o) }
     end
 
+    # TODO: refactor, abstract delete storage logic
     def update_and_delete_storage(node, key, value)
       old_node = node.dup
       new_node = update_node(node, key, value)
+      delete_node_storage(old_node) if old_node != new_node
+      new_node
+    end
+
+    def delete_and_delete_storage(node, key)
+      old_node = node.dup
+      new_node = delete_node(node, key)
       delete_node_storage(old_node) if old_node != new_node
       new_node
     end
@@ -217,7 +242,7 @@ module Ethereum
     # storage.
     #
     # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
-    # @param key [NibbleKey] nibble key without terminator
+    # @param key [Array] nibble key without terminator
     # @param value [String] value string
     #
     # @return [Array, BLANK_NODE] new node
@@ -307,6 +332,104 @@ module Ethereum
         new_node
       else
         [node_key[0, common_key.size].encode, encode_node(new_node)]
+      end
+    end
+
+    ##
+    # Delete item inside node.
+    #
+    # If this node is changed to a new node, it's parent will take the
+    # responsibility to **store** the new node storage, and delete the old node
+    # storage.
+    #
+    # @param node [Array, BLANK_NODE] node in form of array, or BLANK_NODE
+    # @param key [Array] nibble key without terminator. key maybe empty
+    #
+    # @return new node
+    #
+    def delete_node(node, key)
+      case get_node_type(node)
+      when :blank
+        BLANK_NODE
+      when :branch
+        delete_branch_node(node, key)
+      else # kv type
+        delete_kv_node(node, key)
+      end
+    end
+
+    def delete_branch_node(node, key)
+      if key.empty?
+        node[-1] = BLANK_NODE
+        return normalize_branch_node(node)
+      else
+        new_sub_node = delete_and_delete_storage decode_to_node(node[key[0]]), key[1..-1]
+        encoded_new_sub_node = encode_node new_sub_node
+
+        return node if encoded_new_sub_node == node[key[0]]
+
+        node[key[0]] = encoded_new_sub_node
+        return normalize_branch_node(node) if encoded_new_sub_node == BLANK_NODE
+
+        node
+      end
+    end
+
+    def delete_kv_node(node, key)
+      node_type = get_node_type node
+      raise ArgumentError, "node type is not one of key-value type (#{NODE_KV_TYPE})" unless NODE_KV_TYPE.include?(node_type)
+
+      node_key = NibbleKey.decode(node[0]).terminate(false)
+
+      # key not found
+      return node unless key.prefix?(node_key)
+
+      if node_type == :leaf
+        key == node_key ? BLANK_NODE : node
+      else # :extension
+        new_sub_node = delete_and_delete_storage decode_to_node(node[1]), key[node_key.size..-1]
+
+        return node if encode_node(new_sub_node) == node[1]
+        return BLANK_NODE if new_sub_node == BLANK_NODE
+
+        raise InvalidNode, "new sub node must be array" unless new_sub_node.instance_of?(Array)
+
+        new_sub_node_type = get_node_type new_sub_node
+
+        case new_sub_node_type
+        when :branch
+          [node_key.encode, encode_node(new_sub_node)]
+        when *NODE_KV_TYPE
+          new_key = node_key + NibbleKey.decode(new_sub_node[0])
+          [new_key.encode, new_sub_node[1]]
+        else
+          raise InvalidNodeType, "invalid kv sub node type #{new_sub_node_type}"
+        end
+      end
+    end
+
+    def normalize_branch_node(node)
+      non_blank_items = node.each_with_index.select {|(x, i)| x != BLANK_NODE }
+
+      raise ArgumentError, "node must has at least 1 non blank item" unless non_blank_items.size > 0
+      return node if non_blank_items.size > 1
+
+      non_blank_index = non_blank_items[0][1]
+
+      # if value is the only non blank item, convert it into a kv node
+      return [NibbleKey.new([]).terminate(true).encode, node.last] if non_blank_index == NibbleKey::NIBBLE_TERMINATOR
+
+      sub_node = decode_to_node node[non_blank_index]
+      sub_node_type = get_node_type sub_node
+
+      case sub_node_type
+      when :branch
+        [NibbleKey.new([non_blank_index]).encode, encode_node(sub_node)]
+      when *NODE_KV_TYPE
+        new_key = NibbleKey.decode(sub_node[0]).unshift(non_blank_index)
+        [new_key.encode, sub_node[1]]
+      else
+        raise InvalidNodeType, "invalid branch sub node type #{sub_node_type}"
       end
     end
 
