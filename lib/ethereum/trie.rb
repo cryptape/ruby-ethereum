@@ -22,7 +22,6 @@ module Ethereum
 
     class InvalidNode < StandardError; end
     class InvalidNodeType < StandardError; end
-    class InvalidTransientTrieOperation < StandardError; end
 
     ##
     # It presents a hash like interface.
@@ -31,22 +30,8 @@ module Ethereum
     # @param root_hash [String] blank or trie node in form of [key, value] or
     #   [v0, v1, .. v15, v]
     #
-    def initialize(db, root_hash: BLANK_ROOT, transient: false)
+    def initialize(db, root_hash=BLANK_ROOT)
       @db = db
-
-      @transient = transient
-      if @transient
-        class <<self
-          def transient_trie_exception(*args)
-            raise InvalidTransientTrieOperation
-          end
-
-          alias :[] :transient_trie_exception
-          alias :[]= :transient_trie_exception
-          alias :delete :transient_trie_exception
-        end
-      end
-
       set_root_hash root_hash
     end
 
@@ -55,7 +40,6 @@ module Ethereum
     #
     def root_hash
       # TODO: can I memoize computation below?
-      return @transient_root_hash if @transient
       return BLANK_ROOT if @root_node == BLANK_NODE
 
       raise InvalidNode, "invalid root node" unless @root_node.instance_of?(Array)
@@ -74,9 +58,7 @@ module Ethereum
       raise TypeError, "root hash must be String" unless hash.instance_of?(String)
       raise ArgumentError, "root hash must be 0 or 32 bytes long" unless [0,32].include?(hash.size)
 
-      if @transient
-        @transient_root_hash = hash
-      elsif hash == BLANK_ROOT
+      if hash == BLANK_ROOT
         @root_node = BLANK_NODE
       else
         @root_node = decode_to_node hash
