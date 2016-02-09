@@ -22,7 +22,6 @@ module Ethereum
 
     class InvalidNode < StandardError; end
     class InvalidNodeType < StandardError; end
-    class InvalidSPVProof < StandardError; end
 
     ##
     # It presents a hash like interface.
@@ -35,8 +34,6 @@ module Ethereum
       @db = db
       @transient = transient
       #TODO: update/get/delete all raise exception if transient
-
-      @proof = SPVProof.new
 
       set_root_hash root_hash
     end
@@ -547,33 +544,6 @@ module Ethereum
         # do nothing
       end
     end
-
-    def spv_grabbing(node)
-      return unless @proof.proving?
-
-      case @proof.mode
-      when :recording
-        @proof.add_node node.dup
-      when :verifying
-        raise InvalidSPVProof.new("Proof invalid!") unless @proof.nodes.include?(FastRLP.encode(node))
-      else
-        raise "Cannot handle proof mode: #{@proof.mode}"
-      end
-    end
-
-    def spv_storing(node)
-      return unless @proof.proving
-
-      case @proof.mode
-      when :recording
-        @proof.add_exempt node.dup
-      when :verifying
-        @proof.add_node node.dup
-      else
-        raise "Cannot handle proof mode: #{@proof.mode}"
-      end
-    end
-
   end
 
 end
