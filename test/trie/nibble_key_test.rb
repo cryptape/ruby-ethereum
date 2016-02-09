@@ -2,12 +2,20 @@ require 'test_helper'
 
 class Ethereum::Trie
   class NibbleKeyTest < Minitest::Test
-    def test_from_str
-      assert_equal NibbleKey, NibbleKey.from_str('').class
+    def test_from_string
+      assert_equal NibbleKey, NibbleKey.from_string('').class
 
-      assert_equal [], NibbleKey.from_str('')
-      assert_equal [6, 8], NibbleKey.from_str('h')
-      assert_equal [6, 8, 6, 5, 6, 12, 6, 12, 6, 15], NibbleKey.from_str('hello')
+      assert_equal [], NibbleKey.from_string('')
+      assert_equal [6, 8], NibbleKey.from_string('h')
+      assert_equal [6, 8, 6, 5, 6, 12, 6, 12, 6, 15], NibbleKey.from_string('hello')
+    end
+
+    def test_to_string
+      assert_equal '', NibbleKey.to_string([])
+      assert_equal 'h', NibbleKey.to_string([6, 8])
+      assert_equal 'hello', NibbleKey.to_string([6, 8, 6, 5, 6, 12, 6, 12, 6, 15])
+
+      assert_equal 'hello', NibbleKey.new([6, 8, 6, 5, 6, 12, 6, 12, 6, 15]).to_string
     end
 
     def test_prefix_check
@@ -35,7 +43,7 @@ class Ethereum::Trie
       assert_equal "\x11h", NibbleKey.encode([1,6,8])
 
       assert_equal "\x00", NibbleKey.new([]).encode
-      assert_equal "\x00h", NibbleKey.from_str('h').encode
+      assert_equal "\x00h", NibbleKey.from_string('h').encode
 
       assert_equal "\x11h", NibbleKey.new([1,6,8]).encode
       assert_equal " h", NibbleKey.new([6,8,NibbleKey::NIBBLE_TERMINATOR]).encode

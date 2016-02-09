@@ -54,7 +54,7 @@ module Ethereum
         # @return [NibbleKey] nibbles array, may have a terminator
         #
         def decode(bytes)
-          o = from_str bytes
+          o = from_string bytes
           flags = o[0]
 
           o.push NIBBLE_TERMINATOR if flags & NIBBLE_TERM_FLAG == 1
@@ -69,19 +69,42 @@ module Ethereum
         # @see `bin_to_nibbles` in pyethereum
         #
         # @example
-        #   from_str('') # => []
-        #   from_str('h') # => [6, 8]
-        #   from_str('he') # => [6, 8, 6, 5]
-        #   from_str('hello') # => [6, 8, 6, 5, 6, 12, 6, 12, 6, 15]
+        #   from_string('') # => []
+        #   from_string('h') # => [6, 8]
+        #   from_string('he') # => [6, 8, 6, 5]
+        #   from_string('hello') # => [6, 8, 6, 5, 6, 12, 6, 12, 6, 15]
         #
         # @param s [String] any string
         #
         # @return [NibbleKey] array of nibbles presented as interger smaller
         #   than 16, has no terminator because plain string has no flags
         #
-        def from_str(s)
+        def from_string(s)
           nibbles = RLP::Utils.encode_hex(s).each_char.map {|nibble| HEX_VALUES[nibble] }
           new nibbles
+        end
+
+        ##
+        # Convert {Array} of nibbles to {String}.
+        #
+        # @see `nibbles_to_bin` in pyethereum
+        #
+        # @param key [Array] array of nibbles
+        #
+        # @return [String] string represented by nibbles
+        #
+        def to_string(nibbles)
+          raise ArgumentError, "nibbles can only be in 0..15" if nibbles.any? {|x| x > 15 || x < 0 }
+          raise ArgumentError, "nibbles must be of even numbers" if nibbles.size % 2 == 1
+
+          (nibbles.size/2).times.map do |i|
+            base = i*2
+            (16*nibbles[base] + nibbles[base+1]).chr
+          end.join
+        end
+
+        def terminator
+          new([NIBBLE_TERMINATOR])
         end
       end
 
@@ -145,6 +168,9 @@ module Ethereum
         self.class.encode self
       end
 
+      def to_string
+        self.class.to_string self
+      end
     end
 
   end
