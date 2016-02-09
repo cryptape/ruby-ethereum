@@ -22,6 +22,7 @@ module Ethereum
 
     class InvalidNode < StandardError; end
     class InvalidNodeType < StandardError; end
+    class InvalidTransientTrieOperation < StandardError; end
 
     ##
     # It presents a hash like interface.
@@ -32,8 +33,19 @@ module Ethereum
     #
     def initialize(db, root_hash: BLANK_ROOT, transient: false)
       @db = db
+
       @transient = transient
-      #TODO: update/get/delete all raise exception if transient
+      if @transient
+        class <<self
+          def transient_trie_exception(*args)
+            raise InvalidTransientTrieOperation
+          end
+
+          alias :[] :transient_trie_exception
+          alias :[]= :transient_trie_exception
+          alias :delete :transient_trie_exception
+        end
+      end
 
       set_root_hash root_hash
     end
