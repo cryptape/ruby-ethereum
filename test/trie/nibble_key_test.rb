@@ -50,5 +50,9 @@ class Ethereum::Trie
       assert_equal "0h", NibbleKey.new([0,6,8,NibbleKey::NIBBLE_TERMINATOR]).encode
     end
 
+    def test_terminate_check
+      assert_equal true, NibbleKey.decode(" \x01\x04\x11\r\x81l8\x08\x12\xa4'\x96\x8e\xce\x99\xb1\xc9c\xdf\xbc\xe6").terminate?
+    end
+
   end
 end

@@ -57,9 +57,9 @@ module Ethereum
           o = from_string bytes
           flags = o[0]
 
-          o.push NIBBLE_TERMINATOR if flags & NIBBLE_TERM_FLAG == 1
+          o.push NIBBLE_TERMINATOR if flags & NIBBLE_TERM_FLAG > 0
+          fill = flags & NIBBLE_ODD_FLAG > 0 ? 1 : 2
 
-          fill = flags & NIBBLE_ODD_FLAG == 1 ? 1 : 2
           new o[fill..-1]
         end
 

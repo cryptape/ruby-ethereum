@@ -22,4 +22,3 @@ class TrieTest < Minitest::Test
     end
   end
 end
-
