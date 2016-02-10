@@ -40,6 +40,14 @@ def to_bytes(obj)
   end
 end
 
+def encode_hex(s)
+  RLP::Utils.encode_hex s
+end
+
+def decode_hex(x)
+  x.instance_of?(String) && x[0,2] == '0x' ? RLP::Utils.decode_hex(x) : x
+end
+
 class Minitest::Test
   class <<self
     def run_fixture(path)
