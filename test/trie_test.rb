@@ -14,7 +14,7 @@ class TrieTest < Minitest::Test
     inserts.permutation.take(N_PERMUTATIONS).each do |perm|
       t = Trie.new DB::EphemDB.new
 
-      perm.each {|(k,v)| v ? t.update(k,v) : t.delete(k) }
+      perm.each {|(k,v)| v ? t.set(k, v) : t.delete(k) }
       deletes.each {|(k,v)| t.delete(k) } # make sure we delete at the end
 
       root = ('0x' + encode_hex(t.root_hash)).b

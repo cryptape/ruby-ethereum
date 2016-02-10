@@ -48,7 +48,7 @@ module Ethereum
       key = Utils.keccak_256 val
 
       @db.put key, val
-      spv_grabbing(@root_node)
+      #spv_grabbing(@root_node)
 
       key
     end
@@ -80,6 +80,7 @@ module Ethereum
     def [](key)
       find @root_node, NibbleKey.from_string(key)
     end
+    alias :get :[]
 
     ##
     # Set value of key.
@@ -99,6 +100,7 @@ module Ethereum
 
       update_root_hash
     end
+    alias :set :[]=
 
     ##
     # Delete value at key.
@@ -226,7 +228,7 @@ module Ethereum
 
       hashkey = Utils.keccak_256 rlp_node
       @db.put hashkey, rlp_node
-      spv_storing node
+      #spv_storing node
 
       hashkey
     end
@@ -236,7 +238,7 @@ module Ethereum
       return encoded if encoded.instance_of?(Array)
 
       RLP.decode(@db.get(encoded))
-        .tap {|o| spv_grabbing(o) }
+        #.tap {|o| spv_grabbing(o) }
     end
 
     # TODO: refactor, abstract delete storage logic
@@ -460,7 +462,7 @@ module Ethereum
     #
     def delete_node_storage(node)
       return if node == BLANK_NODE
-      raise ArgumentError, "node must be Array or BLANK_NODE"
+      raise ArgumentError, "node must be Array or BLANK_NODE" unless node.instance_of?(Array)
 
       encoded = encode_node node
       return if encoded.size < 32
