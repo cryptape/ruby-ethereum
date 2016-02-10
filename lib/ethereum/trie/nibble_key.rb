@@ -41,7 +41,7 @@ module Ethereum
           (nibbles.size/2).times.reduce('') do |s, i|
             base = 2*i
             s += (16*nibbles[base] + nibbles[base+1]).chr
-          end
+          end.b
         end
 
         ##
