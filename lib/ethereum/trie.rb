@@ -224,7 +224,7 @@ module Ethereum
       raise ArgumentError, "node must be an array" unless node.instance_of?(Array)
 
       rlp_node = FastRLP.encode node
-      return rlp_node if rlp_node.size < 32
+      return node if rlp_node.size < 32
 
       hashkey = Utils.keccak_256 rlp_node
       @db.put hashkey, rlp_node

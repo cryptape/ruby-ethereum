@@ -3,11 +3,6 @@ require 'test_helper'
 class FastRLPTest < Minitest::Test
   include Ethereum::FastRLP
 
-  def test_encode_nested_bytes_raise_exception_on_invalid_argument
-    assert_raises(ArgumentError) { encode_nested_bytes("") }
-    assert_raises(ArgumentError) { encode_nested_bytes([""]) }
-  end
-
   def test_encode_nested_bytes
     assert_equal RLP.encode("".b), encode_nested_bytes("".b)
 
