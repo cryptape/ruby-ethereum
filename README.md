@@ -9,3 +9,4 @@ A Ruby implementation of [Ethereum](https://ethereum.org).
 ## TODO
 
 * upgrade rlp gem dependency
+* add pruning trie
