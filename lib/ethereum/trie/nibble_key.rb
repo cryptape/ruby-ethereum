@@ -171,6 +171,11 @@ module Ethereum
       def to_string
         self.class.to_string self
       end
+
+      def +(array)
+        self.class.new(super(array))
+      end
+
     end
 
   end
