@@ -45,7 +45,7 @@ def encode_hex(s)
 end
 
 def decode_hex(x)
-  x.instance_of?(String) && x[0,2] == '0x' ? RLP::Utils.decode_hex(x) : x
+  x.instance_of?(String) && x[0,2] == '0x' ? RLP::Utils.decode_hex(x[2..-1]) : x
 end
 
 class Minitest::Test

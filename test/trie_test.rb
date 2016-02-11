@@ -18,7 +18,7 @@ class TrieFixtureTest < Minitest::Test
       deletes.each {|(k,v)| t.delete(k) } # make sure we delete at the end
 
       root = ('0x' + encode_hex(t.root_hash)).b
-      raise "Mismatch: #{name} #{pairs['root']} != #{root} permutation: #{perm+deletes}" if pairs['root'] != root
+      assert pairs['root'] == root, "Mismatch: #{name} #{pairs['root']} != #{root} permutation: #{perm+deletes}"
     end
   end
 end
