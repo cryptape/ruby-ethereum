@@ -404,7 +404,7 @@ module Ethereum
       node_key = NibbleKey.decode(node[0]).terminate(false)
 
       # key not found
-      return node unless key.prefix?(node_key)
+      return node unless node_key.prefix?(key)
 
       if node_type == :leaf
         key == node_key ? BLANK_NODE : node
