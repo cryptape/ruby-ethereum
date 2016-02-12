@@ -79,15 +79,20 @@ module Ethereum
       #   type
       #
       def size
-        if dims.empty?
-          return nil if %w(string bytes).include?(base) && sub.empty?
-          return 32
-        end
-
-        return nil if dims.last == 0 # 0 for dynamic array []
-
-        sub_size = self.class.new(base, sub, dims[0...-1]).size
-        sub_size.nil? ? nil : dims.last*sub_size
+        @size ||= if dims.empty?
+                    if %w(string bytes).include?(base) && sub.empty?
+                      nil
+                    else
+                      32
+                    end
+                  else
+                    if dims.last == 0 # 0 for dynamic array []
+                      nil
+                    else
+                      sub_size = self.class.new(base, sub, dims[0...-1]).size
+                      sub_size.nil? ? nil : dims.last*sub_size
+                    end
+                  end
       end
     end
   end

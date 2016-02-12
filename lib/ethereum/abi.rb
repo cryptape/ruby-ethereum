@@ -17,12 +17,13 @@ module Ethereum
     def encode(types, args)
       parsed_types = types.map {|t| Type.parse(t) }
 
-      sizes = parsed_types.map(&:size)
-      head_size = (0...args.size).map {|i| sizes[i] || 32 }.reduce(0, &:+)
+      head_size = (0...args.size)
+        .map {|i| parsed_types[i].size || 32 }
+        .reduce(0, &:+)
 
       head, tail = '', ''
       args.each_with_index do |arg, i|
-        if sizes[i]
+        if parsed_types[i].size
           head += encode_type(parsed_types[i], arg)
         else
           head += encode_type(Type.size_type, head_size + tail.size)
@@ -41,6 +42,7 @@ module Ethereum
     # Encodes a single value (static or dynamic).
     #
     def encode_type(type, arg)
+
 
     end
   end
