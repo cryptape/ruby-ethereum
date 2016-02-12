@@ -68,6 +68,23 @@ module Ethereum
           dims == another_type.dims
       end
 
+      ##
+      # Get the static size of a type, or nil if dynamic.
+      #
+      # @return [Integer, NilClass]  size of static type, or nil for dynamic
+      #   type
+      #
+      def size
+        if dims.empty?
+          return nil if %w(string bytes).include?(base) && sub.empty?
+          return 32
+        end
+
+        return nil if dims.last == 0 # 0 for dynamic array []
+
+        sub_size = self.class.new(base, sub, dims[0...-1]).size
+        sub_size.nil? ? nil : dims.last*sub_size
+      end
     end
   end
 end

@@ -30,4 +30,19 @@ class ABITypeTest < Minitest::Test
     assert_raises(Type::ParseError) { Type.parse("fixed256x256") }
   end
 
+  def test_type_size
+    assert_nil Type.parse("string").size
+    assert_nil Type.parse("bytes").size
+    assert_nil Type.parse("uint256[]").size
+    assert_nil Type.parse("uint256[4][]").size
+
+    assert_equal 32, Type.parse("uint256").size
+    assert_equal 32, Type.parse("fixed128x128").size
+    assert_equal 32, Type.parse("bool").size
+
+    assert_equal 64, Type.parse("uint256[2]").size
+    assert_equal 128, Type.parse("address[2][2]").size
+    assert_equal 1024, Type.parse("ufixed192x64[2][2][2][2][2]").size
+  end
+
 end
