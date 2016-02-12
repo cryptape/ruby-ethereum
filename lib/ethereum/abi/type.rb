@@ -46,6 +46,10 @@ module Ethereum
 
           new(base, sub, dims.map {|x| x[1...-1].to_i })
         end
+
+        def size_type
+          @size_type ||= new('uint', 256, [])
+        end
       end
 
       attr :base, :sub, :dims
