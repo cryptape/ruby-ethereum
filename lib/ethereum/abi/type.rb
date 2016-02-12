@@ -89,11 +89,23 @@ module Ethereum
                     if dims.last == 0 # 0 for dynamic array []
                       nil
                     else
-                      sub_size = self.class.new(base, sub, dims[0...-1]).size
-                      sub_size.nil? ? nil : dims.last*sub_size
+                      subtype.size.nil? ? nil : dims.last * subtype.size
                     end
                   end
       end
+
+      ##
+      # Type with one dimension lesser.
+      #
+      # @example
+      #   Type.parse("uint256[2][]").subtype # => Type.new('uint', 256, [2])
+      #
+      # @return [Ethereum::ABI::Type]
+      #
+      def subtype
+        @subtype ||= self.class.new(base, sub, dims[0...-1])
+      end
+
     end
   end
 end

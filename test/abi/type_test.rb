@@ -45,4 +45,10 @@ class ABITypeTest < Minitest::Test
     assert_equal 1024, Type.parse("ufixed192x64[2][2][2][2][2]").size
   end
 
+  def test_subtype_of_array
+    assert_equal [], Type.parse("uint256").subtype.dims
+    assert_equal [2], Type.parse("uint256[2][]").subtype.dims
+    assert_equal [2], Type.parse("uint256[2][2]").subtype.dims
+  end
+
 end
