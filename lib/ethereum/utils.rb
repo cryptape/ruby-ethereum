@@ -13,5 +13,9 @@ module Ethereum
       keccak_256 RLP.encode(x)
     end
 
+    def ceil32(x)
+      x % 32 == 0 ? x : (x + 32 - x%32)
+    end
+
   end
 end

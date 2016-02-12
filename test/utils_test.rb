@@ -14,4 +14,11 @@ class UtilsTest < Minitest::Test
     assert_equal "YZ\xef\x85BA8\x89\x08?\x83\x13\x88\xcfv\x10\x0f\xd8a:\x97\xaf\xb8T\xdb#z#PF89".b, keccak_rlp([1, [2,3], "4", ["5", [6]]])
   end
 
+  def test_ceil32
+    assert_equal 0,   ceil32(0)
+    assert_equal 32,  ceil32(1)
+    assert_equal 256, ceil32(256)
+    assert_equal 256, ceil32(250)
+  end
+
 end
