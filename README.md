@@ -10,3 +10,5 @@ A Ruby implementation of [Ethereum](https://ethereum.org).
 
 * upgrade rlp gem dependency
 * add pruning trie
+* refactor abi types
+* refactor trie node types
