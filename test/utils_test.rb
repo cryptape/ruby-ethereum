@@ -21,4 +21,9 @@ class UtilsTest < Minitest::Test
     assert_equal 256, ceil32(250)
   end
 
+  def test_big_endian_to_int
+    assert_equal 255, big_endian_to_int("\xff".b)
+    assert_equal 255, big_endian_to_int("\x00\x00\xff".b)
+  end
+
 end
