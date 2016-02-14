@@ -5,7 +5,8 @@ module Ethereum
 
     extend self
 
-    ZERO_BYTE = "\x00".b.freeze
+    BYTE_ZERO = "\x00".b.freeze
+    BYTE_ONE  = "\x01".b.freeze
 
     INT_MAX = 2**256 - 1
     INT_MIN = -2**255 + 1
@@ -22,6 +23,14 @@ module Ethereum
       x % 32 == 0 ? x : (x + 32 - x%32)
     end
 
+    def encode_hex(b)
+      RLP::Utils.encode_hex b
+    end
+
+    def decode_hex(s)
+      RLP::Utils.decode_hex s
+    end
+
     def big_endian_to_int(s)
       RLP::Sedes.big_endian_int.deserialize s.sub(/^(\x00)+/, '')
     end
@@ -31,11 +40,15 @@ module Ethereum
     end
 
     def zpad(x, l)
-      (ZERO_BYTE * [0, l - x.size].max + x).b
+      (BYTE_ZERO * [0, l - x.size].max + x).b
     end
 
     def zpad_int(n, l=32)
       zpad encode_int(n), l
+    end
+
+    def zpad_hex(s, l=32)
+      zpad decode_hex(s), l
     end
 
     def encode_int(n)

@@ -12,6 +12,7 @@ module Ethereum
     extend self
 
     class EncodingError < StandardError; end
+    class DecodingError < StandardError; end
     class ValueOutOfBounds < StandardError; end
 
     ##
@@ -50,7 +51,7 @@ module Ethereum
         raise ArgumentError, "arg must be a string" unless arg.instance_of?(String)
 
         size = encode_type Type.size_type, arg.size
-        padding = Utils::ZERO_BYTE * (Utils.ceil32(arg.size) - arg.size)
+        padding = Utils::BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
 
         "#{size}#{arg}#{padding}".b
       elsif type.dynamic?
@@ -115,13 +116,13 @@ module Ethereum
         raise EncodingError, "Expecting string: #{arg}" unless arg.instance_of?(String)
 
         if type.sub.empty? # variable length type
-          size = zpad Utils.encode_int(arg.size), 32
-          padding = Utils::ZERO_BYTE * (Utils.ceil32(arg.size) - arg.size)
+          size = Utils.zpad_int arg.size
+          padding = Utils::BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
           "#{size}#{arg}#{padding}".b
         else # fixed length type
           raise ValueOutOfBounds, arg unless arg.size <= type.sub.to_i
 
-          padding = Utils::ZERO_BYTE * (32 - arg.size)
+          padding = Utils::BYTE_ZERO * (32 - arg.size)
           "#{arg}#{padding}".b
         end
       when 'hash'
@@ -133,7 +134,7 @@ module Ethereum
         elsif arg.size == size
           Utils.zpad arg, 32
         elsif arg.size == size * 2
-          Utils.zpad RLP::Utils.decode_hex(arg), 32
+          Utils.zpad_hex arg
         else
           raise EncodingError, "Could not parse hash: #{arg}"
         end
@@ -143,9 +144,9 @@ module Ethereum
         elsif arg.size == 20
           Utils.zpad arg, 32
         elsif arg.size == 40
-          Utils.zpad RLP::Utils.decode_hex(arg), 32
+          Utils.zpad_hex arg
         elsif arg.size == 42 && arg[0,2] == '0x'
-          Utils.zpad RLP::Utils.decode_hex(arg[2..-1]), 32
+          Utils.zpad_hex arg[2..-1]
         else
           raise EncodingError, "Could not parse address: #{arg}"
         end
@@ -192,7 +193,7 @@ module Ethereum
         j -= 1
       end
 
-      raise ArgumentError, "Not enough data for head" unless pos <= data.size
+      raise DecodingError, "Not enough data for head" unless pos <= data.size
 
       parsed_types.each_with_index do |t, i|
         if t.dynamic?
@@ -205,7 +206,63 @@ module Ethereum
     end
 
     def decode_type(type, arg)
+      if %w(string bytes).include?(type.base) && type.sub.empty?
+        l = Utils.big_endian_to_int arg[0,32]
+        data = arg[32..-1]
 
+        raise DecodingError, "Wrong data size for string/bytes object" unless data.size == Utils.ceil32(l)
+
+        data[0, l]
+      elsif type.dynamic?
+        l = Utils.big_endian_to_int arg[0,32]
+        subtype = type.subtype
+
+        if subtype.dynamic?
+          raise DecodingError, "Not enough data for head" unless arg.size >= 32 + 32*l
+
+          start_positions = (1..l).map {|i| Utils.big_endian_to_int arg[32*i, 32] }
+          start_positions.push arg.size
+
+          outputs = (0...l).map {|i| arg[start_positions[i]...start_positions[i+1]] }
+
+          outputs.map {|out| decode_type(subtype, out) }
+        else
+          (0...l).map {|i| decode_type(subtype, arg[32 + subtype.size*i, subtype.size]) }
+        end
+      elsif !type.dims.empty? # static-sized arrays
+        l = type.dims.last[0]
+        subtype = type.subtype
+
+        (0...l).map {|i| decode_type(subtype, arg[subtype.size*i, subtype.size]) }
+      else
+        decode_primitive_type type, arg
+      end
+    end
+
+    def decode_primitive_type(type, data)
+      case type.base
+      when 'address'
+        Utils.encode_hex data[12..-1]
+      when 'string', 'bytes', 'hash'
+        type.sub.empty? ? data : data[0, type.sub.to_i]
+      when 'uint'
+        Utils.big_endian_to_int data
+      when 'int'
+        u = Utils.big_endian_to_int data
+        u >= 2**(type.sub.to_i-1) ? (u - 2**type.sub.to_i) : u
+      when 'ureal', 'ufixed'
+        high, low = type.sub.split('x').map(&:to_i)
+        Utils.big_endian_to_int(data) * 1.0 / 2**low
+      when 'real', 'fixed'
+        high, low = type.sub.split('x').map(&:to_i)
+        u = Utils.big_endian_to_int data
+        i = u >= 2**(high+low-1) ? (u - 2**(high+low)) : u
+        i * 1.0 / 2**low
+      when 'bool'
+        data[-1] == Utils::BYTE_ONE
+      else
+        raise DecodingError, "Unknown primitive type: #{type.base}"
+      end
     end
 
     private
@@ -217,7 +274,7 @@ module Ethereum
         n
       when String
         if n.size == 40
-          Utils.big_endian_to_int RLP::Utils.decode_hex(n)
+          Utils.big_endian_to_int Utils.decode_hex(n)
         elsif n.size <= 32
           Utils.big_endian_to_int n
         else
