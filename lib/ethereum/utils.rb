@@ -5,11 +5,7 @@ module Ethereum
 
     extend self
 
-    BYTE_ZERO = "\x00".b.freeze
-    BYTE_ONE  = "\x01".b.freeze
-
-    INT_MAX = 2**256 - 1
-    INT_MIN = -2**255 + 1
+    include Constant
 
     def keccak_256(x)
       Digest::SHA3.new(256).digest(x)
@@ -52,7 +48,7 @@ module Ethereum
     end
 
     def encode_int(n)
-      raise ArgumentError, "Integer invalid or out of range: #{n}" unless n.is_a?(Integer) && n >= 0 && n <= INT_MAX
+      raise ArgumentError, "Integer invalid or out of range: #{n}" unless n.is_a?(Integer) && n >= 0 && n <= UINT_MAX
       int_to_big_endian n
     end
 

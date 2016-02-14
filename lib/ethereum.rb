@@ -1,5 +1,6 @@
 require 'rlp'
 
+require 'ethereum/constant'
 require 'ethereum/utils'
 
 require 'ethereum/abi'

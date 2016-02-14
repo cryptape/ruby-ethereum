@@ -11,6 +11,8 @@ module Ethereum
 
     extend self
 
+    include Constant
+
     class EncodingError < StandardError; end
     class DecodingError < StandardError; end
     class ValueOutOfBounds < StandardError; end
@@ -18,7 +20,7 @@ module Ethereum
     ##
     # Encodes multiple arguments using the head/tail mechanism.
     #
-    def encode(types, args)
+    def encode_abi(types, args)
       parsed_types = types.map {|t| Type.parse(t) }
 
       head_size = (0...args.size)
@@ -37,6 +39,7 @@ module Ethereum
 
       "#{head}#{tail}".b
     end
+    alias :encode :encode_abi
 
     ##
     # Encodes a single value (static or dynamic).
@@ -51,7 +54,7 @@ module Ethereum
         raise ArgumentError, "arg must be a string" unless arg.instance_of?(String)
 
         size = encode_type Type.size_type, arg.size
-        padding = Utils::BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
+        padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
 
         "#{size}#{arg}#{padding}".b
       elsif type.dynamic?
@@ -101,28 +104,30 @@ module Ethereum
         i = decode_integer arg
 
         raise ValueOutOfBounds, arg unless i >= -2**(real_size-1) && i < 2**(real_size-1)
-        Utils.zpad_int(i % 2**sub)
+        Utils.zpad_int(i % 2**type.sub.to_i)
       when 'ureal', 'ufixed'
         high, low = type.sub.split('x').map(&:to_i)
 
         raise ValueOutOfBounds, arg unless arg >= 0 && arg < 2**high
-        Utils.zpad_int(arg * 2**low)
+        Utils.zpad_int((arg * 2**low).to_i)
       when 'real', 'fixed'
         high, low = type.sub.split('x').map(&:to_i)
 
         raise ValueOutOfBounds, arg unless arg >= -2**(high - 1) && arg < 2**(high - 1)
-        Utils.zpad_int((arg % 2**high) * 2**low)
+
+        i = (arg * 2**low).to_i
+        Utils.zpad_int(i % 2**(high+low))
       when 'string', 'bytes'
         raise EncodingError, "Expecting string: #{arg}" unless arg.instance_of?(String)
 
         if type.sub.empty? # variable length type
           size = Utils.zpad_int arg.size
-          padding = Utils::BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
+          padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
           "#{size}#{arg}#{padding}".b
         else # fixed length type
           raise ValueOutOfBounds, arg unless arg.size <= type.sub.to_i
 
-          padding = Utils::BYTE_ZERO * (32 - arg.size)
+          padding = BYTE_ZERO * (32 - arg.size)
           "#{arg}#{padding}".b
         end
       when 'hash'
@@ -158,7 +163,7 @@ module Ethereum
     ##
     # Decodes multiple arguments using the head/tail mechanism.
     #
-    def decode(types, data)
+    def decode_abi(types, data)
       parsed_types = types.map {|t| Type.parse(t) }
 
       outputs = [nil] * types.size
@@ -204,6 +209,7 @@ module Ethereum
 
       parsed_types.zip(outputs).map {|(type, out)| decode_type(type, out) }
     end
+    alias :decode :decode_abi
 
     def decode_type(type, arg)
       if %w(string bytes).include?(type.base) && type.sub.empty?
@@ -243,8 +249,10 @@ module Ethereum
       case type.base
       when 'address'
         Utils.encode_hex data[12..-1]
-      when 'string', 'bytes', 'hash'
+      when 'string', 'bytes'
         type.sub.empty? ? data : data[0, type.sub.to_i]
+      when 'hash'
+        data[(32 - type.sub.to_i), type.sub.to_i]
       when 'uint'
         Utils.big_endian_to_int data
       when 'int'
@@ -259,7 +267,7 @@ module Ethereum
         i = u >= 2**(high+low-1) ? (u - 2**(high+low)) : u
         i * 1.0 / 2**low
       when 'bool'
-        data[-1] == Utils::BYTE_ONE
+        data[-1] == BYTE_ONE
       else
         raise DecodingError, "Unknown primitive type: #{type.base}"
       end
@@ -270,7 +278,7 @@ module Ethereum
     def decode_integer(n)
       case n
       when Integer
-        raise EncodingError, "Number out of range: #{n}" if n > INT_MAX || n < INT_MIN
+        raise EncodingError, "Number out of range: #{n}" if n > UINT_MAX || n < INT_MIN
         n
       when String
         if n.size == 40
