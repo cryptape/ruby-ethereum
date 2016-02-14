@@ -37,10 +37,6 @@ module Ethereum
       "#{head}#{tail}".b
     end
 
-    def decode
-
-    end
-
     ##
     # Encodes a single value (static or dynamic).
     #
@@ -156,6 +152,60 @@ module Ethereum
       else
         raise EncodingError, "Unhandled type: #{type.base} #{type.sub}"
       end
+    end
+
+    ##
+    # Decodes multiple arguments using the head/tail mechanism.
+    #
+    def decode(types, data)
+      parsed_types = types.map {|t| Type.parse(t) }
+
+      outputs = [nil] * types.size
+      start_positions = [nil] * types.size + [data.size]
+
+      # TODO: refactor, a reverse iteration will be better
+      pos = 0
+      parsed_types.each_with_index do |t, i|
+        # If a type is static, grab the data directly, otherwise record its
+        # start position
+        if t.size # not nil, static type
+          outputs[i] = data[pos, t.size]
+          pos += t.size
+        else # dynamic type
+          start_positions[i] = Utils.big_endian_to_int(data[pos, 32])
+
+          j = i - 1
+          while j >= 0 && start_positions[j].nil?
+            start_positions[j] = start_positions[i]
+            j -= 1
+          end
+
+          pos += 32
+        end
+      end
+
+      # We add a start position equal to the length of the entire data for
+      # convenience.
+      j = types.size - 1
+      while j >= 0 && start_positions[j].nil?
+        start_positions[j] = start_positions[types.size]
+        j -= 1
+      end
+
+      raise ArgumentError, "Not enough data for head" unless pos <= data.size
+
+      parsed_types.each_with_index do |t, i|
+        if t.size.nil?
+          offset, next_offset = start_positions[i, 2]
+          outputs[i] = data[offset...next_offset]
+        end
+      end
+
+      parsed_types.zip(outputs).map {|(type, out)| decode_type(type, out) }
+    end
+
+    def decode_type(type, arg)
+
     end
 
     private
