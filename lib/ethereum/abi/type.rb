@@ -89,9 +89,13 @@ module Ethereum
                     if dims.last == 0 # 0 for dynamic array []
                       nil
                     else
-                      subtype.size.nil? ? nil : dims.last * subtype.size
+                      subtype.dynamic? ? nil : dims.last * subtype.size
                     end
                   end
+      end
+
+      def dynamic?
+        size.nil?
       end
 
       ##

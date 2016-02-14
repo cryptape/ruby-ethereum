@@ -26,11 +26,11 @@ module Ethereum
 
       head, tail = '', ''
       args.each_with_index do |arg, i|
-        if parsed_types[i].size
-          head += encode_type(parsed_types[i], arg)
-        else
+        if parsed_types[i].dynamic?
           head += encode_type(Type.size_type, head_size + tail.size)
           tail += encode_type(parsed_types[i], arg)
+        else
+          head += encode_type(parsed_types[i], arg)
         end
       end
 
@@ -53,7 +53,7 @@ module Ethereum
         padding = Utils::ZERO_BYTE * (Utils.ceil32(arg.size) - arg.size)
 
         "#{size}#{arg}#{padding}".b
-      elsif type.size.nil? # dynamic array type
+      elsif type.dynamic?
         raise ArgumentError, "arg must be an array" unless arg.instance_of?(Array)
 
         head, tail = '', ''
@@ -168,10 +168,7 @@ module Ethereum
       parsed_types.each_with_index do |t, i|
         # If a type is static, grab the data directly, otherwise record its
         # start position
-        if t.size # not nil, static type
-          outputs[i] = data[pos, t.size]
-          pos += t.size
-        else # dynamic type
+        if t.dynamic?
           start_positions[i] = Utils.big_endian_to_int(data[pos, 32])
 
           j = i - 1
@@ -181,6 +178,9 @@ module Ethereum
           end
 
           pos += 32
+        else
+          outputs[i] = data[pos, t.size]
+          pos += t.size
         end
       end
 
@@ -195,7 +195,7 @@ module Ethereum
       raise ArgumentError, "Not enough data for head" unless pos <= data.size
 
       parsed_types.each_with_index do |t, i|
-        if t.size.nil?
+        if t.dynamic?
           offset, next_offset = start_positions[i, 2]
           outputs[i] = data[offset...next_offset]
         end
