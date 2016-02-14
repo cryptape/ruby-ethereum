@@ -1,5 +1,38 @@
 require 'test_helper'
 
+class ABIFixtureTest < Minitest::Test
+  include Ethereum::ABI
+  include Ethereum::Utils
+
+  run_fixtures "ABITests"
+
+  def on_fixture_test(name, data)
+    run_abi_test data, :verify
+  end
+
+  def run_abi_test(params, mode)
+    types, args = params['types'], params['args']
+    outputs = encode types, args
+
+    assert_equal args, decode(types, outputs)
+
+    case mode
+    when :fill
+      params['result'] = encode_hex(outputs)
+    when :verify
+      assert_equal params['result'], encode_hex(outputs)
+    when :time
+      t1 = Time.now
+      encode types, args
+      t2 = Time.now
+      decode types, outputs
+      {encoding: t2-t1, decoding: Time.now-t2}
+    else
+      raise "invalid mode: #{mode}"
+    end
+  end
+end
+
 class ABITest < Minitest::Test
   include Ethereum::ABI
   include Ethereum::Utils

@@ -59,6 +59,12 @@ class Minitest::Test
         end
       end
     end
+
+    def run_fixtures(path)
+      Dir[fixture_path("#{path}/**/*.json")].each do |file_path|
+        run_fixture file_path.sub(fixture_root, '')
+      end
+    end
   end
 
   def on_fixture_test(name, pairs)
