@@ -12,13 +12,8 @@ module Ethereum
       layout: Logging.layouts.pattern.new(pattern: DEFAULT_LOG_PATTERN))
 
     class <<self
-      def get(name=:root)
-        name = name.to_sym
-        if name == :root
-          Logging.logger.root
-        else
-          Logging.logger[name]
-        end
+      def [](name)
+        Logging.logger[name]
       end
     end
 

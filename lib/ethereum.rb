@@ -14,6 +14,7 @@ require 'ethereum/trie'
 require 'ethereum/transient_trie'
 
 require 'ethereum/index'
+require 'ethereum/chain'
 
 module Ethereum
 end
