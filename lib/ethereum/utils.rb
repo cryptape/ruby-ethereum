@@ -52,5 +52,10 @@ module Ethereum
       int_to_big_endian n
     end
 
+    def decode_int(v)
+      raise ArgumentError, "No leading zero bytes allowed for integers" if v.size > 0 && (v[0] == Constant::BYTE_ZERO || v[0] == 0)
+      big_endian_to_int v
+    end
+
   end
 end
