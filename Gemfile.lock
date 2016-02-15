@@ -3,13 +3,19 @@ PATH
   specs:
     ruby-ethereum (0.0.1)
       digest-sha3 (~> 1.1.0)
+      logging (~> 2.0.0)
       rlp (~> 0.5.2)
 
 GEM
-  remote: https://rubygems.org/
+  remote: https://ruby.taobao.org/
   specs:
     digest-sha3 (1.1.0)
+    little-plugger (1.1.4)
+    logging (2.0.0)
+      little-plugger (~> 1.1)
+      multi_json (~> 1.10)
     minitest (5.8.3)
+    multi_json (1.11.2)
     rake (10.5.0)
     rlp (0.5.3)
     yard (0.8.7.6)
@@ -20,7 +26,6 @@ PLATFORMS
 DEPENDENCIES
   minitest (= 5.8.3)
   rake (~> 10.5.0)
-  rlp
   ruby-ethereum!
   yard (= 0.8.7.6)
 
