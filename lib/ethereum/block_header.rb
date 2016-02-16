@@ -48,5 +48,39 @@ module Ethereum
       mixhash: binary,
       nonce: RLP::Sedes::Binary.new(min_length: 8, allow_empty: true)
     )
+
+    def initialize(options={})
+      fields = {
+        prevhash: Env::DEFAULT_CONFIG[:genesis_prevhash],
+        uncles_hash: Utils.keccak_rlp([]),
+        coinbase: Env::DEFAULT_CONFIG[:genesis_coinbase],
+        state_root: Trie::BLANK_ROOT,
+        tx_list_root: Trie::BLANK_ROOT,
+        receipts_root: Trie::BLANK_ROOT,
+        bloom: 0,
+        difficulty: Env::DEFAULT_CONFIG[:genesis_difficulty],
+        number: 0,
+        gas_limit: Env::DEFAULT_CONFIG[:genesis_gas_limit],
+        gas_used: 0,
+        timestamp: 0,
+        extra_data: '',
+        mixhash: Env::DEFAULT_CONFIG[:genesis_mixhash],
+        nonce: ''
+      }.merge(options)
+
+      fields[:coinbase] = Utils.decode_hex(fields[:coinbase]) if fields[:coinbase].size == 40
+      raise ArgumentError, "invalid coinbase #{coinbase}" unless fields[:coinbase].size == 20
+
+      @block = nil
+
+      super(**fields)
+    end
+
+    private
+
+    def logger
+      Logger['eth.block']
+    end
+
   end
 end
