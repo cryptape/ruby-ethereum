@@ -13,6 +13,8 @@ require 'ethereum/db'
 require 'ethereum/trie'
 require 'ethereum/transient_trie'
 
+require 'ethereum/sedes'
+require 'ethereum/block_header'
 require 'ethereum/index'
 require 'ethereum/chain'
 
