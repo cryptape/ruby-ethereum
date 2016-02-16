@@ -8,13 +8,13 @@ module Ethereum
     HEAD_KEY = 'HEAD'.freeze
 
     ##
-    # @param config [Ethereum::Config] configuration of the chain
+    # @param env [Ethereum::Env] configuration of the chain
     #
-    def initialize(config, genesis: nil, new_head_cb: nil, coinbase: Constant::ADDRESS_ZERO)
-      @config = config
-      @db = config.db
+    def initialize(env, genesis: nil, new_head_cb: nil, coinbase: Constant::ADDRESS_ZERO)
+      @env = env
+      @db = env.db
       @new_head_cb = new_head_cb
-      @index = Index.new config
+      @index = Index.new env
       @coinbase = coinbase
 
       initialize_blockchain(genesis) unless @db.has_key?(HEAD_KEY)
@@ -30,15 +30,15 @@ module Ethereum
     def head
       initialize_blockchain unless @db && @db.has_key?(HEAD_KEY)
       ptr = @db.get HEAD_KEY
-      blocks.get_block @config, ptr # TODO - blocks
+      blocks.get_block @env, ptr # TODO - blocks
     end
 
     def commit
-      #TODO
+      @db.commit
     end
 
     def include?(blk_hash)
-      # TODO
+      @db.has_key?(blk_hash)
     end
 
     private
@@ -51,13 +51,13 @@ module Ethereum
       logger.info "Initializing new chain"
 
       unless genesis
-        genesis = blocks.genesis @config # TODO - blocks
+        genesis = blocks.genesis @env # TODO - blocks
         logger.info "new genesis genesis_hash=#{genesis} difficulty=#{genesis.difficulty}"
         @index.add_block genesis
       end
 
       store_block genesis
-      raise "failed to store block" unless genesis == blocks.get_block(@config, genesis.hash)
+      raise "failed to store block" unless genesis == blocks.get_block(@env, genesis.hash)
 
       update_head genesis
       raise "falied to update head" unless include?(genesis.hash)
@@ -65,12 +65,22 @@ module Ethereum
       commit
     end
 
-    def store_block
-      # TODO
+    def store_block(block)
+      if block.number > 0
+        @db.put_temporarily block.hash, RLP.encode(block)
+      else
+        @db.put block.hash, RLP.encode(block)
+      end
     end
 
-    def update_head_candidate
-      # TODO
+    def update_head_candidate(forward_pending_transaction=true)
+      logger.debug "updating head candidate head=#{head}"
+
+      blk = head # parent of the block we are collecting uncles for
+      uncles = get_brothers(blk).map(&:header).uniq
+    end
+
+    def get_brothers(blk)
     end
 
   end
