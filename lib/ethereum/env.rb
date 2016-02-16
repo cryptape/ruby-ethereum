@@ -1,5 +1,5 @@
 module Ethereum
-  class Config
+  class Env
 
     DEFAULT_CONFIG = {
       # Genesis constants
@@ -49,6 +49,8 @@ module Ethereum
     }.freeze
 
     raise "invalid nephew/block reward config" unless DEFAULT_CONFIG[:nephew_reward] == DEFAULT_CONFIG[:block_reward]/32
+
+    attr :config, :global_config
 
     def initialize(db, config: nil, global_config: {})
       @db = db

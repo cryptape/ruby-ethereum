@@ -1,5 +1,3 @@
-require 'set'
-
 module Ethereum
 
   ##
@@ -11,9 +9,9 @@ module Ethereum
   #
   class Index
 
-    def initialize(config, index_transactions=true)
-      @config = config
-      @db = config.db
+    def initialize(env, index_transactions=true)
+      @env = env
+      @db = env.db
       @index_transactions = index_transactions
     end
 
@@ -23,7 +21,7 @@ module Ethereum
     end
 
     def add_child(parent_hash, child_hash)
-      children = Set.new(get_children(parent_hash) + [child_hash]).to_a
+      children = (get_children(parent_hash) + [child_hash]).uniq
       @db.put_temporarily child_db_key(parent_hash), RLP.encode(children)
     end
 
@@ -64,7 +62,7 @@ module Ethereum
     #
     def get_transaction(txhash)
       blockhash, tx_num_enc = RLP.decode @db.get(txhash)
-      blk = RLP.decode(@db.get(blockhash), sedes: Block, options: {config: @config})
+      blk = RLP.decode(@db.get(blockhash), sedes: Block, options: {env: @env})
 
       num = Utils.decode_int tx_num_enc
       tx_data = blk.get_transaction num

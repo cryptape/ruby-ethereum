@@ -4,7 +4,7 @@ Dir[File.expand_path('../ethereum/core_ext/**/*.rb', __FILE__)].each {|path| req
 
 require 'ethereum/constant'
 require 'ethereum/utils'
-require 'ethereum/config'
+require 'ethereum/env'
 require 'ethereum/logger'
 
 require 'ethereum/abi'
