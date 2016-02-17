@@ -1,4 +1,9 @@
 PATH
+  remote: ../ruby-rlp
+  specs:
+    rlp (0.5.3)
+
+PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
@@ -23,7 +28,6 @@ GEM
       method_source (~> 0.8.1)
       slop (~> 3.4)
     rake (10.5.0)
-    rlp (0.5.3)
     slop (3.6.0)
     yard (0.8.7.6)
 
@@ -34,6 +38,7 @@ DEPENDENCIES
   minitest (= 5.8.3)
   pry
   rake (~> 10.5.0)
+  rlp!
   ruby-ethereum!
   yard (= 0.8.7.6)
 

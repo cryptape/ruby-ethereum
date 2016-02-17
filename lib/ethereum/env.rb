@@ -48,14 +48,15 @@ module Ethereum
       homestead_diff_adjustment_cutoff: 16
     }.freeze
 
-    raise "invalid nephew/block reward config" unless DEFAULT_CONFIG[:nephew_reward] == DEFAULT_CONFIG[:block_reward]/32
-
     attr :config, :global_config
 
     def initialize(db, config: nil, global_config: {})
       @db = db
       @config = config || DEFAULT_CONFIG
       @global_config = global_config
+
+      raise "invalid nephew/block reward config" unless @config[:nephew_reward] == @config[:block_reward]/32
+      raise "invalid difficulty config" unless @config[:difficulty] >= 1
     end
 
   end

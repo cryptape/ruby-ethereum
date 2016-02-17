@@ -13,6 +13,9 @@ require 'ethereum/db'
 require 'ethereum/trie'
 require 'ethereum/transient_trie'
 
+require 'ethereum/ethash'
+require 'ethereum/miner'
+
 require 'ethereum/sedes'
 require 'ethereum/block_header'
 require 'ethereum/index'

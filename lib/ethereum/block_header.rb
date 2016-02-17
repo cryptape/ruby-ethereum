@@ -23,7 +23,7 @@ module Ethereum
   # * `@gas_used` - the total amount of gas used by all transactions in this block
   # * `@timestamp` - a UNIX timestamp
   # * `@extra_data` - up to 1024 bytes of additional data
-  # * `@nonce` - a 32 byte nonce constituting a proof-of-work, or the empty
+  # * `@nonce` - a 8 byte nonce constituting a proof-of-work, or the empty
   #   string as a placeholder
   #
   class BlockHeader
@@ -46,8 +46,15 @@ module Ethereum
       timestamp: big_endian_int,
       extra_data: binary,
       mixhash: binary,
-      nonce: RLP::Sedes::Binary.new(min_length: 8, allow_empty: true)
+      nonce: RLP::Sedes::Binary.new(min_length: 8, allow_empty: true) # FIXME: should be fixed length 8?
     )
+
+    class <<self
+      def from_block_rlp(rlp_data)
+        block_data = RLP.decode_lazy rlp_data
+        deserialize block_data[0]
+      end
+    end
 
     def initialize(options={})
       fields = {
@@ -72,14 +79,77 @@ module Ethereum
       raise ArgumentError, "invalid coinbase #{coinbase}" unless fields[:coinbase].size == 20
 
       @block = nil
+      @fimxe_hash = nil
 
       super(**fields)
+    end
+
+    def state_root
+      get_with_block :state_root
+    end
+
+    def state_root=(v)
+      set_with_block :state_root, v
+    end
+
+    def tx_list_root
+      get_with_block :tx_list_root
+    end
+
+    def tx_list_root=(v)
+      set_with_block :tx_list_root, v
+    end
+
+    def receipts_root
+      get_with_block :receipts_root
+    end
+
+    def receipts_root=(v)
+      set_with_block :receipts_root, v
+    end
+
+    def hash
+      Utils.keccak_rlp self
+    end
+
+    def hex_hash
+      Utils.encode_hex hash
+    end
+
+    def mining_hash
+      Utils.keccak_256 RLP.encode(self, self.class.exclude(['mixhash', 'nonce']))
+    end
+
+    ##
+    # Check if the proof-of-work of the block is valid.
+    #
+    # @param nonce [String] if given the proof of work function will be
+    #   evaluated with this nonce instead of the one already present in the
+    #   header
+    #
+    # @return [Bool]
+    #
+    def check_pow(nonce=nil)
+      logger.debug "checking pow block=#{hex_hash[0,8]}"
+      Miner.check_pow(number, mining_hash, mixhash, nonce || self.nonce, difficulty)
     end
 
     private
 
     def logger
       Logger['eth.block']
+    end
+
+    def get_with_block(attr)
+      @block ? @block.send(attr) : instance_variable_get(:"@#{attr}")
+    end
+
+    def set_with_block(attr, v)
+      if @block
+        @block.send :"#{attr}=", v
+      else
+        _set_field attr, v
+      end
     end
 
   end
