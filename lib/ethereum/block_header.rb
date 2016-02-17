@@ -108,12 +108,12 @@ module Ethereum
       set_with_block :receipts_root, v
     end
 
-    def hash
+    def full_hash
       Utils.keccak_rlp self
     end
 
-    def hex_hash
-      Utils.encode_hex hash
+    def hex_full_hash
+      Utils.encode_hex full_hash
     end
 
     def mining_hash
@@ -130,8 +130,48 @@ module Ethereum
     # @return [Bool]
     #
     def check_pow(nonce=nil)
-      logger.debug "checking pow block=#{hex_hash[0,8]}"
+      logger.debug "checking pow block=#{hex_full_hash[0,8]}"
       Miner.check_pow(number, mining_hash, mixhash, nonce || self.nonce, difficulty)
+    end
+
+    ##
+    # Serialize the header to a readable hash.
+    #
+    def to_h
+      h = {}
+
+      %i(prevhash uncles_hash extra_data nonce mixhash).each do |field|
+        h[field] = "0x#{Utils.encode_hex(send field)}"
+      end
+
+      %i(state_root tx_list_root receipts_root coinbase).each do |field|
+        h[field] = Utils.encode_hex send(field)
+      end
+
+      %i(number difficulty gas_limit gas_used timestamp).each do |field|
+        h[field] = send(field).to_s
+      end
+
+      h[:bloom] = Utils.encode_hex Sedes.int256.serialize(bloom)
+
+      h
+    end
+
+    def to_s
+      "#<#{self.class.name}:#{object_id} ##{number} #{hex_full_hash[0,8]}>"
+    end
+    alias :inspect :to_s
+
+    ##
+    # Two blockheader are equal iff they have the same hash.
+    #
+    def ==(other)
+      other.instance_of?(BlockHeader) && full_hash == other.full_hash
+    end
+    alias :eql? :==
+
+    def hash
+      Utils.big_endian_to_int full_hash
     end
 
     private
