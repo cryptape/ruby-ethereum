@@ -1,12 +1,18 @@
 module Ethereum
   module DB
-    class EphemDB < Hash
+    class EphemDB < BaseDB
+
+      def initialize
+        @db = {}
+        @kv = @db
+      end
+
       def get(k)
-        self[k]
+        @db[k]
       end
 
       def put(k, v)
-        self[k] = v
+        @db[k] = v
       end
 
       def commit
@@ -37,6 +43,7 @@ module Ethereum
         inc_refcount(k, v)
         dec_refcount(k)
       end
+
     end
   end
 end
