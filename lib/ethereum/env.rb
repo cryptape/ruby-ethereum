@@ -56,7 +56,6 @@ module Ethereum
       @global_config = global_config
 
       raise "invalid nephew/block reward config" unless @config[:nephew_reward] == @config[:block_reward]/32
-      raise "invalid difficulty config" unless @config[:difficulty] >= 1
     end
 
   end
