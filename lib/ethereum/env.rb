@@ -48,7 +48,7 @@ module Ethereum
       homestead_diff_adjustment_cutoff: 16
     }.freeze
 
-    attr :config, :global_config
+    attr :db, :config, :global_config
 
     def initialize(db, config: nil, global_config: {})
       @db = db

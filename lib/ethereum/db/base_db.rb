@@ -1,5 +1,7 @@
 module Ethereum
-  class BaseDB
-    attr :db
+  module DB
+    class BaseDB
+      attr :db
+    end
   end
 end
