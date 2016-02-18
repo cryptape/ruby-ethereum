@@ -15,8 +15,21 @@ module Ethereum
         @db[k] = v
       end
 
+      def delete(k)
+        @db.delete(k)
+      end
+
       def commit
         # do nothing
+      end
+
+      def has_key?(k)
+        @db.has_key?(k)
+      end
+      alias :include? :has_key?
+
+      def ==(other)
+        other.instance_of?(self.class) && db == other.db
       end
 
       def inc_refcount(k, v)
