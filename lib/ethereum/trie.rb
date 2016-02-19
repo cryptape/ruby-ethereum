@@ -123,14 +123,12 @@ module Ethereum
     # Convert to hash.
     #
     def to_h
-      hash = {}
-
+      h = {}
       to_hash(@root_node).each do |k, v|
         key = k.terminate(false).to_string
-        hash[key] = v
+        h[key] = v
       end
-
-      hash
+      h
     end
 
     def each(&block)

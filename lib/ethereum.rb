@@ -11,6 +11,7 @@ require 'ethereum/abi'
 require 'ethereum/fast_rlp'
 require 'ethereum/db'
 require 'ethereum/trie'
+require 'ethereum/secure_trie'
 require 'ethereum/transient_trie'
 
 require 'ethereum/ethash'
