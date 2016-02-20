@@ -13,6 +13,7 @@ require 'ethereum/db'
 require 'ethereum/trie'
 require 'ethereum/secure_trie'
 require 'ethereum/transient_trie'
+require 'ethereum/bloom'
 
 require 'ethereum/ethash'
 require 'ethereum/miner'
