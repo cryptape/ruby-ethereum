@@ -19,6 +19,7 @@ require 'ethereum/ethash'
 require 'ethereum/miner'
 
 require 'ethereum/sedes'
+require 'ethereum/log'
 require 'ethereum/transaction'
 require 'ethereum/block_header'
 require 'ethereum/block'

@@ -55,7 +55,7 @@ module Ethereum
         BITS.times.select {|i| (1<<i) & v > 0 }
       end
 
-      def b64(int_bloom)
+      def b256(int_bloom)
         Utils.zpad Utils.int_to_big_endian(int_bloom), 256
       end
 
