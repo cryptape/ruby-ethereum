@@ -77,8 +77,8 @@ module Ethereum
       @_mutable = true
       header.instance_variable_set :@_mutable, true
 
-      @transactions = Trie.new db
-      @receipts = Trie.new db
+      @transactions = PruningTrie.new db
+      @receipts = PruningTrie.new db
 
       initialize_state(transaction_list, parent, making)
 
@@ -146,7 +146,7 @@ module Ethereum
     end
 
     def state_root=(v)
-      @state = SecureTrie.new Trie.new(db, v)
+      @state = SecureTrie.new PruningTrie.new(db, v)
       reset_cache
     end
 
@@ -170,7 +170,7 @@ module Ethereum
       state_unknown =
         prevhash != @config[:genesis_prevhash] &&
         number != 0 &&
-        header.state_root != Trie::BLANK_ROOT &&
+        header.state_root != PruningTrie::BLANK_ROOT &&
         (header.state_root.size != 32 || !db.has_key?("validated:#{full_hash}")) &&
         !making
 
@@ -178,7 +178,7 @@ module Ethereum
         raise ArgumentError, "transaction list cannot be nil" unless transaction_list
 
         parent ||= get_parent_header
-        @state = SecureTrie.new Trie.new(db, parent.state_root)
+        @state = SecureTrie.new PruningTrie.new(db, parent.state_root)
         @transaction_count = 0
         @gas_used = 0
 
@@ -186,7 +186,7 @@ module Ethereum
 
         finalize
       else # trust the state root in the header
-        @state = SecureTrie.new Trie.new(db, header.instance_variable_get(:@state_root))
+        @state = SecureTrie.new PruningTrie.new(db, header.instance_variable_get(:@state_root))
         @transaction_count = 0
 
         transaction_list.each {|tx| add_transaction_to_list(tx) } if transaction_list
@@ -194,7 +194,7 @@ module Ethereum
 
         # receipts trie populated by add_transaction_to_list is incorrect (it
         # doesn't know intermediate states), so reset it
-        @receipts = Trie.new db, header.receipts_root
+        @receipts = PruningTrie.new db, header.receipts_root
       end
     end
 
