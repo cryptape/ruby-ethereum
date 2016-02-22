@@ -1,5 +1,6 @@
 # -*- encoding : ascii-8bit -*-
 
+require 'digest'
 require 'digest/sha3'
 
 module Ethereum
@@ -9,12 +10,23 @@ module Ethereum
 
     include Constant
 
+    ##
+    # Not the keccak in sha3, although it's underlying lib named SHA3
+    #
     def keccak_256(x)
       Digest::SHA3.new(256).digest(x)
     end
 
     def keccak_rlp(x)
       keccak_256 RLP.encode(x)
+    end
+
+    def sha256(x)
+      Digest::SHA256.digest x
+    end
+
+    def double_sha256(x)
+      sha256 sha256(x)
     end
 
     def ceil32(x)
