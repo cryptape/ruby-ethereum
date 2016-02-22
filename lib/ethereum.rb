@@ -8,6 +8,7 @@ require 'ethereum/constant'
 require 'ethereum/utils'
 require 'ethereum/env'
 require 'ethereum/logger'
+require 'ethereum/base_convert'
 
 require 'ethereum/secp256k1'
 

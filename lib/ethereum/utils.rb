@@ -37,8 +37,13 @@ module Ethereum
       RLP::Sedes.big_endian_int.serialize n
     end
 
+    def lpad(x, symbol, l)
+      return x if x.size >= l
+      symbol * (l - x.size) + x
+    end
+
     def zpad(x, l)
-      (BYTE_ZERO * [0, l - x.size].max + x)
+      lpad x, BYTE_ZERO, l
     end
 
     def zpad_int(n, l=32)
