@@ -87,6 +87,10 @@ module Ethereum
       super(**fields)
     end
 
+    def _state_root
+      @state_root
+    end
+
     def state_root
       get_with_block :state_root
     end

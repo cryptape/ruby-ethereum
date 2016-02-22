@@ -188,7 +188,7 @@ module Ethereum
 
         finalize
       else # trust the state root in the header
-        @state = SecureTrie.new PruningTrie.new(db, header.instance_variable_get(:@state_root))
+        @state = SecureTrie.new PruningTrie.new(db, header._state_root)
         @transaction_count = 0
 
         transaction_list.each {|tx| add_transaction_to_list(tx) } if transaction_list
