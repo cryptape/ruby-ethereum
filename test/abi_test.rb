@@ -106,8 +106,8 @@ class ABITest < Minitest::Test
     type = Type.parse 'address'
     assert_equal 'ff'*20, decode_primitive_type(type, encode_primitive_type(type, "0x"+"ff"*20))
 
-    #type = Type.parse 'bytes'
-    #assert_equal "\x01\x02\x03", decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))
+    type = Type.parse 'bytes'
+    assert_equal "\x01\x02\x03", decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))
 
     type = Type.parse 'bytes8'
     assert_equal ("\x01\x02\x03"+"\x00"*5), decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))

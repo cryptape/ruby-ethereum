@@ -252,7 +252,12 @@ module Ethereum
       when 'address'
         Utils.encode_hex data[12..-1]
       when 'string', 'bytes'
-        type.sub.empty? ? data : data[0, type.sub.to_i]
+        if type.sub.empty? # dynamic
+          size = Utils.big_endian_to_int data[0,32]
+          data[32..-1][0,size]
+        else # fixed
+          data[0, type.sub.to_i]
+        end
       when 'hash'
         data[(32 - type.sub.to_i), type.sub.to_i]
       when 'uint'
