@@ -13,12 +13,12 @@ module Ethereum
     ##
     # Not the keccak in sha3, although it's underlying lib named SHA3
     #
-    def keccak_256(x)
+    def keccak256(x)
       Digest::SHA3.new(256).digest(x)
     end
 
-    def keccak_rlp(x)
-      keccak_256 RLP.encode(x)
+    def keccak256_rlp(x)
+      keccak256 RLP.encode(x)
     end
 
     def sha256(x)

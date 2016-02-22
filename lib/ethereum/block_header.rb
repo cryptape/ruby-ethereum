@@ -61,7 +61,7 @@ module Ethereum
     def initialize(options={})
       fields = {
         prevhash: Env::DEFAULT_CONFIG[:genesis_prevhash],
-        uncles_hash: Utils.keccak_rlp([]),
+        uncles_hash: Utils.keccak256_rlp([]),
         coinbase: Env::DEFAULT_CONFIG[:genesis_coinbase],
         state_root: PruningTrie::BLANK_ROOT,
         tx_list_root: PruningTrie::BLANK_ROOT,
@@ -116,7 +116,7 @@ module Ethereum
     end
 
     def full_hash
-      Utils.keccak_rlp self
+      Utils.keccak256_rlp self
     end
 
     def hex_full_hash
@@ -124,7 +124,7 @@ module Ethereum
     end
 
     def mining_hash
-      Utils.keccak_256 RLP.encode(self, self.class.exclude(['mixhash', 'nonce']))
+      Utils.keccak256 RLP.encode(self, self.class.exclude(['mixhash', 'nonce']))
     end
 
     ##

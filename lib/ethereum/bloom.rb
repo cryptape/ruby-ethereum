@@ -34,7 +34,7 @@ module Ethereum
       end
 
       def insert(bloom, v)
-        h = Utils.keccak_256 v
+        h = Utils.keccak256 v
         BUCKETS.times {|i| bloom |= get_index(h, i) }
         bloom
       end
@@ -49,7 +49,7 @@ module Ethereum
       end
 
       def bits(v)
-        h = Utils.keccak_256 v
+        h = Utils.keccak256 v
         BUCKETS.times.map {|i| bits_in_number get_index(h, i) }
       end
 

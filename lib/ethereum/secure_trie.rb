@@ -14,17 +14,17 @@ module Ethereum
     end
 
     def [](k)
-      @trie[Utils.keccak_256(k)]
+      @trie[Utils.keccak256(k)]
     end
 
     def []=(k, v)
-      h = Utils.keccak_256 k
+      h = Utils.keccak256 k
       @db.put h, k
       @trie[h] = v
     end
 
     def delete(k)
-      @trie.delete Utils.keccak_256(k)
+      @trie.delete Utils.keccak256(k)
     end
 
     def to_h

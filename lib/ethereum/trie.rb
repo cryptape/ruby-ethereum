@@ -20,7 +20,7 @@ module Ethereum
     KV_WIDTH = 2
 
     BLANK_NODE = "".freeze
-    BLANK_ROOT = Utils.keccak_rlp('').freeze
+    BLANK_ROOT = Utils.keccak256_rlp('').freeze
 
     class InvalidNode < StandardError; end
     class InvalidNodeType < StandardError; end
@@ -47,7 +47,7 @@ module Ethereum
       raise InvalidNode, "invalid root node" unless @root_node.instance_of?(Array)
 
       val = FastRLP.encode @root_node
-      key = Utils.keccak_256 val
+      key = Utils.keccak256 val
 
       @db.put key, val
       #spv_grabbing(@root_node)
@@ -226,7 +226,7 @@ module Ethereum
       rlp_node = FastRLP.encode node
       return node if rlp_node.size < 32
 
-      hashkey = Utils.keccak_256 rlp_node
+      hashkey = Utils.keccak256 rlp_node
       @db.put hashkey, rlp_node
       #spv_storing node
 
