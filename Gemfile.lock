@@ -7,13 +7,16 @@ PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
+      bitcoin-ruby (~> 0.0.8)
       digest-sha3 (~> 1.1.0)
+      ffi (~> 1.9.10)
       logging (~> 2.0.0)
       rlp (~> 0.5.2)
 
 GEM
   remote: https://ruby.taobao.org/
   specs:
+    bitcoin-ruby (0.0.8)
     coderay (1.1.0)
     digest-sha3 (1.1.0)
     ffi (1.9.10)
@@ -36,7 +39,6 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  ffi (~> 1.9.10)
   minitest (= 5.8.3)
   pry
   rake (~> 10.5.0)
