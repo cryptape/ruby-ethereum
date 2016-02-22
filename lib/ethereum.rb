@@ -21,6 +21,7 @@ require 'ethereum/miner'
 
 require 'ethereum/sedes'
 require 'ethereum/log'
+require 'ethereum/opcodes'
 require 'ethereum/transaction'
 require 'ethereum/block_header'
 require 'ethereum/block'
