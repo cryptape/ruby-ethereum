@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'rlp'
 
 Dir[File.expand_path('../ethereum/core_ext/**/*.rb', __FILE__)].each {|path| require path }

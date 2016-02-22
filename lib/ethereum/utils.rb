@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'digest/sha3'
 
 module Ethereum
@@ -36,7 +38,7 @@ module Ethereum
     end
 
     def zpad(x, l)
-      (BYTE_ZERO * [0, l - x.size].max + x).b
+      (BYTE_ZERO * [0, l - x.size].max + x)
     end
 
     def zpad_int(n, l=32)

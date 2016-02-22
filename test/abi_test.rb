@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'test_helper'
 
 class ABIFixtureTest < Minitest::Test
@@ -43,11 +45,11 @@ class ABITest < Minitest::Test
 
   def test_abi_encode_var_sized_array
     bytes = "\x00" * 32 * 3
-    assert_equal "#{zpad_int(32)}#{zpad_int(3)}#{bytes}".b, encode(['address[]'], [["\x00".b * 20]*3])
+    assert_equal "#{zpad_int(32)}#{zpad_int(3)}#{bytes}", encode(['address[]'], [["\x00" * 20]*3])
   end
 
   def test_abi_encode_fixed_sized_array
-    assert_equal "#{zpad_int(5)}#{zpad_int(6)}".b, encode(['uint16[2]'], [[5,6]])
+    assert_equal "#{zpad_int(5)}#{zpad_int(6)}", encode(['uint16[2]'], [[5,6]])
   end
 
   def test_abi_encode_signed_int
@@ -65,34 +67,34 @@ class ABITest < Minitest::Test
     assert_raises(ValueOutOfBounds) { encode_primitive_type(type, 256) }
 
     type = Type.parse 'int8'
-    assert_equal zpad("\x80".b, 32), encode_primitive_type(type, -128)
-    assert_equal zpad("\x7f".b, 32), encode_primitive_type(type, 127)
+    assert_equal zpad("\x80", 32), encode_primitive_type(type, -128)
+    assert_equal zpad("\x7f", 32), encode_primitive_type(type, 127)
     assert_raises(ValueOutOfBounds) { encode_primitive_type(type, -129) }
     assert_raises(ValueOutOfBounds) { encode_primitive_type(type, 128) }
 
     type = Type.parse 'ureal128x128'
-    assert_equal ("\x00"*32).b, encode_primitive_type(type, 0)
-    assert_equal ("\x00"*15 + "\x01\x20" + "\x00"*15).b, encode_primitive_type(type, 1.125)
-    assert_equal ("\x7f" + "\xff"*15 + "\x00"*16).b, encode_primitive_type(type, 2**127-1)
+    assert_equal ("\x00"*32), encode_primitive_type(type, 0)
+    assert_equal ("\x00"*15 + "\x01\x20" + "\x00"*15), encode_primitive_type(type, 1.125)
+    assert_equal ("\x7f" + "\xff"*15 + "\x00"*16), encode_primitive_type(type, 2**127-1)
 
     type = Type.parse 'real128x128'
-    assert_equal ("\xff"*16 + "\x00"*16).b, encode_primitive_type(type, -1)
-    assert_equal ("\x80" + "\x00"*31).b, encode_primitive_type(type, -2**127)
-    assert_equal ("\x7f" + "\xff"*15 + "\x00"*16).b, encode_primitive_type(type, 2**127-1)
-    assert_equal "#{zpad_int(1, 16)}\x20#{"\x00"*15}".b, encode_primitive_type(type, 1.125)
-    assert_equal "#{"\xff"*15}\xfe\xe0#{"\x00"*15}".b, encode_primitive_type(type, -1.125)
+    assert_equal ("\xff"*16 + "\x00"*16), encode_primitive_type(type, -1)
+    assert_equal ("\x80" + "\x00"*31), encode_primitive_type(type, -2**127)
+    assert_equal ("\x7f" + "\xff"*15 + "\x00"*16), encode_primitive_type(type, 2**127-1)
+    assert_equal "#{zpad_int(1, 16)}\x20#{"\x00"*15}", encode_primitive_type(type, 1.125)
+    assert_equal "#{"\xff"*15}\xfe\xe0#{"\x00"*15}", encode_primitive_type(type, -1.125)
     assert_raises(ValueOutOfBounds) { encode_primitive_type(type, -2**127 - 1) }
     assert_raises(ValueOutOfBounds) { encode_primitive_type(type, 2**127) }
 
     type = Type.parse 'bytes'
-    assert_equal "#{zpad_int(3)}\x01\x02\x03#{"\x00"*29}".b, encode_primitive_type(type, "\x01\x02\x03")
+    assert_equal "#{zpad_int(3)}\x01\x02\x03#{"\x00"*29}", encode_primitive_type(type, "\x01\x02\x03")
 
     type = Type.parse 'bytes8'
-    assert_equal "\x01\x02\x03#{"\x00"*29}".b, encode_primitive_type(type, "\x01\x02\x03")
+    assert_equal "\x01\x02\x03#{"\x00"*29}", encode_primitive_type(type, "\x01\x02\x03")
 
     type = Type.parse 'hash32'
-    assert_equal ("\xff"*32).b, encode_primitive_type(type, "\xff"*32)
-    assert_equal ("\xff"*32).b, encode_primitive_type(type, "ff"*32)
+    assert_equal ("\xff"*32), encode_primitive_type(type, "\xff"*32)
+    assert_equal ("\xff"*32), encode_primitive_type(type, "ff"*32)
 
     type = Type.parse 'address'
     assert_equal zpad("\xff"*20, 32), encode_primitive_type(type, "\xff"*20)
@@ -105,13 +107,13 @@ class ABITest < Minitest::Test
     assert_equal 'ff'*20, decode_primitive_type(type, encode_primitive_type(type, "0x"+"ff"*20))
 
     #type = Type.parse 'bytes'
-    #assert_equal "\x01\x02\x03".b, decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))
+    #assert_equal "\x01\x02\x03", decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))
 
     type = Type.parse 'bytes8'
-    assert_equal ("\x01\x02\x03"+"\x00"*5).b, decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))
+    assert_equal ("\x01\x02\x03"+"\x00"*5), decode_primitive_type(type, encode_primitive_type(type, "\x01\x02\x03"))
 
     type = Type.parse 'hash20'
-    assert_equal ("\xff"*20).b, decode_primitive_type(type, encode_primitive_type(type, "ff"*20))
+    assert_equal ("\xff"*20), decode_primitive_type(type, encode_primitive_type(type, "ff"*20))
 
     type = Type.parse 'uint8'
     assert_equal 0, decode_primitive_type(type, encode_primitive_type(type, 0))

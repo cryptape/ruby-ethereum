@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 module Ethereum
   class Trie
 
@@ -10,7 +12,7 @@ module Ethereum
       NIBBLE_ODD_FLAG   = 0b0001
       NIBBLE_TERMINATOR = 16
 
-      HEX_VALUES = (0..15).inject({}) {|h, i| h[i.to_s(16).b] = i; h}.freeze
+      HEX_VALUES = (0..15).inject({}) {|h, i| h[i.to_s(16)] = i; h}.freeze
 
       class <<self
         ##
@@ -41,7 +43,7 @@ module Ethereum
           (nibbles.size/2).times.reduce('') do |s, i|
             base = 2*i
             s += (16*nibbles[base] + nibbles[base+1]).chr
-          end.b
+          end
         end
 
         ##

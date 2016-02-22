@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 module Ethereum
   class Receipt
     include RLP::Sedes::Serializable

@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'test_helper'
 
 class ABITypeTest < Minitest::Test

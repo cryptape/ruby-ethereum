@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 module Ethereum
   class Log
     include RLP::Sedes::Serializable

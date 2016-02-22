@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 module Ethereum
   module FastRLP
     include RLP::Encode

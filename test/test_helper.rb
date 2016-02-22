@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'minitest/autorun'
 require 'ethereum'
 require 'json'
@@ -25,13 +27,13 @@ end
 def to_bytes(obj)
   case obj
   when String
-    obj.b
+    obj
   when Array
     obj.map {|x| to_bytes(x) }
   when Hash
     h = {}
     obj.each do |k, v|
-      k = k.b if k.instance_of?(String) && (k.size == 40 || k[0,2] == '0x')
+      k = k if k.instance_of?(String) && (k.size == 40 || k[0,2] == '0x')
       h[k] = to_bytes(v)
     end
     h

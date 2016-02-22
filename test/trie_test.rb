@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'test_helper'
 
 class TrieFixtureTest < Minitest::Test
@@ -17,7 +19,7 @@ class TrieFixtureTest < Minitest::Test
       perm.each {|(k,v)| v ? t.set(k, v) : t.delete(k) }
       deletes.each {|(k,v)| t.delete(k) } # make sure we delete at the end
 
-      root = ('0x' + encode_hex(t.root_hash)).b
+      root = ('0x' + encode_hex(t.root_hash))
       assert pairs['root'] == root, "Mismatch: #{name} #{pairs['root']} != #{root} permutation: #{perm+deletes}"
     end
   end
@@ -31,7 +33,7 @@ class TrieTest < Minitest::Test
   end
 
   def test_encode_node_on_node_rlp_size_less_than_32
-    node = [" \x98vH\x13\xb16\xdd\xf5\xa7T\xf3@c\xfd\x03\x06^6".b, "something"]
+    node = [" \x98vH\x13\xb16\xdd\xf5\xa7T\xf3@c\xfd\x03\x06^6", "something"]
     assert_equal node, @trie.send(:encode_node, node)
   end
 end

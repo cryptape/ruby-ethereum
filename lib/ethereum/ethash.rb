@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 module Ethereum
   class Ethash
     def self.hashimoto_light(*args)

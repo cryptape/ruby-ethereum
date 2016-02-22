@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'test_helper'
 
 class BloomTest < Minitest::Test
@@ -41,7 +43,7 @@ class BloomFixtureTest < Minitest::Test
         log_bloom = Bloom.b256 Bloom.from_array(log.bloomables)
 
         assert_equal Utils.encode_hex(log_bloom), encode_hex_from_int(b)
-        assert_equal data['bloom'].b, Utils.encode_hex(log_bloom)
+        assert_equal data['bloom'], Utils.encode_hex(log_bloom)
       end
     end
   end

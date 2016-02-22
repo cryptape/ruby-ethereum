@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 require 'ethereum/abi/type'
 
 module Ethereum
@@ -37,7 +39,7 @@ module Ethereum
         end
       end
 
-      "#{head}#{tail}".b
+      "#{head}#{tail}"
     end
     alias :encode :encode_abi
 
@@ -56,7 +58,7 @@ module Ethereum
         size = encode_type Type.size_type, arg.size
         padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
 
-        "#{size}#{arg}#{padding}".b
+        "#{size}#{arg}#{padding}"
       elsif type.dynamic?
         raise ArgumentError, "arg must be an array" unless arg.instance_of?(Array)
 
@@ -78,12 +80,12 @@ module Ethereum
           end
         end
 
-        "#{head}#{tail}".b
+        "#{head}#{tail}"
       else # static type
         if type.dims.empty?
           encode_primitive_type type, arg
         else
-          arg.map {|x| encode_type(type.subtype, x) }.join.b
+          arg.map {|x| encode_type(type.subtype, x) }.join
         end
       end
     end
@@ -123,12 +125,12 @@ module Ethereum
         if type.sub.empty? # variable length type
           size = Utils.zpad_int arg.size
           padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
-          "#{size}#{arg}#{padding}".b
+          "#{size}#{arg}#{padding}"
         else # fixed length type
           raise ValueOutOfBounds, arg unless arg.size <= type.sub.to_i
 
           padding = BYTE_ZERO * (32 - arg.size)
-          "#{arg}#{padding}".b
+          "#{arg}#{padding}"
         end
       when 'hash'
         size = type.sub.to_i

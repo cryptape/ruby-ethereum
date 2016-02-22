@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 class Numeric
 
   BABBAGE  = 10**3
