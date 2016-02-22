@@ -18,7 +18,8 @@ Gem::Specification.new do |s|
   s.add_dependency('digest-sha3', ['~> 1.1.0'])
   s.add_dependency('logging', ['~> 2.0.0'])
 
-  s.add_development_dependency('rake', ['~> 10.5.0'])
+  s.add_development_dependency('rake', '~> 10.5.0')
   s.add_development_dependency('minitest', '5.8.3')
   s.add_development_dependency('yard', '0.8.7.6')
+  s.add_development_dependency('ffi', '~> 1.9.10')
 end

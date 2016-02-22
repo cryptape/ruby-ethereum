@@ -16,6 +16,7 @@ GEM
   specs:
     coderay (1.1.0)
     digest-sha3 (1.1.0)
+    ffi (1.9.10)
     little-plugger (1.1.4)
     logging (2.0.0)
       little-plugger (~> 1.1)
@@ -35,6 +36,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  ffi (~> 1.9.10)
   minitest (= 5.8.3)
   pry
   rake (~> 10.5.0)

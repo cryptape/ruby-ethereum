@@ -9,6 +9,8 @@ require 'ethereum/utils'
 require 'ethereum/env'
 require 'ethereum/logger'
 
+require 'ethereum/ffi/secp256k1'
+
 require 'ethereum/abi'
 require 'ethereum/fast_rlp'
 require 'ethereum/db'
