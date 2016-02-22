@@ -7,7 +7,6 @@ PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
-      bitcoin-ruby (~> 0.0.8)
       digest-sha3 (~> 1.1.0)
       ffi (~> 1.9.10)
       logging (~> 2.0.0)
@@ -16,7 +15,6 @@ PATH
 GEM
   remote: https://ruby.taobao.org/
   specs:
-    bitcoin-ruby (0.0.8)
     coderay (1.1.0)
     digest-sha3 (1.1.0)
     ffi (1.9.10)

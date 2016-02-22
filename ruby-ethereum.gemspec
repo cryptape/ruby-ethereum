@@ -16,7 +16,6 @@ Gem::Specification.new do |s|
 
   s.add_dependency('rlp', '~> 0.5.2')
   s.add_dependency('ffi', '~> 1.9.10')
-  s.add_dependency('bitcoin-ruby', '~> 0.0.8')
   s.add_dependency('digest-sha3', '~> 1.1.0')
   s.add_dependency('logging', '~> 2.0.0')
 
