@@ -1,5 +1,6 @@
 # -*- encoding : ascii-8bit -*-
 
+require 'base64'
 require 'ffi'
 
 module Ethereum
@@ -201,6 +202,8 @@ module Ethereum
     end
   end
 
+
+
   module Secp256k1 # continue, extensions
 
     # Elliptic curve parameters
@@ -214,23 +217,29 @@ module Ethereum
 
     PUBKEY_ZERO = [0,0].freeze
 
-
     class <<self
+      def ecdsa_raw_sign(msg32, priv, compact=false)
+        raise ArgumentError, "private key must be 32 bytes" unless priv.size == 32
 
-      def ecdsa_raw_sign(msghash, priv)
+        sig = sign_compact Utils.zpad(msg32, 32), priv, compact
 
+        v = Utils.big_endian_to_int sig[0]
+        r = Utils.big_endian_to_int sig[1,32]
+        s = Utils.big_endian_to_int sig[33,32]
+
+        raise InvalidPrivateKey, "invalid private key: #{priv.inspect}" if r == 0 && s == 0
+
+        [v,r,s]
       end
 
       def encode_sigature(v, r, s)
-        raise ArgumentError, "v must be integer" unless v.is_a?(Integer)
-        raise ArgumentError, "v must be 27 or 28" unless v == 27 || v == 28
-        "#{(v-27).chr}#{Utils.zpad_int(r)}#{Utils.zpad_int(s)}"
+        Base64.strict_encode64 "#{v.chr}#{Utils.zpad_int(r)}#{Utils.zpad_int(s)}"
       end
 
       def decode_signature(sig)
-        [sig[0].ord + 27, Utils.big_endian_to_int(sig[1,32]), Utils.big_endian_to_int(sig[33,32])]
+        bytes = Base64.strict_decode64 sig
+        [bytes[0].ord, Utils.big_endian_to_int(bytes[1,32]), Utils.big_endian_to_int(bytes[33,32])]
       end
-
     end
 
   end

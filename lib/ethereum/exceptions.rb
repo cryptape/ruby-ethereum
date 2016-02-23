@@ -6,4 +6,5 @@ module Ethereum
   class ValidationError < StandardError; end
 
   class InvalidTransaction < ValidationError; end
+  class InvalidPrivateKey < ValidationError; end
 end
