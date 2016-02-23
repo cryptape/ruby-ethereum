@@ -218,10 +218,10 @@ module Ethereum
     PUBKEY_ZERO = [0,0].freeze
 
     class <<self
-      def ecdsa_raw_sign(msg32, priv, compact=false)
+      def ecdsa_raw_sign(msghash, priv, compact=false)
         raise ArgumentError, "private key must be 32 bytes" unless priv.size == 32
 
-        sig = sign_compact Utils.zpad(msg32, 32), priv, compact
+        sig = sign_compact Utils.zpad(msghash, 32), priv, compact
 
         v = Utils.big_endian_to_int sig[0]
         r = Utils.big_endian_to_int sig[1,32]
@@ -232,12 +232,39 @@ module Ethereum
         [v,r,s]
       end
 
-      def encode_sigature(v, r, s)
-        Base64.strict_encode64 "#{v.chr}#{Utils.zpad_int(r)}#{Utils.zpad_int(s)}"
+      def ecdsa_raw_verify(msghash, vrs, pub)
+        v, r, s = vrs
+        return false if v < 27 || v > 34
+
+        sig = ecdsa_sig_serialize r, s
+        verify(Utils.zpad(msghash, 32), sig, pub)
       end
 
-      def decode_signature(sig)
-        bytes = Base64.strict_decode64 sig
+      def ecdsa_raw_recover(msghash, vrs)
+        sig = encode_signature *vrs, false
+        recover_compact Utils.zpad(msghash, 32), sig
+      end
+
+      # static int secp256k1_ecdsa_sig_serialize(
+      #   unsigned char *sig, int *size, const # secp256k1_ecdsa_sig_t *a
+      # )
+      def ecdsa_sig_serialize(r, s)
+        len = (4 + r.size + s.size).chr
+        len_r = r.size.chr
+        len_s = s.size.chr
+        bytes_r = Utils.int_to_big_endian(r)
+        bytes_s = Utils.int_to_big_endian(s)
+
+        "\x30#{len}\x02#{len_r}#{bytes_r}\x02#{len_s}#{bytes_s}"
+      end
+
+      def encode_signature(v, r, s, base64=true)
+        bytes = "#{v.chr}#{Utils.zpad_int(r)}#{Utils.zpad_int(s)}"
+        base64 ? Base64.strict_encode64(bytes) : bytes
+      end
+
+      def decode_signature(sig, base64=true)
+        bytes = base64 ? Base64.strict_decode64(sig) : sig
         [bytes[0].ord, Utils.big_endian_to_int(bytes[1,32]), Utils.big_endian_to_int(bytes[33,32])]
       end
     end
