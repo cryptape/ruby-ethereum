@@ -13,6 +13,7 @@ require 'ethereum/logger'
 require 'ethereum/base_convert'
 require 'ethereum/address'
 require 'ethereum/private_key'
+require 'ethereum/public_key'
 require 'ethereum/secp256k1'
 
 require 'ethereum/abi'
