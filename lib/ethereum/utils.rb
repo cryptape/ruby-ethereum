@@ -104,7 +104,7 @@ module Ethereum
     end
 
     def normalize_address(x, allow_blank: false)
-      return Constant::ADDRESS_BLANK if allow_blank && x == Constant::ADDRESS_BLANK
+      return Address::BLANK if allow_blank && x == Address::BLANK
       Address.new(x).to_bytes
     end
 

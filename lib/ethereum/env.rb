@@ -8,7 +8,7 @@ module Ethereum
       genesis_difficulty: 131072,
       genesis_gas_limit: 3141592,
       genesis_prevhash: Constant::HASH_ZERO,
-      genesis_coinbase: Constant::ADDRESS_ZERO,
+      genesis_coinbase: Address::ZERO,
       genesis_nonce: Utils.zpad_int(42, 8),
       genesis_mixhash: Constant::HASH_ZERO,
       genesis_timestamp: 0,

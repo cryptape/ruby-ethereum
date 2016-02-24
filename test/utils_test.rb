@@ -52,8 +52,8 @@ class UtilsTest < Minitest::Test
   end
 
   def test_normalize_address
-    assert_equal Ethereum::Constant::ADDRESS_BLANK, normalize_address(Ethereum::Constant::ADDRESS_BLANK, allow_blank: true)
-    assert_raises(Ethereum::FormatError) { normalize_address(Ethereum::Constant::ADDRESS_BLANK) }
+    assert_equal Ethereum::Address::BLANK, normalize_address(Ethereum::Address::BLANK, allow_blank: true)
+    assert_raises(Ethereum::FormatError) { normalize_address(Ethereum::Address::BLANK) }
   end
 
 end

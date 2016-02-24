@@ -3,6 +3,9 @@
 module Ethereum
   class Address
 
+    BLANK = ''.freeze
+    ZERO = ("\x00"*20).freeze
+
     def initialize(s)
       @bytes = parse s
     end
