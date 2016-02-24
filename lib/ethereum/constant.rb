@@ -10,6 +10,7 @@ module Ethereum
     INT_MAX = 2**255 - 1
     INT_MIN = -2**255
 
+    ADDRESS_BLANK = ''.freeze
     ADDRESS_ZERO = ("\x00"*20).freeze
 
     HASH_ZERO = ("\x00"*32).freeze

@@ -103,5 +103,10 @@ module Ethereum
       big_endian_to_int v
     end
 
+    def normalize_address(x, allow_blank: false)
+      return Constant::ADDRESS_BLANK if allow_blank && x == Constant::ADDRESS_BLANK
+      Address.new(x).to_bytes
+    end
+
   end
 end
