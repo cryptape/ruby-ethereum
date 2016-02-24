@@ -66,12 +66,12 @@ class Secp256k1Test < Minitest::Test
     # compressed
     priv, pub = Secp256k1.generate_key_pair true
     v, r, s = Secp256k1.ecdsa_raw_sign('ethereum', priv, true)
-    assert_equal pub, Secp256k1.ecdsa_raw_recover('ethereum', [v,r,s])
+    assert_equal PublicKey.new(pub).value, Secp256k1.ecdsa_raw_recover('ethereum', [v,r,s])
 
     # uncompressed
     priv, pub = Secp256k1.generate_key_pair false
     v, r, s = Secp256k1.ecdsa_raw_sign('ethereum', priv)
-    assert_equal pub, Secp256k1.ecdsa_raw_recover('ethereum', [v,r,s])
+    assert_equal PublicKey.new(pub).value, Secp256k1.ecdsa_raw_recover('ethereum', [v,r,s])
   end
 
   def test_ecdsa_sig_serialize

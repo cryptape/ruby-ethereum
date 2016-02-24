@@ -43,7 +43,8 @@ module Ethereum
 
       def ecdsa_raw_recover(msghash, vrs)
         sig = encode_signature *vrs, false
-        recover_compact Utils.zpad(msghash, 32), sig
+        raw = recover_compact Utils.zpad(msghash, 32), sig
+        PublicKey.new(raw).value
       end
 
       # static int secp256k1_ecdsa_sig_serialize(
