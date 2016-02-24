@@ -74,5 +74,10 @@ module Ethereum
       raise FormatError, "Pubkey is not in recognized format"
     end
 
+    def to_address(magicbyte=0)
+      bytes = encode(:bin)
+      Utils.bytes_to_base58_check Utils.hash160(bytes), magicbyte
+    end
+
   end
 end
