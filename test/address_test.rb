@@ -7,9 +7,11 @@ class AddressTest < Minitest::Test
 
   def test_initialize_with_different_formats
     assert_equal "\x00"*20, Address.new("00"*20).to_bytes
-    assert_equal "\x00"*20, Address.new(Address.new("00"*20).with_checksum).to_bytes
+    assert_equal "\x00"*20, Address.new(Address.new("00"*20).to_bytes(true)).to_bytes
+    assert_equal "\x00"*20, Address.new("0x"+"00"*20).to_bytes
+    assert_equal "\x00"*20, Address.new("0x"+Address.new("00"*20).to_hex(true)).to_bytes
     assert_equal "\x00"*20, Address.new("\x00"*20).to_bytes
-    assert_equal "\x00"*20, Address.new(Address.new("\x00"*20).with_checksum).to_bytes
+    assert_equal "\x00"*20, Address.new(Address.new("\x00"*20).to_bytes(true)).to_bytes
   end
 
   def test_validate_checksum

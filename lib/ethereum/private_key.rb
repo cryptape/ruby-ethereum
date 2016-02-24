@@ -84,8 +84,8 @@ module Ethereum
       PublicKey.new(to_pubkey).to_bitcoin_address
     end
 
-    def to_address
-      PublicKey.new(to_pubkey).to_address
+    def to_address(extended=false)
+      PublicKey.new(to_pubkey).to_address(extended)
     end
 
   end

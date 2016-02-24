@@ -36,8 +36,13 @@ class PublicKeyTest < Minitest::Test
     assert_equal :bin, PublicKey.new("\x04" + "\x00"*64).format
   end
 
+  def test_to_bitcoin_address
+    assert_equal '1CC3X2gu58d6wXUWMffpuzN9JAfTUWu4Kj', PublicKey.new(RAW).to_bitcoin_address
+  end
+
   def test_to_address
-    assert_equal '1CC3X2gu58d6wXUWMffpuzN9JAfTUWu4Kj', PublicKey.new(RAW).to_address
+    pubkey = PublicKey.new PrivateKey.new("\x01"*32).to_pubkey
+    assert_equal "\x1ad/\x0e<:\xf5E\xe7\xac\xbd8\xb0rQ\xb3\x99\t\x14\xf1", pubkey.to_address
   end
 
 end

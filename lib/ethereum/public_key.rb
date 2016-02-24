@@ -80,9 +80,8 @@ module Ethereum
     end
 
     def to_address(extended=false)
-      bytes = encode(:bin)
-      addr_bytes = Utils.keccak256(bytes[1..-1])[12..-1]
-      Address.new(addr_bytes).to_bytes(extended)
+      bytes = Utils.keccak256(encode(:bin)[1..-1])[-20..-1]
+      Address.new(bytes).to_bytes(extended)
     end
 
   end

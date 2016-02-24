@@ -31,8 +31,12 @@ class PrivateKeyTest < Minitest::Test
     assert_equal '031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f', PrivateKey.new(PrivateKey.new("\x01"*32).encode(:hex_compressed)).to_pubkey
   end
 
+  def test_to_bitcoin_address
+    assert_equal '1BCwRkTsYzK5aNK4sdF7Bpti3PhrkPtLc4', PrivateKey.new("\x01"*32).to_bitcoin_address
+  end
+
   def test_to_address
-    assert_equal '1BCwRkTsYzK5aNK4sdF7Bpti3PhrkPtLc4', PrivateKey.new("\x01"*32).to_address
+    assert_equal "\x1ad/\x0e<:\xf5E\xe7\xac\xbd8\xb0rQ\xb3\x99\t\x14\xf1", PrivateKey.new("\x01"*32).to_address
   end
 
 end

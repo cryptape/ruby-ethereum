@@ -11,6 +11,10 @@ module Ethereum
       extended ? "#{@bytes}#{checksum}" : @bytes
     end
 
+    def to_hex(extended=false)
+      Utils.encode_hex to_bytes(extended)
+    end
+
     def checksum(bytes=nil)
       Utils.keccak256(bytes||@bytes)[0,4]
     end
@@ -21,9 +25,15 @@ module Ethereum
       case s.size
       when 40
         Utils.decode_hex s
+      when 42
+        raise FormatError, "Invalid address format!" unless s[0,2] == '0x'
+        parse s[2..-1]
       when 48
         bytes = Utils.decode_hex s
         parse bytes
+      when 50
+        raise FormatError, "Invalid address format!" unless s[0,2] == '0x'
+        parse s[2..-1]
       when 20
         s
       when 24
