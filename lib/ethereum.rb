@@ -14,6 +14,7 @@ require 'ethereum/base_convert'
 require 'ethereum/private_key'
 require 'ethereum/public_key'
 require 'ethereum/secp256k1'
+require 'ethereum/address'
 
 require 'ethereum/abi'
 require 'ethereum/fast_rlp'

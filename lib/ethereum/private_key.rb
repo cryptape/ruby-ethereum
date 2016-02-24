@@ -80,6 +80,10 @@ module Ethereum
       PublicKey.new(Ethereum::OpenSSL_EC.regenerate_key(encode(:bin))[1]).encode(fmt)
     end
 
+    def to_bitcoin_address
+      PublicKey.new(to_pubkey).to_bitcoin_address
+    end
+
     def to_address
       PublicKey.new(to_pubkey).to_address
     end
