@@ -29,6 +29,18 @@ module Ethereum
       sha256 sha256(x)
     end
 
+    def ripemd160(x)
+      Digest::RMD160.digest x
+    end
+
+    def hash160(x)
+      ripemd160 sha256(x)
+    end
+
+    def hash160_hex(x)
+      encode_hex hash160(x)
+    end
+
     def ceil32(x)
       x % 32 == 0 ? x : (x + 32 - x%32)
     end
