@@ -10,7 +10,7 @@ class TrieFixtureTest < Minitest::Test
   N_PERMUTATIONS = 1000
 
   def on_fixture_test(name, pairs)
-    inserts = pairs['in'].map {|(k,v)| [decode_hex(k), decode_hex(v)]}
+    inserts = pairs['in'].map {|(k,v)| [_dec(k), _dec(v)]}
     deletes = inserts.select {|(k,v)| v.nil? }
 
     inserts.permutation.take(N_PERMUTATIONS).each do |perm|
@@ -23,6 +23,11 @@ class TrieFixtureTest < Minitest::Test
       assert pairs['root'] == root, "Mismatch: #{name} #{pairs['root']} != #{root} permutation: #{perm+deletes}"
     end
   end
+
+  def _dec(x)
+    x.instance_of?(String) && x[0,2] == '0x' ? RLP::Utils.decode_hex(x[2..-1]) : x
+  end
+
 end
 
 class TrieTest < Minitest::Test
