@@ -6,6 +6,8 @@ class AddressTest < Minitest::Test
   include Ethereum
 
   def test_initialize_with_different_formats
+    assert_equal true, Address.new('').blank?
+
     assert_equal "\x00"*20, Address.new("00"*20).to_bytes
     assert_equal "\x00"*20, Address.new(Address.new("00"*20).to_bytes(true)).to_bytes
     assert_equal "\x00"*20, Address.new("0x"+"00"*20).to_bytes

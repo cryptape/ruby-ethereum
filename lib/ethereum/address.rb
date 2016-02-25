@@ -22,10 +22,16 @@ module Ethereum
       Utils.keccak256(bytes||@bytes)[0,4]
     end
 
+    def blank?
+      @bytes == BLANK
+    end
+
     private
 
     def parse(s)
       case s.size
+      when 0
+        s
       when 40
         Utils.decode_hex s
       when 42
