@@ -103,6 +103,12 @@ module Ethereum
       big_endian_to_int v
     end
 
+    def bytearray_to_int(arr)
+      o = 0
+      arr.each {|x| o = (o << 8) + x }
+      o
+    end
+
     def normalize_address(x, allow_blank: false)
       address = Address.new(x)
       raise ValueError, "address is blank" if !allow_blank && address.blank?

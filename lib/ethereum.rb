@@ -30,6 +30,7 @@ require 'ethereum/address'
 require 'ethereum/contract'
 require 'ethereum/env'
 
+require 'ethereum/vm'
 require 'ethereum/sedes'
 require 'ethereum/log'
 require 'ethereum/opcodes'
