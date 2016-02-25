@@ -6,6 +6,8 @@ module Ethereum
     BLANK = ''.freeze
     ZERO = ("\x00"*20).freeze
 
+    CREATE_CONTRACT = BLANK
+
     def initialize(s)
       @bytes = parse s
     end

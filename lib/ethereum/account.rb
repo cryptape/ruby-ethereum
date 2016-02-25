@@ -39,9 +39,10 @@ module Ethereum
       end
     end
 
-    def initialize(nonce, balance, storage, code_hash, db)
-      raise ArgumentError, "No database object given" unless db.is_a?(BaseDB)
-      @db = db
+    def initialize(*args)
+      @db = args.last if args.size == 5 # (nonce, balance, storage, code_hash, db)
+      @db = args.last[:db] if args.last.is_a?(Hash)
+      raise ArgumentError, "No database object given" unless @db.is_a?(BaseDB)
 
       super(nonce, balance, storage, code_hash)
     end

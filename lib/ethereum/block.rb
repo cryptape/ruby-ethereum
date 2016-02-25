@@ -20,14 +20,29 @@ module Ethereum
     extend Forwardable
     def_delegators :header, *HeaderGetters, *HeaderSetters
 
-    class ValidationError < StandardError; end
-    class UnknownParentException < StandardError; end
+    class UnknownParentError < StandardError; end
+    class UnsignedTransactionError < StandardError; end
+    class InvalidNonce < ValidationError; end
+    class InsufficientStartGas < ValidationError; end
+    class InsufficientBalance < ValidationError; end
+    class BlockGasLimitReached < ValidationError; end
 
     set_serializable_fields(
       header: BlockHeader,
       uncles: RLP::Sedes::CountableList.new(BlockHeader),
       transaction_list: RLP::Sedes::CountableList.new(Transaction)
     )
+
+    class <<self
+      ##
+      # Assumption: blocks loaded from the db are not manipulated -> can be
+      #   cached including hash.
+      def find(env, hash)
+        raise ArgumentError, "env must be instance of Env" unless env.instance_of?(Env)
+        RLP.decode env.db.get(hash), CachedBlock, options: {env: env}
+        # TODO: lru cache
+      end
+    end
 
     attr :db, :config
 
@@ -87,6 +102,10 @@ module Ethereum
       # TODO: more
     end
 
+    def add_refund(x)
+      @refunds += x
+    end
+
     ##
     # Add a transaction to the transaction trie.
     #
@@ -104,7 +123,21 @@ module Ethereum
     end
 
     def apply_transaction(tx)
-      # TODO
+      validate_transaction tx
+
+      logger.debug "apply transaction tx=#{tx.log_dict}"
+      increment_nonce tx.sender
+
+      # buy startgas
+      delta_balance tx.sender, -tx.startgas*tx.gasprice
+
+      intrinsic_gas = tx.intrinsic_gas_used
+      message_gas = tx.startgas - intrinsic_gas
+      message_data = VM::CallData.new tx.data.map(&:ord), 0, tx.data.size
+      message = VM::Message.new tx.sender, tx.to, tx.value, message_gas, message_data, code_address: tx.to
+
+      #ext = VM::Ext
+
     end
 
     ##
@@ -128,6 +161,16 @@ module Ethereum
 
     def commit_state
       # TODO
+    end
+
+    def account_exists(address)
+      address = Utils.normalize_address address
+      @state[address].size > 0 || @caches[:all].has_key?(address)
+    end
+
+    def add_log(log)
+      @logs.push log
+      @log_listeners.each {|l| l(log) }
     end
 
     ##
@@ -166,7 +209,269 @@ module Ethereum
       @journal = []
     end
 
+    def snapshot
+      # TODO
+    end
+
+    def revert(mysnapshot)
+      # TODO
+    end
+
+    ##
+    # Get the nonce of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    #
+    # @return [Integer] the nonce value
+    #
+    def get_nonce(address)
+      get_account_item address, :nonce
+    end
+
+    ##
+    # Set the nonce of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    # @param value [Integer] the new nonce
+    #
+    # @return [Bool] `true` if successful, otherwise `false`
+    #
+    def set_nonce(address, value)
+      set_account_item address, :nonce, value
+    end
+
+    ##
+    # Increment the nonce of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    #
+    # @return [Bool] `true` if successful, otherwise `false`
+    #
+    def increment_nonce(address)
+      if get_nonce(address) == 0
+        delta_account_item address, :nonce, config[:account_initial_nonce]+1
+      else
+        delta_account_item address, :nonce, 1
+      end
+    end
+
+    ##
+    # Get the balance of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    #
+    # @return [Integer] balance value
+    #
+    def get_balance(address)
+      get_account_item address, :balance
+    end
+
+    ##
+    # Set the balance of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    # @param value [Integer] the new balance value
+    #
+    # @return [Bool] `true` if successful, otherwise `false`
+    #
+    def set_balance(address, value)
+      set_account_item address, :balance, value
+    end
+
+    ##
+    # Increase the balance of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    # @param value [Integer] can be positive or negative
+    #
+    # @return [Bool] `true` if successful, otherwise `false`
+    #
+    def delta_balance(address, value)
+      delta_account_item address, :balance, value
+    end
+
+    ##
+    # Transfer a value between two account balance.
+    #
+    # @param from [String] the address of the sending account (binary or hex
+    #   string)
+    # @param to [String] the address of the receiving account (binary or hex
+    #   string)
+    # @param value [Integer] the (positive) value to send
+    #
+    # @return [Bool] `true` if successful, otherwise `false`
+    #
+    def transfer_value(from, to, value)
+      raise ArgumentError, "value must be greater than zero" unless value > 0
+
+      delta_balance(from, -value) && delta_balance(to, value)
+    end
+
+    ##
+    # Get the code of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    #
+    # @return [String] account code
+    #
+    def get_code(address)
+      get_account_item address, :code
+    end
+
+    ##
+    # Set the code of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    # @param value [String] the new code bytes
+    #
+    # @return [Bool] `true` if successful, otherwise `false`
+    #
+    def set_code(address, value)
+      set_account_item address, :code, value
+    end
+
+    ##
+    # Get the trie holding an account's storage.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    #
+    # @return [Trie] the storage trie of account
+    #
+    def get_storage(address)
+      storage_root = get_account_item address, :storage
+      SecureTrie.new Trie.new(db, storage_root)
+    end
+
+    def reset_storage(address)
+      set_account_item address, :storage, Constant::BYTE_EMPTY
+
+      cache_key = "storage:#{address}"
+      if @caches.has_key?(cache_key)
+        @caches[cache_key].each {|k, v| set_and_journal cache_key, k, 0 }
+      end
+    end
+
+    ##
+    # Get a specific item in the storage of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    # @param index [Integer] the index of the requested item in the storage
+    #
+    # @return [Integer] the value at storage index
+    #
+    def get_storage_data(address, index)
+      address = Utils.normalize_address address
+
+      cache = @caches["storage:#{address}"]
+      return cache[index] if cache && cache[index].has_key?(index)
+
+      key = Utils.zpad Utils.coerce_to_bytes(index), 32
+      value = get_storage(address)[key]
+
+      value ? RLP.decode(value, Sedes.big_endian_int) : 0
+    end
+
+    ##
+    # Set a specific item in the storage of an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    # @param index [Integer] the index of the requested item in the storage
+    # @param value [Integer] the new value of the item
+    #
+    def set_storage_data(address, index, value)
+      address = Utils.normalize_address address
+
+      cache_key = "storage:#{address}"
+      unless @caches.has_key?(cache_key)
+        @caches[cache_key] = {}
+        set_and_journal :all, address, true
+      end
+
+      set_and_journal cache_key, index, value
+    end
+
+    ##
+    # Serialize an account to a hash with human readable entries.
+    #
+    # @param address [String] the account address
+    # @param with_storage_root [Bool] include the account's storage root
+    # @param with_storage [Bool] include the whole account's storage
+    #
+    # @return [Hash] hash represent the account
+    #
+    def account_to_dict(address, with_storage_root: false, with_storage: true)
+      address = Utils.normalize_address address
+
+      # if there are uncommited account changes the current storage root is
+      # meaningless
+      raise ArgumentError, "cannot include storage root with uncommited account changes" if with_storage_root && !@journal.empty?
+
+      h = {}
+      account = get_account address
+
+      h[:nonce] = (@caches[:nonce][address] || account.nonce).to_s
+      h[:balance] = (@caches[:balance][address] || account.balance).to_s
+
+      code = @caches[:code][address] || account.code
+      h[:code] = "0x#{Utils.encode_hex code}"
+
+      storage_trie = SecureTrie.new Trie.new(db, account.storage)
+      h[:storage_root] = Utils.encode_hex storage_trie.root_hash if with_storage_root
+      if with_storage
+        h[:storage] = {}
+        sh = storage_trie.to_h
+
+        cache = @caches["storage:#{address}"] || {}
+        keys = cache.keys.map {|k| Utils.zpad Utils.coerce_to_bytes(k), 32 }
+
+        (sh.keys + keys).each do |k|
+          hexkey = "0x#{Utils.encode_hex Utils.zunpad(k)}"
+
+          v = cache[Utils.big_endian_to_int(k)]
+          if v && v != 0
+            h[:storage][hexkey] = "0x#{Utils.encode_hex Utils.int_to_big_endian(v)}"
+          else
+            v = sh[k]
+            h[:storage][hexkey] = "0x#{Utils.encode_hex RLP.decode(v)}" if v
+          end
+        end
+      end
+
+      h
+    end
+
+    ##
+    # Return `n` ancestors of this block.
+    #
+    # @return [Array] array of ancestors in format of `[parent, parent.parent, ...]
+    #
+    def get_ancestor_list(n)
+      raise ArgumentError, "n must be greater or equal than zero" unless n >= 0
+
+      return [] if n == 0 || number == 0
+      parent = get_parent
+      [parent] + parent.get_ancestor_list(n-1)
+    end
+
+    def get_ancestor_hash(n)
+      raise ArgumentError, "n must be greater than 0 and less or equal than 256" unless n > 0 && n <= 256
+
+      while @ancestor_hashes.size < n
+        if number == @ancestor_hashes.size - 1
+          @ancestor_hashes.push nil
+        else
+          @ancestor_hashes.push self.class.find(env, @ancestor_hashes[-1]).get_parent().full_hash
+        end
+      end
+
+      @ancestor_hashes[n-1]
+    end
+
     private
+
+    def logger
+      Logger['eth.block']
+    end
 
     def initialize_state(transaction_list, parent, making)
       state_unknown =
@@ -216,19 +521,36 @@ module Ethereum
       (gl - parent.gas_limit).abs <= adjmax && gl >= parent.config[:min_gas_limit]
     end
 
-    def get_parent_header
-      raise UnknownParentException, "Genesis block has no parent" if number == 0
+    def validate_transaction(tx)
+      raise UnsignedTransactionError.new(tx) unless tx.sender
 
-      parent_header = get_block_header prevhash
-      raise UnknownParentException, Utils.encode_hex(prevhash) unless parent_header
+      acct_nonce = get_nonce tx.sender
+      raise InvalidNonce, "#{tx}: nonce actual: #{tx.nonce} target: #{acct_nonce}" if acct_nonce != tx.nonce
 
-      parent_header
+      min_gas = tx.intrinsic_gas_used
+      if number >= config[:homestead_fork_blknum]
+        raise ValidationError, "invalid s in transaction signature" unless tx.s*2 < Secp256k1::N
+        min_gas += Opcodes::CREATE[3] if !tx.to || tx.to == Address::CREATE_CONTRACT
+      end
+      raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}"
+
+      total_cost = tx.value + tx.gasprice * tx.startgas
+      balance = get_balance tx.sender
+      raise InsufficientBalance, "#{tx}: balance actual: #{balance} target: #{total_cost}" if balance < total_cost
+
+      accum_gas = gas_used + tx.startgas
+      raise BlockGasLimitReached, "#{tx}: gaslimit actual: #{accum_gas} target: #{gas_limit}" if accum_gas > gas_limit
+
+      true
     end
 
-    def get_block_header(blockhash)
-      bh = BlockHeader.from_block_rlp db.get(blockhash)
-      raise ValidationError, "BlockHeader.hash is broken" if bh.full_hash != blockhash
-      bh
+    def get_parent_header
+      raise UnknownParentError, "Genesis block has no parent" if number == 0
+
+      parent_header = BlockHeader.find db, prevhash
+      raise UnknownParentError, Utils.encode_hex(prevhash) unless parent_header
+
+      parent_header
     end
 
     def calc_difficulty(parent, ts)
@@ -266,9 +588,7 @@ module Ethereum
     # @return [Object] the value
     #
     def get_account_item(address, param)
-      raise ArgumentError, "invalid address: #{address}" unless address.size == 0 || address.size == 20 || address.size == 40
-      address = Utils.decode_hex(address) if address.size == 40
-
+      address = Utils.normalize_address address, allow_blank: true
       return @caches[param][address] if @caches[param].has_key?(address)
 
       account = get_account address
@@ -291,6 +611,22 @@ module Ethereum
 
       set_and_journal(param, address, value)
       set_and_journal(:all, address, true)
+    end
+
+    ##
+    # Get the account with the given address.
+    #
+    # Note that this method ignores cached account items.
+    #
+    def get_account(address)
+      address = Utils.normalize_address address, allow_blank: true
+      rlpdata = @state.get address
+
+      if rlpdata == Trie::BLANK_NODE
+        Account.build_blank db, config[:account_initial_nonce]
+      else
+        RLP.decode(rlpdata, Account, options: {db: db})
+      end
     end
 
     ##

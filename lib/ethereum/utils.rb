@@ -85,6 +85,10 @@ module Ethereum
       lpad x, BYTE_ZERO, l
     end
 
+    def zunpad(x)
+      x.sub /^\x00+/, ''
+    end
+
     def zpad_int(n, l=32)
       zpad encode_int(n), l
     end
@@ -107,6 +111,26 @@ module Ethereum
       o = 0
       arr.each {|x| o = (o << 8) + x }
       o
+    end
+
+    def coerce_to_int(x)
+      if x.is_a?(Numeric)
+        x
+      elsif x.size == 40
+        big_endian_to_int decode_hex(x)
+      else
+        big_endian_to_int x
+      end
+    end
+
+    def coerce_to_bytes(x)
+      if x.is_a?(Numeric)
+        int_to_big_endian x
+      elsif x.size == 40
+        decode_hex(x)
+      else
+        x
+      end
     end
 
     def normalize_address(x, allow_blank: false)

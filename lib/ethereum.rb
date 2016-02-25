@@ -28,6 +28,7 @@ require 'ethereum/miner'
 
 require 'ethereum/address'
 require 'ethereum/contract'
+require 'ethereum/special_contract'
 require 'ethereum/env'
 
 require 'ethereum/vm'

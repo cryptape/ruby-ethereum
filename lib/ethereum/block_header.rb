@@ -56,6 +56,12 @@ module Ethereum
         block_data = RLP.decode_lazy rlp_data
         deserialize block_data[0]
       end
+
+      def find(db, hash)
+        bh = from_block_rlp db.get(hash)
+        raise ValidationError, "BlockHeader.hash is broken" if bh.full_hash != hash
+        bh
+      end
     end
 
     def initialize(options={})
@@ -184,7 +190,7 @@ module Ethereum
     private
 
     def logger
-      Logger['eth.block']
+      Logger['eth.block_header']
     end
 
     def get_with_block(attr)
