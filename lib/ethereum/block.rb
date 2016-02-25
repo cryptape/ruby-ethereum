@@ -159,8 +159,42 @@ module Ethereum
       commit_state
     end
 
+    ##
+    # Commit account caches. Write the account caches on the corresponding
+    # tries.
+    #
     def commit_state
-      # TODO
+      return if @journal.empty?
+
+      changes = []
+      addresses = @caches[:all].keys.sort
+
+      addresses.each do |addr|
+        acct = get_account addr
+
+        %i(balance nonce code storage).each do |field|
+          if v = @caches[field][acct]
+            changes.push [field, addr, v]
+            account.send :"#{field}=", v
+          end
+        end
+
+        t = SecureTrie.new Trie.new(db, acct.storage)
+        @caches.fetch("storage:#{addr}", {}).each do |k, v|
+          enckey = Utils.zpad Utils.coerce_to_bytes(k), 32
+          val = RLP.encode v
+          changes.push ['storage', addr, k, v]
+
+          v && v != 0 ? t.update(enckey, val) : t.delete(enckey)
+        end
+
+        acct.storage = t.root_hash
+        @state.update addr, RLP.encode(acct)
+      end
+      logger.debug "delta changes=#{changes}"
+
+      reset_cache
+      db.put_temporarily "validated:#{full_hash}", '1'
     end
 
     def account_exists(address)
