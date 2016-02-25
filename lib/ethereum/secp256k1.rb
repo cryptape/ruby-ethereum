@@ -16,6 +16,8 @@ module Ethereum
     Gy = 32670510020758816978083085130507043184471273380659243275938904335757337482424
     G  = [Gx, Gy].freeze
 
+    class InvalidPrivateKey < StandardError; end
+
     class <<self # extensions
       def ecdsa_raw_sign(msghash, priv, compact=false)
         raise ArgumentError, "private key must be 32 bytes" unless priv.size == 32
