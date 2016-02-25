@@ -14,7 +14,7 @@ module Ethereum
     ##
     # @param env [Ethereum::Env] configuration of the chain
     #
-    def initialize(env, genesis: nil, new_head_cb: nil, coinbase: Constant::ADDRESS_ZERO)
+    def initialize(env, genesis: nil, new_head_cb: nil, coinbase: Address::ZERO)
       @env = env
       @db = env.db
       @new_head_cb = new_head_cb
