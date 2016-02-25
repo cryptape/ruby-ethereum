@@ -554,7 +554,25 @@ module Ethereum
     end
 
     def calc_difficulty(parent, ts)
-      # TODO
+      config = parent.config
+      offset = parent.difficulty / config[:block_diff_factor]
+
+      if parent.number >= config[:homestead_fork_blknum]-1
+        sign = [1 - 2 * ((ts - parent.timestamp) / config[:homestead_diff_adjustment_cutoff]), -99].max
+      else
+        sign = (ts - parent.timestamp) < config[:diff_adjustment_cutoff] ? 1 : -1
+      end
+
+      # If we enter a special mode where the genesis difficulty starts off
+      # below the minimal difficulty, we allow low-difficulty blocks (this will
+      # never happen in the official protocol)
+      o = [parent.difficulty + offset*sign, [parent.difficulty, config[:min_diff]].min].max
+      period_count = (parent.number + 1) / config[:expdiff_period]
+      if period_count >= config[:expdiff_free_periods]
+        o = [o + 2**(period_count - config[:expdiff_free_periods]), config[:min_diff]].max
+      end
+
+      o
     end
 
     ##
