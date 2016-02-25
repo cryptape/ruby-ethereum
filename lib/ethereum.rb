@@ -38,6 +38,7 @@ require 'ethereum/transaction'
 require 'ethereum/block_header'
 require 'ethereum/account'
 require 'ethereum/block'
+require 'ethereum/cached_block'
 require 'ethereum/index'
 require 'ethereum/chain'
 
