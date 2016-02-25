@@ -14,7 +14,7 @@ module Ethereum
       raise ArgumentError, "invalid address: #{address}" unless address.size == 20 || address.size == 40
 
       address = Utils.decode_hex(address) if address.size == 40
-      serializable_initialize(address, topics, data)
+      super(address, topics, data)
     end
 
     def bloomables

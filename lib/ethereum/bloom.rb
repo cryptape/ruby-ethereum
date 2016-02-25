@@ -4,7 +4,7 @@ module Ethereum
 
   ###
   # Blooms are the 3-point, 2048-bit (11-bits/point) Bloom filter of each
-  # component (except data) of each log entry of each transation.
+  # component (except data) of each log entry of each transaction.
   #
   # We set the bits of a 2048-bit value whose indices are given by the low
   # order 9-bits of the first three double-bytes of the SHA3 of each value.

@@ -14,7 +14,7 @@ module Ethereum
     )
 
     def initialize(state_root, gas_used, logs, bloom=nil)
-      serializable_initialize(state_root, gas_used, nil, logs)
+      super(state_root, gas_used, nil, logs)
       raise ArgumentError, "Invalid bloom filter" if bloom && bloom != self.bloom
     end
 

@@ -47,7 +47,19 @@ def encode_hex(s)
 end
 
 def decode_hex(x)
-  x.instance_of?(String) && x[0,2] == '0x' ? RLP::Utils.decode_hex(x[2..-1]) : x
+  if x.instance_of?(String)
+    RLP::Utils.decode_hex(x[0,2] == '0x' ? x[2..-1] : x)
+  else
+    x
+  end
+end
+
+def decode_uint(x)
+  if x.instance_of?(String)
+    (x[0,2] == '0x' ? x[2..-1] : x).to_i(16)
+  else
+    x
+  end
 end
 
 class Minitest::Test
@@ -56,16 +68,33 @@ class Minitest::Test
       fixture = load_fixture path
 
       fixture.each do |name, pairs|
+        break if fixture_limit > 0 && fixture_loaded.size >= fixture_limit
+        fixture_loaded.push name
+
         define_method("test_fixture_#{name}") do
           on_fixture_test name, pairs
         end
       end
     end
 
-    def run_fixtures(path)
+    def run_fixtures(path, except: nil, only: nil)
       Dir[fixture_path("#{path}/**/*.json")].each do |file_path|
+        next if except && file_path =~ except
+        next if only && file_path !~ only
         run_fixture file_path.sub(fixture_root, '')
       end
+    end
+
+    def set_fixture_limit(limit)
+      @limit = limit
+    end
+
+    def fixture_limit
+      @limit ||= 0
+    end
+
+    def fixture_loaded
+      @loaded ||= []
     end
   end
 
