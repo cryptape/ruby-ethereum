@@ -2,6 +2,7 @@
 
 module Ethereum
   module Constant
+
     BYTE_EMPTY = "".freeze
     BYTE_ZERO = "\x00".freeze
     BYTE_ONE  = "\x01".freeze
