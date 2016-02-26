@@ -26,6 +26,7 @@ module Ethereum
     class InsufficientStartGas < ValidationError; end
     class InsufficientBalance < ValidationError; end
     class BlockGasLimitReached < ValidationError; end
+    class BlockVerificationError < ValidationError; end
 
     set_serializable_fields(
       header: BlockHeader,
@@ -99,7 +100,17 @@ module Ethereum
 
       initialize_state(transaction_list, parent, making)
 
-      # TODO: more
+      validate_block!(original_values)
+      unless db.has_key?("validated:#{full_hash}")
+        if number == 0
+          db.put "validated:#{full_hash}", '1'
+        else
+          db.put_temporarily "validated:#{full_hash}", '1'
+        end
+      end
+
+      header.block = self
+      header.instance_variable_set :@_mutable, original_values[:header_mutable]
     end
 
     def add_refund(x)
@@ -550,9 +561,27 @@ module Ethereum
       raise ValidationError, "Timestamp way too large" if timestamp > Constant::UINT_MAX
     end
 
-    def valid_gas_limit?(parent, gl)
-      adjmax = parent.gas_limit / parent.config[:gaslimit_adjmax_factor]
-      (gl - parent.gas_limit).abs <= adjmax && gl >= parent.config[:min_gas_limit]
+    def validate_block!(original_values)
+      raise BlockVerificationError, "gas_used mistmatch actual: #{gas_used} target: #{original_values[:gas_used]}" if gas_used != original_values[:gas_used]
+      raise BlockVerificationError, "timestamp mistmatch actual: #{timestamp} target: #{original_values[:timestamp]}" if timestamp != original_values[:timestamp]
+      raise BlockVerificationError, "difficulty mistmatch actual: #{difficulty} target: #{original_values[:difficulty]}" if difficulty != original_values[:difficulty]
+      raise BlockVerificationError, "bloom mistmatch actual: #{bloom} target: #{original_values[:bloom]}" if bloom != original_values[:bloom]
+
+      uh = Utils.keccak256 RLP.encode(uncles)
+      raise BlockVerificationError, "uncles_hash mistmatch actual: #{uh} target: #{original_values[:uncles_hash]}" if uh != original_values[:uncles_hash]
+
+      raise BlockVerificationError, "header must reference no block" unless header.block.nil?
+
+      raise BlockVerificationError, "state_root mistmatch actual: #{state.root_hash} target: #{header.state_root}" if state.root_hash != header.state_root
+      raise BlockVerificationError, "tx_list_root mistmatch actual: #{transactions.root_hash} target: #{header.tx_list_root}" if transactions.root_hash != header.tx_list_root
+      raise BlockVerificationError, "receipts_root mistmatch actual: #{receipts.root_hash} target: #{header.receipts_root}" if receipts.root_hash != header.receipts_root
+
+      #raise ValueError, "Block is invalid" unless validate_fields # TODO: uncomment to see if tests break
+
+      raise ValueError, "Extra data cannot exceed #{config[:max_extradata_length]} bytes" if header.extra_data.size > config[:max_extradata_length]
+      raise ValueError, "Coinbase cannot be empty address" if header.coinbase.nil? || header.coinbase.empty?
+      raise ValueError, "State merkle root of block #{self} not found in database" unless state.root_hash_valid?
+      raise ValueError, "PoW check failed" unless genesis? || nonce.nil? || header.check_pow
     end
 
     def validate_transaction(tx)
@@ -576,6 +605,20 @@ module Ethereum
       raise BlockGasLimitReached, "#{tx}: gaslimit actual: #{accum_gas} target: #{gas_limit}" if accum_gas > gas_limit
 
       true
+    end
+
+    ##
+    # Check that the values of all fields are well formed.
+    #
+    # Serialize and deserialize and check that the values didn't change.
+    #
+    def validate_fields
+      RLP.decode(RLP.encode(self)) == self
+    end
+
+    def valid_gas_limit?(parent, gl)
+      adjmax = parent.gas_limit / parent.config[:gaslimit_adjmax_factor]
+      (gl - parent.gas_limit).abs <= adjmax && gl >= parent.config[:min_gas_limit]
     end
 
     def get_parent_header
