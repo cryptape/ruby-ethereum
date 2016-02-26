@@ -247,6 +247,50 @@ module Ethereum
     end
 
     ##
+    # Get the `num`th transaction in this block.
+    #
+    # @raise [IndexError] if the transaction does not exist
+    #
+    def get_transaction(num)
+      index = RLP.encode num
+      tx = @transactions.get index
+
+      raise IndexError, "Transaction does not exist" if tx == Trie::BLANK_NODE
+      RLP.decode tx, sedes: Transaction
+    end
+
+    ##
+    # Build a list of all transactions in this block.
+    #
+    def get_transactions
+      num = @transaction_count
+
+      if @get_transactions_cache.size != num
+        @get_transactions_cache = num.times.map {|i| get_transaction(i) }
+      end
+
+      @get_transactions_cache
+    end
+
+    ##
+    # helper to check if block contains a tx.
+    #
+    def get_transaction_hashes
+      @transaction_count.times.map do |i|
+        Utils.keccak256 @transactions[RLP.encode(i)]
+      end
+    end
+
+    def include_transaction?(tx_hash)
+      raise ArgumentError, "argument must be transaction hash in bytes" unless tx_hash.size == 32
+      get_transaction_hashes.include?(tx_hash)
+    end
+
+    def transaction_count
+      @transaction_count
+    end
+
+    ##
     # Apply rewards and commit.
     #
     def finalize
@@ -349,12 +393,93 @@ module Ethereum
       @journal = []
     end
 
+    ##
+    # Make a snapshot of the current state to enable later reverting.
+    #
     def snapshot
-      # TODO
+      { state: state.root_hash,
+        gas: gas_used,
+        txs: @transactions,
+        txcount: @transaction_count,
+        refunds: @refunds,
+        suicides: @suicides,
+        suicides_size: @suicides.size,
+        logs: @logs,
+        logs_size: @logs.size,
+        journal: @journal, # pointer to reference, so is not static
+        journal_size: @journal.size,
+        ether_delta: @ether_delta
+      }
     end
 
+    ##
+    # Revert to a previously made snapshot.
+    #
+    # Reverting is for example neccessary when a contract runs out of gas
+    # during execution.
+    #
     def revert(mysnapshot)
-      # TODO
+      logger.debug "REVERTING"
+
+      @journal = mysnapshot[:journal]
+      # if @journal changed after snapshot
+      while @journal.size > mysnapshot[:journal_size]
+        cache, index, prev, post = @journal.pop
+        logger.debug "revert journal cache=#{cache} index=#{index} prev=#{prev} post=#{post}"
+        if prev
+          @caches[cache][index] = prev
+        else
+          @caches[cache].delete index
+        end
+      end
+
+      @suicides = mysnapshot[:suicides]
+      @suicides.pop while @suicides.size > mysnapshot[:suicides_size]
+
+      @logs = mysnapshot[:logs]
+      @logs.pop while @logs.size > mysnapshot[:logs_size]
+
+      @refunds = mysnapshot[:refunds]
+      @state.root_hash = mysnapshot[:state]
+      @gas_used = mysnapshot[:gas]
+      @transactions = mysnapshot[:txs]
+      @transaction_count = mysnapshot[:txcount]
+      @ether_delta = mysnapshot[:ether_delta]
+
+      @get_transactions_cache = []
+    end
+
+    ##
+    # Get the receipt of the `num`th transaction.
+    #
+    # @raise [IndexError] if receipt at index is not found
+    #
+    # @return [Receipt]
+    #
+    def get_receipt(num)
+      index = RLP.encode num
+      receipt = @receipts[index]
+
+      if receipt == Trie::BLANK_NODE
+        raise IndexError, "Receipt does not exist"
+      else
+        RLP.decode receipt, Receipt
+      end
+    end
+
+    ##
+    # Build a list of all receipts in this block.
+    #
+    def get_receipts
+      receipts = []
+      i = 0
+      loop do
+        begin
+          receipts.push get_receipt(i)
+        rescue IndexError
+          return receipts
+        end
+      end
     end
 
     ##
@@ -626,7 +751,7 @@ module Ethereum
 
         parent ||= get_parent_header
         @state = SecureTrie.new PruningTrie.new(db, parent.state_root)
-        @transaction_count = 0
+        @transaction_count = 0 # TODO - should always equal @transactions.size
         @gas_used = 0
 
         transaction_list.each {|tx| apply_transaction tx }
