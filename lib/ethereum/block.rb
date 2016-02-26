@@ -43,6 +43,7 @@ module Ethereum
         RLP.decode env.db.get(hash), CachedBlock, options: {env: env}
         # TODO: lru cache
       end
+      lru_cache :find, 1024
 
       ##
       # Create a block without specifying transactions or uncles.
