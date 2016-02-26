@@ -10,6 +10,7 @@ PATH
       digest-sha3 (~> 1.1.0)
       ffi (~> 1.9.10)
       logging (~> 2.0.0)
+      lru_redux (~> 1.1.0)
       rlp (~> 0.5.2)
 
 GEM
@@ -22,6 +23,7 @@ GEM
     logging (2.0.0)
       little-plugger (~> 1.1)
       multi_json (~> 1.10)
+    lru_redux (1.1.0)
     method_source (0.8.2)
     minitest (5.8.3)
     multi_json (1.11.2)

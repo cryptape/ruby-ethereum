@@ -15,6 +15,7 @@ Gem::Specification.new do |s|
   s.files = Dir["{lib}/**/*"] + ["LICENSE", "README.md"]
 
   s.add_dependency('rlp', '~> 0.5.2')
+  s.add_dependency('lru_redux', '~> 1.1.0')
   s.add_dependency('ffi', '~> 1.9.10')
   s.add_dependency('digest-sha3', '~> 1.1.0')
   s.add_dependency('logging', '~> 2.0.0')
