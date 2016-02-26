@@ -43,6 +43,101 @@ module Ethereum
         RLP.decode env.db.get(hash), CachedBlock, options: {env: env}
         # TODO: lru cache
       end
+
+      ##
+      # Create a block without specifying transactions or uncles.
+      #
+      # @param header_rlp [String] the RLP encoded block header
+      # @param env [Env] provide database for the block
+      #
+      # @return [Block]
+      #
+      def build_from_header(header_rlp, env)
+        header = RLP.decode header_rlp, sedes: BlockHeader
+        new header, transaction_list: nil, uncles: [], env: env
+      end
+
+      ##
+      # Create a new block based on a parent block.
+      #
+      # The block will not include any transactions and will not be finalized.
+      #
+      def build_from_parent(parent, coinbase, nonce: Constant::BYTE_EMPTY, extra_data: Constant::BYTE_EMPTY, timestamp: Time.now.to_i, uncles: [], env: nil)
+        env ||= parent.env
+
+        header = BlockHeader.new(
+          prevhash: parent.full_hash,
+          uncles_hash: Utils.keccak256_rlp(uncles),
+          coinbase: coinbase,
+          state_root: parent.state_root,
+          tx_list_root: Trie::BLANK_ROOT,
+          receipts_root: Trie::BLANK_ROOT,
+          bloom: 0,
+          difficulty: calc_difficulty(parent, timestamp),
+          mixhash: Constant::BYTE_EMPTY,
+          number: parent.number+1,
+          gas_limit: calc_gaslimit(parent),
+          gas_used: 0,
+          timestamp: timestamp,
+          extra_data: extra_data,
+          nonce: nonce
+        )
+
+        Block.new(
+          header,
+          transaction_list: [],
+          uncles: uncles,
+          env: env,
+          parent: parent,
+          making: true
+        ).tap do |blk|
+          blk.ancestor_hashes = [parent.hash] + parent.ancestor_hashes
+          blk.log_listeners = parent.log_listeners
+        end
+      end
+
+      def calc_difficulty(parent, ts)
+        config = parent.config
+        offset = parent.difficulty / config[:block_diff_factor]
+
+        if parent.number >= config[:homestead_fork_blknum]-1
+          sign = [1 - 2 * ((ts - parent.timestamp) / config[:homestead_diff_adjustment_cutoff]), -99].max
+        else
+          sign = (ts - parent.timestamp) < config[:diff_adjustment_cutoff] ? 1 : -1
+        end
+
+        # If we enter a special mode where the genesis difficulty starts off
+        # below the minimal difficulty, we allow low-difficulty blocks (this will
+        # never happen in the official protocol)
+        o = [parent.difficulty + offset*sign, [parent.difficulty, config[:min_diff]].min].max
+        period_count = (parent.number + 1) / config[:expdiff_period]
+        if period_count >= config[:expdiff_free_periods]
+          o = [o + 2**(period_count - config[:expdiff_free_periods]), config[:min_diff]].max
+        end
+
+        o
+      end
+
+      def calc_gaslimit(parent)
+        config = parent.config
+        decay = parent.gas_limit / config[:gaslimit_ema_factor]
+        new_contribution = ((parent.gas_used * config[:blklim_factor_nom]) / config[:blklim_factor_den] / config[:gaslimit_ema_factor])
+
+        gl = [parent.gas_limit - decay + new_contribution, config[:min_gas_limit]].max
+        if gl < config[:genesis_gas_limit]
+          gl2 = parent.gas_limit + decay
+          gl = [config[:genesis_gas_limit], gl2].min
+        end
+        raise ValueError, "invalid gas limit" unless check_gaslimit(parent, gl)
+
+        gl
+      end
+
+      def check_gaslimit(parent, gas_limit)
+        config = parent.config
+        adjmax = parent.gas_limit / config[:gaslimit_adjmax_factor]
+        (gas_limit - parent.gas_limit).abs <= adjmax && gas_limit >= parent.config[:min_gas_limit]
+      end
     end
 
     attr :db, :config
@@ -554,8 +649,8 @@ module Ethereum
       raise ValidationError, "Parent lives in different database" if parent && db != parent.db && db.db != parent.db # TODO: refactor the db.db mess
       raise ValidationError, "Block's prevhash and parent's hash do not match" if prevhash != parent.full_hash
       raise ValidationError, "Block's number is not the successor of its parent number" if number != parent.number+1
-      raise ValidationError, "Block's gaslimit is inconsistent with its parent's gaslimit" unless valid_gas_limit?(parent, gas_limit)
-      raise ValidationError, "Block's difficulty is inconsistent with its parent's difficulty" if difficulty != calc_difficulty(parent, timestamp)
+      raise ValidationError, "Block's gaslimit is inconsistent with its parent's gaslimit" unless Block.check_gaslimit(parent, gas_limit)
+      raise ValidationError, "Block's difficulty is inconsistent with its parent's difficulty" if difficulty != Block.calc_difficulty(parent, timestamp)
       raise ValidationError, "Gas used exceeds gas limit" if gas_used > gas_limit
       raise ValidationError, "Timestamp equal to or before parent" if timestamp <= parent.timestamp
       raise ValidationError, "Timestamp way too large" if timestamp > Constant::UINT_MAX
@@ -616,11 +711,6 @@ module Ethereum
       RLP.decode(RLP.encode(self)) == self
     end
 
-    def valid_gas_limit?(parent, gl)
-      adjmax = parent.gas_limit / parent.config[:gaslimit_adjmax_factor]
-      (gl - parent.gas_limit).abs <= adjmax && gl >= parent.config[:min_gas_limit]
-    end
-
     def get_parent_header
       raise UnknownParentError, "Genesis block has no parent" if number == 0
 
@@ -628,28 +718,6 @@ module Ethereum
       raise UnknownParentError, Utils.encode_hex(prevhash) unless parent_header
 
       parent_header
-    end
-
-    def calc_difficulty(parent, ts)
-      config = parent.config
-      offset = parent.difficulty / config[:block_diff_factor]
-
-      if parent.number >= config[:homestead_fork_blknum]-1
-        sign = [1 - 2 * ((ts - parent.timestamp) / config[:homestead_diff_adjustment_cutoff]), -99].max
-      else
-        sign = (ts - parent.timestamp) < config[:diff_adjustment_cutoff] ? 1 : -1
-      end
-
-      # If we enter a special mode where the genesis difficulty starts off
-      # below the minimal difficulty, we allow low-difficulty blocks (this will
-      # never happen in the official protocol)
-      o = [parent.difficulty + offset*sign, [parent.difficulty, config[:min_diff]].min].max
-      period_count = (parent.number + 1) / config[:expdiff_period]
-      if period_count >= config[:expdiff_free_periods]
-        o = [o + 2**(period_count - config[:expdiff_free_periods]), config[:min_diff]].max
-      end
-
-      o
     end
 
     ##
