@@ -360,6 +360,8 @@ module Ethereum
     # Build a list of all transactions in this block.
     #
     def get_transactions
+      # FIXME: such memoization is potentially buggy - what if pop b from and
+      # push a to the cache? size will not change while content changed.
       if @get_transactions_cache.size != @transaction_count
         @get_transactions_cache = transaction_list
       end
