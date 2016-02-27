@@ -25,6 +25,8 @@ module Ethereum
     class InvalidNode < StandardError; end
     class InvalidNodeType < StandardError; end
 
+    attr :db
+
     ##
     # It presents a hash like interface.
     #
@@ -68,8 +70,9 @@ module Ethereum
     end
 
     def root_hash_valid?
-      return true if @root_hash == BLANK_ROOT
-      return @db.include?(@root_hash)
+      h = root_hash
+      return true if h == BLANK_ROOT
+      return @db.include?(h)
     end
 
     ##

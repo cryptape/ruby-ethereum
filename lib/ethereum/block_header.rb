@@ -64,6 +64,8 @@ module Ethereum
       end
     end
 
+    attr_accessor :block
+
     def initialize(options={})
       fields = {
         prevhash: Env::DEFAULT_CONFIG[:genesis_prevhash],
@@ -87,7 +89,7 @@ module Ethereum
       raise ArgumentError, "invalid coinbase #{coinbase}" unless fields[:coinbase].size == 20
       raise ArgumentError, "invalid difficulty" unless fields[:difficulty] > 0
 
-      @block = nil
+      self.block = nil
       @fimxe_hash = nil
 
       super(**fields)
@@ -130,7 +132,7 @@ module Ethereum
     end
 
     def mining_hash
-      Utils.keccak256 RLP.encode(self, self.class.exclude(['mixhash', 'nonce']))
+      Utils.keccak256 RLP.encode(self, sedes: self.class.exclude(['mixhash', 'nonce']))
     end
 
     ##
@@ -194,12 +196,12 @@ module Ethereum
     end
 
     def get_with_block(attr)
-      @block ? @block.send(attr) : instance_variable_get(:"@#{attr}")
+      block ? block.send(attr) : instance_variable_get(:"@#{attr}")
     end
 
     def set_with_block(attr, v)
-      if @block
-        @block.send :"#{attr}=", v
+      if block
+        block.send :"#{attr}=", v
       else
         _set_field attr, v
       end

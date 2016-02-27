@@ -17,7 +17,7 @@ module Ethereum
     class <<self
       # TODO: @lru_cache(maxsize=32)
       def check_pow(block_number, header_hash, mixhash, nonce, difficulty)
-        logger.debug "checking pow block_number=#{block_number}"
+        Logger['eth.miner'].debug "checking pow block_number=#{block_number}"
 
         return false if mixhash.size != 32 || header_hash.size != 32 || nonce.size != 8
 
@@ -39,6 +39,12 @@ module Ethereum
     #
     def initialize(block)
       #TODO
+    end
+
+    private
+
+    def logger
+      Logger['eth.miner']
     end
 
   end

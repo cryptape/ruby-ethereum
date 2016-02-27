@@ -14,7 +14,7 @@ module Ethereum
   class Block
     include RLP::Sedes::Serializable
 
-    HeaderGetters = (BlockHeader.serializable_fields.keys - %i(state_root receipts_root tx_list_root) + %i(full_hash hex_full_hash)).freeze
+    HeaderGetters = (BlockHeader.serializable_fields.keys - %i(state_root receipts_root tx_list_root)).freeze
     HeaderSetters = HeaderGetters.map {|field| :"#{field}=" }.freeze
 
     extend Forwardable
@@ -23,6 +23,7 @@ module Ethereum
     class UnknownParentError < StandardError; end
     class UnsignedTransactionError < StandardError; end
     class InvalidNonce < ValidationError; end
+    class InvalidUncles < ValidationError; end
     class InsufficientStartGas < ValidationError; end
     class InsufficientBalance < ValidationError; end
     class BlockGasLimitReached < ValidationError; end
@@ -30,8 +31,8 @@ module Ethereum
 
     set_serializable_fields(
       header: BlockHeader,
-      uncles: RLP::Sedes::CountableList.new(BlockHeader),
-      transaction_list: RLP::Sedes::CountableList.new(Transaction)
+      transaction_list: RLP::Sedes::CountableList.new(Transaction),
+      uncles: RLP::Sedes::CountableList.new(BlockHeader)
     )
 
     class <<self
@@ -41,7 +42,6 @@ module Ethereum
       def find(env, hash)
         raise ArgumentError, "env must be instance of Env" unless env.instance_of?(Env)
         RLP.decode env.db.get(hash), CachedBlock, options: {env: env}
-        # TODO: lru cache
       end
       lru_cache :find, 1024
 
@@ -141,7 +141,8 @@ module Ethereum
       end
     end
 
-    attr :db, :config
+    attr :env, :db, :config
+    attr_accessor :ancestor_hashes, :log_listeners
 
     ##
     # @param header [BlockHeader] the block header
@@ -170,12 +171,12 @@ module Ethereum
 
       @suicides = []
       @logs = []
-      @log_listeners = []
+      self.log_listeners = []
 
       @refunds = 0
       @ether_delta = 0
 
-      @ancestor_hashes = number > 0 ? [prevhash] : [nil]*256
+      self.ancestor_hashes = number > 0 ? [prevhash] : [nil]*256
 
       validate_parent!(parent) if parent
 
@@ -207,6 +208,101 @@ module Ethereum
 
       header.block = self
       header.instance_variable_set :@_mutable, original_values[:header_mutable]
+    end
+
+    ##
+    # The binary block hash. This is equivalent to `header.full_hash`.
+    #
+    def full_hash
+      Utils.keccak256_rlp header
+    end
+
+    ##
+    # The hex encoded block hash. This is equivalent to `header.hex_full_hash`.
+    #
+    def hex_full_hash
+      Utils.encode_hex full_hash
+    end
+
+    def tx_list_root
+      @transactions.root_hash
+    end
+
+    def tx_list_root=(v)
+      @transactions = PruningTrie.new db, v
+    end
+
+    def receipts_root
+      @receipts.root_hash
+    end
+
+    def receipts_root=(v)
+      @receipts = PruningTrie.new db, v
+    end
+
+    def state_root
+      commit_state
+      @state.root_hash
+    end
+
+    def state_root=(v)
+      @state = SecureTrie.new PruningTrie.new(db, v)
+      reset_cache
+    end
+
+    def uncles_hash
+      Utils.keccak256_rlp uncles
+    end
+
+    def transaction_list
+      @transaction_count.times.map {|i| get_transaction(i) }
+    end
+
+    ##
+    # Validate the uncles of this block.
+    #
+    def validate_uncles
+      return false if uncles.size > config[:max_uncles]
+
+      uncles.each do |uncle|
+        raise InvalidUncles, "Cannot find uncle prevhash in db" unless db.include?(uncle.prevhash)
+        if uncle.number == number
+          logger.error "uncle at same block height block=#{self}"
+          return false
+        end
+      end
+
+      max_uncle_depth = config[:max_uncle_depth]
+      ancestor_chain = [self] + get_ancestor_list(max_uncle_depth+1)
+      raise ValueError, "invalid ancestor chain" unless ancestor_chain.size == [number+1, max_uncle_depth+2].min
+
+      # Uncles of this block cannot be direct ancestors and cannot also be
+      # uncles included 1-6 blocks ago.
+      ineligible = []
+      ancestor_chain[1..-1].each {|a| ineligible.concat a.uncles }
+      ineligible.concat(ancestor_chain.map {|a| a.header })
+
+      eligible_ancestor_hashes = ancestor_chain[2..-1].map(&:full_hash)
+
+      uncles.each do |uncle|
+        parent = Block.find env, uncle.prevhash
+        return false if uncle.difficulty != Block.calc_difficulty(parent, uncle.timestamp)
+        return false unless uncle.check_pow
+
+        unless eligible_ancestor_hashes.include?(uncle.prevhash)
+          logger.error "Uncle does not have a valid ancestor block=#{self} eligible=#{eligible_ancestor_hashes.map {|h| Utils.encode_hex(h) }} uncle_prevhash=#{Utils.encode_hex uncle.prevhash}"
+          return false
+        end
+
+        if ineligible.include?(uncle)
+          logger.error "Duplicate uncle block=#{self} uncle=#{Utils.encode_hex Utils.keccak256_rlp(uncle)}"
+          return false
+        end
+
+        ineligible.push uncle
+      end
+
+      true
     end
 
     def add_refund(x)
@@ -264,10 +360,8 @@ module Ethereum
     # Build a list of all transactions in this block.
     #
     def get_transactions
-      num = @transaction_count
-
-      if @get_transactions_cache.size != num
-        @get_transactions_cache = num.times.map {|i| get_transaction(i) }
+      if @get_transactions_cache.size != @transaction_count
+        @get_transactions_cache = transaction_list
       end
 
       @get_transactions_cache
@@ -330,7 +424,7 @@ module Ethereum
           end
         end
 
-        t = SecureTrie.new Trie.new(db, acct.storage)
+        t = SecureTrie.new PruningTrie.new(db, acct.storage)
         @caches.fetch("storage:#{addr}", {}).each do |k, v|
           enckey = Utils.zpad Utils.coerce_to_bytes(k), 32
           val = RLP.encode v
@@ -355,7 +449,7 @@ module Ethereum
 
     def add_log(log)
       @logs.push log
-      @log_listeners.each {|l| l(log) }
+      log_listeners.each {|l| l(log) }
     end
 
     ##
@@ -368,16 +462,6 @@ module Ethereum
     #
     def delta_balance(address, value)
       delta_account_item(address, :balance, value)
-    end
-
-    def state_root
-      commit_state
-      @state.root_hash
-    end
-
-    def state_root=(v)
-      @state = SecureTrie.new PruningTrie.new(db, v)
-      reset_cache
     end
 
     ##
@@ -605,7 +689,7 @@ module Ethereum
     #
     def get_storage(address)
       storage_root = get_account_item address, :storage
-      SecureTrie.new Trie.new(db, storage_root)
+      SecureTrie.new PruningTrie.new(db, storage_root)
     end
 
     def reset_storage(address)
@@ -681,7 +765,7 @@ module Ethereum
       code = @caches[:code][address] || account.code
       h[:code] = "0x#{Utils.encode_hex code}"
 
-      storage_trie = SecureTrie.new Trie.new(db, account.storage)
+      storage_trie = SecureTrie.new PruningTrie.new(db, account.storage)
       h[:storage_root] = Utils.encode_hex storage_trie.root_hash if with_storage_root
       if with_storage
         h[:storage] = {}
@@ -722,15 +806,19 @@ module Ethereum
     def get_ancestor_hash(n)
       raise ArgumentError, "n must be greater than 0 and less or equal than 256" unless n > 0 && n <= 256
 
-      while @ancestor_hashes.size < n
-        if number == @ancestor_hashes.size - 1
-          @ancestor_hashes.push nil
+      while ancestor_hashes.size < n
+        if number == ancestor_hashes.size - 1
+          ancestor_hashes.push nil
         else
-          @ancestor_hashes.push self.class.find(env, @ancestor_hashes[-1]).get_parent().full_hash
+          ancestor_hashes.push self.class.find(env, ancestor_hashes[-1]).get_parent().full_hash
         end
       end
 
-      @ancestor_hashes[n-1]
+      ancestor_hashes[n-1]
+    end
+
+    def genesis?
+      number == 0
     end
 
     private
@@ -793,15 +881,15 @@ module Ethereum
 
       raise BlockVerificationError, "header must reference no block" unless header.block.nil?
 
-      raise BlockVerificationError, "state_root mistmatch actual: #{state.root_hash} target: #{header.state_root}" if state.root_hash != header.state_root
-      raise BlockVerificationError, "tx_list_root mistmatch actual: #{transactions.root_hash} target: #{header.tx_list_root}" if transactions.root_hash != header.tx_list_root
-      raise BlockVerificationError, "receipts_root mistmatch actual: #{receipts.root_hash} target: #{header.receipts_root}" if receipts.root_hash != header.receipts_root
+      raise BlockVerificationError, "state_root mistmatch actual: #{@state.root_hash} target: #{header.state_root}" if @state.root_hash != header.state_root
+      raise BlockVerificationError, "tx_list_root mistmatch actual: #{@transactions.root_hash} target: #{header.tx_list_root}" if @transactions.root_hash != header.tx_list_root
+      raise BlockVerificationError, "receipts_root mistmatch actual: #{@receipts.root_hash} target: #{header.receipts_root}" if @receipts.root_hash != header.receipts_root
 
       #raise ValueError, "Block is invalid" unless validate_fields # TODO: uncomment to see if tests break
 
       raise ValueError, "Extra data cannot exceed #{config[:max_extradata_length]} bytes" if header.extra_data.size > config[:max_extradata_length]
       raise ValueError, "Coinbase cannot be empty address" if header.coinbase.nil? || header.coinbase.empty?
-      raise ValueError, "State merkle root of block #{self} not found in database" unless state.root_hash_valid?
+      raise ValueError, "State merkle root of block #{self} not found in database" unless @state.root_hash_valid?
       raise ValueError, "PoW check failed" unless genesis? || nonce.nil? || header.check_pow
     end
 
