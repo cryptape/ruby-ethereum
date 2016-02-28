@@ -68,3 +68,20 @@ class BlockTest < Minitest::Test
   end
 
 end
+
+class BlockFixtureTest < Minitest::Test
+  include Ethereum
+
+  run_fixtures "BlockchainTests", options: {limit: 500}
+
+  EXCLUDES = %w(
+    bcWalletTest_walletReorganizeOwners
+    bl10251623GO_randomBlockTest
+    bl201507071825GO_randomBlockTest
+  )
+
+  def on_fixture_test(name, pairs)
+    return if EXCLUDES.include?(name)
+  end
+
+end
