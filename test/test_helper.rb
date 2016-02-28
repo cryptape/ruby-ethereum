@@ -62,10 +62,30 @@ def decode_uint(x)
   end
 end
 
+def parse_int_or_hex(s)
+  if s.is_a?(Numeric)
+    s
+  elsif s[0,2] == '0x'
+    tail = (s.size % 2 == 1 ? '0' : '') + s[2..-1]
+    big_endian_to_int decode_hex(tail)
+  else
+    s.to_i
+  end
+end
+
+module Scanner
+  extend self
+
+  def bin(v)
+    v[0,2] == '0x' ? Utils.decode_hex(v[2..-1]) :  Utils.decode_hex(v)
+  end
+end
+
 class Minitest::Test
   class <<self
-    def run_fixture(path)
-      fixture = load_fixture path
+    def run_fixture(path, options: {})
+      fixture = load_fixture(path).to_a
+      fixture = fixture[0,options[:limit]] if options[:limit]
 
       fixture.each do |name, pairs|
         break if fixture_limit > 0 && fixture_loaded.size >= fixture_limit
@@ -77,11 +97,11 @@ class Minitest::Test
       end
     end
 
-    def run_fixtures(path, except: nil, only: nil)
+    def run_fixtures(path, except: nil, only: nil, options: {})
       Dir[fixture_path("#{path}/**/*.json")].each do |file_path|
         next if except && file_path =~ except
         next if only && file_path !~ only
-        run_fixture file_path.sub(fixture_root, '')
+        run_fixture file_path.sub(fixture_root, ''), options: options
       end
     end
 
