@@ -139,6 +139,56 @@ module Ethereum
         adjmax = parent.gas_limit / config[:gaslimit_adjmax_factor]
         (gas_limit - parent.gas_limit).abs <= adjmax && gas_limit >= parent.config[:min_gas_limit]
       end
+
+      ##
+      # Build the genesis block.
+      #
+      def genesis(env, options={})
+        allowed_args = %i(start_alloc prevhash coinbase difficulty gas_limit timestamp extra_data mixhash nonce)
+        invalid_options = options.keys - allowed_args
+        raise ArgumentError, "invalid options: #{invalid_options}" unless invalid_options.empty?
+
+        start_alloc = options[:start_alloc] || env.config[:genesis_initial_alloc]
+
+        header = BlockHeader.new(
+          prevhash: options[:prevhash] || env.config[:genesis_prevhash],
+          uncles_hash: Utils.keccak256_rlp([]),
+          coinbase: options[:coinbase] || env.config[:genesis_coinbase],
+          state_root: Trie::BLANK_ROOT,
+          tx_list_root: Trie::BLANK_ROOT,
+          receipts_root: Trie::BLANK_ROOT,
+          bloom: 0,
+          difficulty: options[:difficulty] || env.config[:genesis_difficulty],
+          number: 0,
+          gas_limit: options[:gas_limit] || env.config[:genesis_gas_limit],
+          timestamp: options[:timestamp] || 0,
+          extra_data: options[:extra_data] || env.config[:genesis_extra_data],
+          mixhash: options[:mixhash] || env.config[:genesis_mixhash],
+          nonce: options[:nonce] || env.config[:genesis_nonce]
+        )
+
+        block = Block.new header, transaction_list: [], uncles: [], env: env
+
+        start_alloc.each do |addr, data|
+          addr = Utils.normalize_address addr
+
+          block.set_balance addr, data[:wei] if data[:wei]
+          block.set_balance addr, data[:balance] if data[:balance]
+          block.set_code addr, data[:code] if data[:code]
+          block.set_nonce addr, data[:nonce] if data[:nonce]
+
+          if data[:storage]
+            data[:storage].each {|k, v| block.set_storage_data addr, k, v }
+          end
+        end
+
+        block.commit_state
+        block.state.db.commit
+
+        # genesis block has predefined state root (so no additional
+        # finalization necessary)
+        block
+      end
     end
 
     attr :env, :db, :config
