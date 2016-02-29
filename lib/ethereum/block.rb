@@ -201,16 +201,21 @@ module Ethereum
     #   `header, transaction_list=[], uncles=[], env=nil, parent=nil,
     #   making=false`
     #
-    # @param header [BlockHeader] the block header
-    # @param transaction_list [Array[Transaction]] a list of transactions which
-    #   are replayed if the state given by the header is not known. If the state
-    #   is known, `nil` can be used instead of the empty list.
-    # @param uncles [Array[BlockHeader]] a list of the headers of the uncles of
-    #   this block
-    # @param env [Env] env including db in which the block's state,
-    #   transactions and receipts are stored (required)
-    # @param parent [Block] optional parent which if not given may have to be
-    #   loaded from the database for replay
+    # @param args [Array] mix of arguments:
+    #
+    #   * header {BlockHeader} optional. if given, will be used as block
+    #     header. if not given, you must specify header by `options[:header]`
+    #   * options (Hash) optional.
+    #       - transaction_list {Array[Transaction]} a list of transactions
+    #         which are replayed if the state given by the header is not known.
+    #         If the state is known, `nil` can be used instead of the empty
+    #         list.
+    #       - uncles {Array[BlockHeader]} a list of the headers of the uncles
+    #         of this block
+    #       - env {Env} env including db in which the block's state,
+    #         transactions and receipts are stored (required)
+    #       - parent {Block} optional parent which if not given may have to be
+    #         loaded from the database for replay
     #
     def initialize(*args)
       header = args.first.instance_of?(BlockHeader) ? args.first : nil
