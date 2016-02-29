@@ -525,7 +525,7 @@ module Ethereum
 
         16.times do |i|
           sub_hash = to_hash decode_to_node(node[i])
-          sub_hash.each {|k, v| hash[[i] + k] = v }
+          sub_hash.each {|k, v| hash[NibbleKey.new([i]) + k] = v }
         end
 
         hash[NibbleKey.terminator] = node.last if node.last
