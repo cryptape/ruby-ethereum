@@ -211,7 +211,7 @@ module Ethereum
       case get_node_type(node)
       when :branch
         sizes = node[0,BRANCH_CARDINAL].map {|n| get_size decode_to_node(n) }
-        sizes.push(node.last.nil? ? 0 : 1)
+        sizes.push(node.last.nil? || node.last.empty? ? 0 : 1)
         sizes.reduce(0, &:+)
       when :extension
         get_size decode_to_node(node[1])

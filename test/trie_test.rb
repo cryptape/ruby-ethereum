@@ -57,6 +57,7 @@ class TrieTest < Minitest::Test
     data.each do |h|
       @trie[Utils.decode_hex(h[:k])] = Utils.decode_hex(h[:v])
       assert_equal h[:keys], @trie.to_h.keys
+      assert_equal h[:keys].size, @trie.size
     end
   end
 
