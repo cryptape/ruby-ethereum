@@ -1,3 +1,5 @@
+# -*- encoding : ascii-8bit -*-
+
 module Ethereum
 
   ##
@@ -32,19 +34,19 @@ module Ethereum
       # @return [Account] the created blank account
       #
       def build_blank(db, initial_nonce=0)
-        code_hash = Utils.keccak256 BYTE_EMPTY
-        @db.put code_hash, BYTE_EMPTY
+        code_hash = Utils.keccak256 Constant::BYTE_EMPTY
+        db.put code_hash, Constant::BYTE_EMPTY
 
         new initial_nonce, 0, Trie::BLANK_ROOT, code_hash, db
       end
     end
 
     def initialize(*args)
-      @db = args.last if args.size == 5 # (nonce, balance, storage, code_hash, db)
-      @db = args.last[:db] if args.last.is_a?(Hash)
-      raise ArgumentError, "No database object given" unless @db.is_a?(BaseDB)
+      @db = args.pop if args.size == 5 # (nonce, balance, storage, code_hash, db)
+      @db = args.last.delete(:db) if args.last.is_a?(Hash)
+      raise ArgumentError, "No database object given" unless @db.is_a?(DB::BaseDB)
 
-      super(nonce, balance, storage, code_hash)
+      super(*args)
     end
 
     ##
