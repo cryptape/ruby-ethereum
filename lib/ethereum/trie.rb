@@ -528,7 +528,7 @@ module Ethereum
           sub_hash.each {|k, v| hash[NibbleKey.new([i]) + k] = v }
         end
 
-        hash[NibbleKey.terminator] = node.last if node.last
+        hash[NibbleKey.terminator] = node.last if node.last && !node.last.empty?
         hash
       when *NODE_KV_TYPE
         nibbles = NibbleKey.decode(node[0]).terminate(false)
