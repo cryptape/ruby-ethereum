@@ -67,7 +67,7 @@ def parse_int_or_hex(s)
     s
   elsif s[0,2] == '0x'
     tail = (s.size % 2 == 1 ? '0' : '') + s[2..-1]
-    big_endian_to_int decode_hex(tail)
+    Ethereum::Utils.big_endian_to_int decode_hex(tail)
   else
     s.to_i
   end
@@ -77,8 +77,22 @@ module Scanner
   extend self
 
   def bin(v)
-    v[0,2] == '0x' ? Utils.decode_hex(v[2..-1]) :  Utils.decode_hex(v)
+    decode_hex(v)
   end
+  alias :trie_root :bin
+
+  def addr(v)
+    v[0,2] == '0x' ? v[2..-1] : v
+  end
+
+  def int(v)
+    v[0,2] == '0x' ? int256b(v[2..-1]) : v.to_i
+  end
+
+  def int256b(v)
+    Ethereum::Utils.big_endian_to_int Ethereum::Utils.decode_hex(v)
+  end
+
 end
 
 class Minitest::Test

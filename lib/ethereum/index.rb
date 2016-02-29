@@ -64,7 +64,7 @@ module Ethereum
     #
     def get_transaction(txhash)
       blockhash, tx_num_enc = RLP.decode @db.get(txhash)
-      blk = RLP.decode(@db.get(blockhash), sedes: Block, options: {env: @env})
+      blk = RLP.decode(@db.get(blockhash), sedes: Block, env: @env)
 
       num = Utils.decode_int tx_num_enc
       tx_data = blk.get_transaction num

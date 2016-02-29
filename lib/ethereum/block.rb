@@ -41,7 +41,7 @@ module Ethereum
       #   cached including hash.
       def find(env, hash)
         raise ArgumentError, "env must be instance of Env" unless env.instance_of?(Env)
-        RLP.decode env.db.get(hash), CachedBlock, options: {env: env}
+        RLP.decode env.db.get(hash), sedes: CachedBlock, env: env
       end
       lru_cache :find, 1024
 
@@ -197,6 +197,10 @@ module Ethereum
     attr_accessor :ancestor_hashes, :log_listeners
 
     ##
+    # Arguments in format of:
+    #   `header, transaction_list=[], uncles=[], env=nil, parent=nil,
+    #   making=false`
+    #
     # @param header [BlockHeader] the block header
     # @param transaction_list [Array[Transaction]] a list of transactions which
     #   are replayed if the state given by the header is not known. If the state
@@ -207,7 +211,18 @@ module Ethereum
     #   transactions and receipts are stored (required)
     # @param parent [Block] optional parent which if not given may have to be
     #   loaded from the database for replay
-    def initialize(header, transaction_list: [], uncles: [], env: nil, parent: nil, making: false)
+    #
+    def initialize(*args)
+      header = args.first.instance_of?(BlockHeader) ? args.first : nil
+      options = args.last.instance_of?(Hash) ? args.last : {}
+
+      header = options.delete(:header) if options.has_key?(:header)
+      transaction_list = options.has_key?(:transaction_list) ? options[:transaction_list] : []
+      uncles = options.has_key?(:uncles) ? options[:uncles] : []
+      env = options.delete(:env)
+      parent = options.delete(:parent)
+      making = options.has_key?(:making) ? options.delete(:making) : false
+
       raise ArgumentError, "No Env object given" unless env.instance_of?(Env)
       raise ArgumentError, "No database object given" unless env.db.is_a?(DB::BaseDB)
 
@@ -241,8 +256,8 @@ module Ethereum
         header_mutable: header.mutable?
       }
 
-      @_mutable = true
-      header.instance_variable_set :@_mutable, true
+      make_mutable!
+      header.make_mutable!
 
       @transactions = PruningTrie.new db
       @receipts = PruningTrie.new db
@@ -388,10 +403,10 @@ module Ethereum
 
       intrinsic_gas = tx.intrinsic_gas_used
       message_gas = tx.startgas - intrinsic_gas
-      message_data = VM::CallData.new tx.data.map(&:ord), 0, tx.data.size
+      message_data = VM::CallData.new tx.data.bytes, 0, tx.data.size
       message = VM::Message.new tx.sender, tx.to, tx.value, message_gas, message_data, code_address: tx.to
 
-      #ext = VM::Ext
+      # TODO: ext = VM::Ext
 
     end
 
@@ -584,7 +599,7 @@ module Ethereum
 
       @refunds = mysnapshot[:refunds]
       @state.root_hash = mysnapshot[:state]
-      @gas_used = mysnapshot[:gas]
+      self.gas_used = mysnapshot[:gas]
       @transactions = mysnapshot[:txs]
       @transaction_count = mysnapshot[:txcount]
       @ether_delta = mysnapshot[:ether_delta]
@@ -606,7 +621,7 @@ module Ethereum
       if receipt == Trie::BLANK_NODE
         raise IndexError, "Receipt does not exist"
       else
-        RLP.decode receipt, Receipt
+        RLP.decode receipt, sedes: Receipt
       end
     end
 
@@ -776,7 +791,7 @@ module Ethereum
       key = Utils.zpad Utils.coerce_to_bytes(index), 32
       value = get_storage(address)[key]
 
-      value ? RLP.decode(value, Sedes.big_endian_int) : 0
+      value ? RLP.decode(value, sedes: Sedes.big_endian_int) : 0
     end
 
     ##
@@ -899,7 +914,7 @@ module Ethereum
         parent ||= get_parent_header
         @state = SecureTrie.new PruningTrie.new(db, parent.state_root)
         @transaction_count = 0 # TODO - should always equal @transactions.size
-        @gas_used = 0
+        self.gas_used = 0
 
         transaction_list.each {|tx| apply_transaction tx }
 
@@ -939,7 +954,7 @@ module Ethereum
 
       raise BlockVerificationError, "header must reference no block" unless header.block.nil?
 
-      raise BlockVerificationError, "state_root mistmatch actual: #{@state.root_hash} target: #{header.state_root}" if @state.root_hash != header.state_root
+      raise BlockVerificationError, "state_root mistmatch actual: #{Utils.encode_hex @state.root_hash} target: #{Utils.encode_hex header.state_root}" if @state.root_hash != header.state_root
       raise BlockVerificationError, "tx_list_root mistmatch actual: #{@transactions.root_hash} target: #{header.tx_list_root}" if @transactions.root_hash != header.tx_list_root
       raise BlockVerificationError, "receipts_root mistmatch actual: #{@receipts.root_hash} target: #{header.receipts_root}" if @receipts.root_hash != header.receipts_root
 
@@ -962,7 +977,7 @@ module Ethereum
         raise ValidationError, "invalid s in transaction signature" unless tx.s*2 < Secp256k1::N
         min_gas += Opcodes::CREATE[3] if !tx.to || tx.to == Address::CREATE_CONTRACT
       end
-      raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}"
+      raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}" if tx.startgas < min_gas
 
       total_cost = tx.value + tx.gasprice * tx.startgas
       balance = get_balance tx.sender
@@ -1060,7 +1075,10 @@ module Ethereum
       if rlpdata == Trie::BLANK_NODE
         Account.build_blank db, config[:account_initial_nonce]
       else
-        RLP.decode(rlpdata, Account, options: {db: db})
+        RLP.decode(rlpdata, sedes: Account, db: db).tap do |acct|
+          acct.make_mutable!
+          acct._cached_rlp = nil
+        end
       end
     end
 

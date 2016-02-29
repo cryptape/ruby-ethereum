@@ -6,7 +6,7 @@ module Ethereum
   class SecureTrie
 
     extend Forwardable
-    def_delegators :@trie, :root_hash, :set_root_hash, :root_hash_valid?, :process_epoch, :commit_death_row, :revert_epoch, :db
+    def_delegators :@trie, :root_hash, :set_root_hash, :root_hash_valid?, :process_epoch, :commit_death_row, :revert_epoch, :has_key?, :include?, :size, :to_h, :db
 
     def initialize(trie)
       @trie = trie
