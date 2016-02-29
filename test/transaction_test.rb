@@ -49,7 +49,7 @@ class TransactionFixtureTest < Minitest::Test
       assert_equal decode_uint(expected_tx['nonce']), tx.nonce
       assert_equal decode_hex(expected_tx['to']), tx.to
       assert_equal decode_uint(expected_tx['value']), tx.value
-      assert_equal decode_hex(expected_tx['data']), tx.data
+      assert_equal decode_hex(normalize_hex(expected_tx['data'])), tx.data
       assert_equal decode_uint(expected_tx['gasLimit']), tx.startgas
       assert_equal decode_uint(expected_tx['gasPrice']), tx.gasprice
       assert_equal decode_uint(expected_tx['v']), tx.v

@@ -62,12 +62,20 @@ def decode_uint(x)
   end
 end
 
+# some hex string in fixtures miss leading 0
+def normalize_hex(s)
+  if s[0,2] == '0x'
+    (s.size % 2 == 1 ? '0' : '') + s[2..-1]
+  else
+    s
+  end
+end
+
 def parse_int_or_hex(s)
   if s.is_a?(Numeric)
     s
   elsif s[0,2] == '0x'
-    tail = (s.size % 2 == 1 ? '0' : '') + s[2..-1]
-    Ethereum::Utils.big_endian_to_int decode_hex(tail)
+    Ethereum::Utils.big_endian_to_int decode_hex(normalize_hex(s))
   else
     s.to_i
   end
