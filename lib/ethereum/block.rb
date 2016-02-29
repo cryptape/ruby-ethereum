@@ -144,7 +144,7 @@ module Ethereum
       # Build the genesis block.
       #
       def genesis(env, options={})
-        allowed_args = %i(start_alloc prevhash coinbase difficulty gas_limit timestamp extra_data mixhash nonce)
+        allowed_args = %i(start_alloc bloom prevhash coinbase difficulty gas_limit gas_used timestamp extra_data mixhash nonce)
         invalid_options = options.keys - allowed_args
         raise ArgumentError, "invalid options: #{invalid_options}" unless invalid_options.empty?
 
@@ -157,10 +157,11 @@ module Ethereum
           state_root: Trie::BLANK_ROOT,
           tx_list_root: Trie::BLANK_ROOT,
           receipts_root: Trie::BLANK_ROOT,
-          bloom: 0,
+          bloom: options[:bloom] || 0,
           difficulty: options[:difficulty] || env.config[:genesis_difficulty],
           number: 0,
           gas_limit: options[:gas_limit] || env.config[:genesis_gas_limit],
+          gas_used: options[:gas_used] || 0,
           timestamp: options[:timestamp] || 0,
           extra_data: options[:extra_data] || env.config[:genesis_extra_data],
           mixhash: options[:mixhash] || env.config[:genesis_mixhash],
@@ -180,10 +181,11 @@ module Ethereum
           if data[:storage]
             data[:storage].each {|k, v| block.set_storage_data addr, k, v }
           end
+
         end
 
         block.commit_state
-        block.state.db.commit
+        block.commit_state_db
 
         # genesis block has predefined state root (so no additional
         # finalization necessary)
@@ -470,9 +472,9 @@ module Ethereum
         acct = get_account addr
 
         %i(balance nonce code storage).each do |field|
-          if v = @caches[field][acct]
+          if v = @caches[field][addr]
             changes.push [field, addr, v]
-            account.send :"#{field}=", v
+            acct.send :"#{field}=", v
           end
         end
 
@@ -486,12 +488,16 @@ module Ethereum
         end
 
         acct.storage = t.root_hash
-        @state.update addr, RLP.encode(acct)
+        @state[addr] = RLP.encode(acct)
       end
       logger.debug "delta changes=#{changes}"
 
       reset_cache
       db.put_temporarily "validated:#{full_hash}", '1'
+    end
+
+    def commit_state_db
+      @state.db.commit
     end
 
     def account_exists(address)
@@ -1049,7 +1055,7 @@ module Ethereum
     #
     def get_account(address)
       address = Utils.normalize_address address, allow_blank: true
-      rlpdata = @state.get address
+      rlpdata = @state[address]
 
       if rlpdata == Trie::BLANK_NODE
         Account.build_blank db, config[:account_initial_nonce]
@@ -1066,7 +1072,7 @@ module Ethereum
     def set_and_journal(ns, k, v)
       prev = @caches[ns][k]
       if prev != v
-        @journal.append [ns, k, prev, v]
+        @journal.push [ns, k, prev, v]
         @caches[ns][k] = v
       end
     end
