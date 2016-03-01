@@ -196,7 +196,7 @@ module Ethereum
             end
           end
         elsif opcode < 0x40 # SHA3 & Environmental Information
-          case opcode
+          case op
           when :SHA3
             s0, s1 = stk.pop, stk.pop
 
@@ -269,6 +269,22 @@ module Ethereum
             end
           end
         elsif opcode < 0x50 # Block Information
+          case op
+          when :BLOCKHASH
+            s0 = stk.pop
+            stk.push Utils.big_endian_to_int(ext.block_hash(s0))
+          when :COINBASE
+            stk.push Utils.big_endian_to_int(ext.block_coinbase)
+          when :TIMESTAMP
+            stk.push ext.block_timestamp
+          when :NUMBER
+            stk.push ext.block_number
+          when :DIFFICULTY
+            stk.push ext.block_difficulty
+          when :GASLIMIT
+            stk.push ext.block_gas_limit
+          end
+        elsif opcode < 0x60 # Stack, Memory, Storage and Flow Operations
         end
       end
 
