@@ -73,13 +73,18 @@ module Ethereum
       0xff => ['SUICIDE', 1, 0, 0],
     }
 
+    PREFIX_LOG  = 'LOG'.freeze
+    PREFIX_PUSH = 'PUSH'.freeze
+    PREFIX_DUP  = 'DUP'.freeze
+    PREFIX_SWAP = 'SWAP'.freeze
+
     32.times do |i|
-      TABLE[0x60+i] = ["PUSH#{i+1}", 0, 1, 3]
+      TABLE[0x60+i] = ["#{PREFIX_PUSH}#{i+1}", 0, 1, 3]
     end
 
     16.times do |i|
-      TABLE[0X80+i] = ["DUP#{i+1}", i+1, i+2, 3]
-      TABLE[0x90+i] = ["SWAP#{i+1}", i+2, i+2, 3]
+      TABLE[0X80+i] = ["#{PREFIX_DUP}#{i+1}", i+1, i+2, 3]
+      TABLE[0x90+i] = ["#{PREFIX_SWAP}#{i+1}", i+2, i+2, 3]
     end
 
     REVERSE_TABLE = {}

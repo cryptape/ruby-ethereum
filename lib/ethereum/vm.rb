@@ -345,6 +345,47 @@ module Ethereum
           when :GAS
             stk.push s.gas # AFTER subtracting cost 1
           end
+        elsif op.start_with?(Opcodes::PREFIX_PUSH)
+          pushnum = op[Opcodes::PREFIX_PUSH.size..-1].to_i
+          s.pc += pushnum
+          stk.push pushval
+        elsif op.start_with?(Opcodes::PREFIX_DUP)
+          depth = op[Opcodes::PREFIX_DUP.size..-1].to_i
+          stk.push stk[-depth]
+        elsif op.start_with?(Opcodes::PREFIX_SWAP)
+          depth = op[Opcodes::PREFIX_SWAP.size..-1].to_i
+          temp = stk[-depth - 1]
+          stk[-depth - 1] = stk[-1]
+          stk[-1] = temp
+        elsif op.start_with?(Opcodes::PREFIX_LOG)
+          # 0xa0 ... 0xa4, 32/64/96/128/160 + data.size gas
+          #
+          # a. Opcodes LOG0...LOG4 are added, takes 2-6 stake arguments:
+          #      MEMSTART MEMSZ (TOPIC1) (TOPIC2) (TOPIC3) (TOPIC4)
+          #
+          # b. Logs are kept track of during tx execution exactly the same way
+          #    as suicides (except as an ordered list, not a set).
+          #
+          #    Each log is in the form [address, [topic1, ... ], data] where:
+          #    * address is what the ADDRESS opcode would output
+          #    * data is mem[MEMSTART, MEMSZ]
+          #    * topics are as provided by the opcode
+          #
+          # c. The ordered list of logs in the transation are expreseed as
+          #    [log0, log1, ..., logN].
+          #
+          depth = op[PREFIX_LOG.size..-1].to_i
+          mstart, msz = stk.pop, stk.pop
+          topics = depth.times.map {|i| stk.pop }
+
+          s.gas -= msz * Opcodes::GLOGBYTE
+
+          return vm_exception("OOG EXTENDING MEMORY") unless mem_extend(mem, s, mstart, msz)
+
+          data = Utils.int_array_to_bytes mem[mstart, msz]
+          ext.log(msg.to, topics, data)
+          log_log.trace('LOG', to: msg.to, topics: topics, data: mem[mstart, msz])
+        elsif op == :CREATE
         end
       end
 
@@ -358,6 +399,10 @@ module Ethereum
 
     def log_vm_op
       @log_vm_op ||= Logger.new 'eth.vm.op'
+    end
+
+    def log_log
+      @log_log ||= Logger.new 'eth.vm.log'
     end
 
     def vm_exception(error, **kwargs)
