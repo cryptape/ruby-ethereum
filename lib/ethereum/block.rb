@@ -194,7 +194,7 @@ module Ethereum
     end
 
     attr :env, :db, :config
-    attr_accessor :ancestor_hashes, :log_listeners
+    attr_accessor :ether_delta, :ancestor_hashes, :log_listeners
 
     ##
     # Arguments in format of:
@@ -411,8 +411,64 @@ module Ethereum
       message_data = VM::CallData.new tx.data.bytes, 0, tx.data.size
       message = VM::Message.new tx.sender, tx.to, tx.value, message_gas, message_data, code_address: tx.to
 
-      # TODO: ext = VM::Ext
+      ec = ExternalCall.new self, tx
 
+      if tx.to && !tx.to.empty? && tx.to != Address::CREATE_CONTRACT
+        result, gas_remained, data = ec.apply_msg message
+        logger.debug "_res_ result=#{result} gas_remained=#{gas_remained} data=#{data}"
+      else # CREATE
+        result, gas_remained, data = ec.create message
+        raise ValueError, "gas remained is not numeric" unless gas_remained.is_a?(Numeric)
+        logger.debug "_create_ result=#{result} gas_remained=#{gas_remained} data=#{data}"
+      end
+      raise ValueError, "gas remained cannot be negative" unless gas_remained >= 0
+      logger.debug "TX APPLIED result=#{result} gas_remained=#{gas_remained} data=#{data}"
+
+      if result
+        logger.debug "TX SUCCESS data=#{data}"
+
+        gas_used = tx.startgas - gas_remained
+
+        block.refunds += block.suicides.uniq.size * Opcodes::GSUICIDEERFUND
+        if block.refunds > 0
+          gas_refund = [block.refunds, gas_used/2].min
+
+          logger.debug "Refunding gas_refunded=#{gas_refund}"
+          gas_remained += gas_refund
+          gas_used -= gas_refund
+          block.refunds = 0
+        end
+
+        block.delta_balance tx.sender, tx.gasprice * gas_remained
+        block.delta_balance block.coinbase, tx.gasprice * gas_used
+        block.gas_used += gas_used
+
+        output = tx.to && !tx.to.empty? ? data.map(&:chr).join : data
+        success = 1
+      else # 0 = OOG failure in both cases
+        logger.debug "TX FAILED reason='out of gas' startgas=#{tx.startgas} gas_remained=#{gas_remained}"
+
+        block.gas_used += tx.startgas
+        block.delta_balance block.coinbase, tx.gasprice*tx.startgas
+
+        output = Constant::BYTE_EMPTY
+        success = 0
+      end
+
+      block.commit_state
+
+      suicides = block.suicides
+      block.suicides = []
+      suicides.each do |s|
+        block.ether_delta -= block.get_balance(s)
+        block.set_balance(s, 0)
+        block.del_account(s)
+      end
+
+      block.add_transaction_to_list tx
+      block.logs = []
+
+      return success, output
     end
 
     ##
@@ -816,6 +872,17 @@ module Ethereum
       end
 
       set_and_journal cache_key, index, value
+    end
+
+    ##
+    # Delete an account.
+    #
+    # @param address [String] the address of the account (binary or hex string)
+    #
+    def del_account(address)
+      address = Utils.normalize_address address
+      commit_state
+      @state.delete address
     end
 
     ##
