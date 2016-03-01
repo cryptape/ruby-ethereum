@@ -93,7 +93,7 @@ module Ethereum
         # Valid operations
         stk = s.stack
         mem = s.memory
-        if opcode < 0x10
+        if opcode < 0x10 # Stop & Arithmetic Operations
           case op
           when :STOP
             peaceful_exit('STOP', s.gas, [])
@@ -155,7 +155,47 @@ module Ethereum
               stk.push s1
             end
           end
-        elsif opcode < 0x20
+        elsif opcode < 0x20 # Comparison & Bitwise Logic Operations
+          case op
+          when :LT
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s0 < s1 ? 1 : 0)
+          when :GT
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s0 > s1 ? 1 : 0)
+          when :SLT
+            s0, s1 = Utils.to_signed(stk.pop), Utils.to_signed(stk.pop)
+            stk.push(s0 < s1 ? 1 : 0)
+          when :SGT
+            s0, s1 = Utils.to_signed(stk.pop), Utils.to_signed(stk.pop)
+            stk.push(s0 > s1 ? 1 : 0)
+          when :EQ
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s0 == s1 ? 1 : 0)
+          when :ISZERO
+            s0 = stk.pop
+            stk.push(s0 == 0 ? 1 : 0)
+          when :AND
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s0 & s1)
+          when :OR
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s0 | s1)
+          when :XOR
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s0 ^ s1)
+          when :NOT
+            s0 = stk.pop
+            stk.push(UINT_MAX - s0)
+          when :BYTE
+            s0, s1 = stk.pop, stk.pop
+            if s0 < 32
+              stk.push((s1 / 256**(31-s0)) % 256)
+            else
+              stk.push(0)
+            end
+          end
+        elsif opcode < 0x40 # SHA3 & Environmental Information
         end
       end
 
