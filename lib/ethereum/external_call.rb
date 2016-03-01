@@ -127,9 +127,9 @@ module Ethereum
     end
 
     def apply_msg(msg, code)
-      log_msg.debug "MSG apply sender=#{Utils.encode_hex(msg.sender)} to=#{Utils.encode_hex(msg.to)} gas=#{msg.gas} value=#{msg.value} data=#{Utils.encode_hex(msg.data.extract_all)}"
-      log_state.debug "MSG pre state sender account=#{msg.sender} balance=#{get_balance(msg.sender)} state=#{log_storage(msg.sender)}"
-      log_state.debug "MSG pre state recipient account=#{msg.to} balance=#{get_balance(msg.to)} state=#{log_storage(msg.to)}"
+      log_msg.debug "MSG APPLY",  sender: Utils.encode_hex(msg.sender), to: Utils.encode_hex(msg.to), gas: msg.gas, value: msg.value, data: Utils.encode_hex(msg.data.extract_all)
+      log_state.trace "MSG PRE STATE SENDER", account: msg.sender, balance: get_balance(msg.sender), state: log_storage(msg.sender)
+      log_state.trace "MSG PRE STATE RECIPIENT", account: msg.to, balance: get_balance(msg.to), state: log_storage(msg.to)
 
       # transfer value
       snapshot = @block.snapshot
@@ -145,9 +145,9 @@ module Ethereum
         res, gas, dat = VM.execute self, msg, code #TODO
       end
 
-      log_msg.debug "MSG applied gas_remained=#{gas} sender=#{msg.sender} to=#{msg.to} data=#{dat}"
-      log_state.debug "MSG post state sender account=#{msg.sender} balance=#{get_balance(msg.sender)} state=#{log_storage(msg.sender)}"
-      log_state.debug "MSG post state recipient account=#{msg.to} balance=#{get_balance(msg.to)} state=#{log_storage(msg.to)}"
+      log_msg.trace "MSG APPLIED", gas_remained: gas, sender: msg.sender, to: msg.to, data: dat
+      log_state.trace "MSG POST STATE SENDER", account: msg.sender, balance: get_balance(msg.sender), state: log_storage(msg.sender)
+      log_state.trace "MSG POST STATE RECIPIENT", account: msg.to, balance: get_balance(msg.to), state: log_storage(msg.to)
 
       if res == 0
         log_msg.debug 'REVERTING'
