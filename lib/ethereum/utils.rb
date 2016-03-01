@@ -122,6 +122,10 @@ module Ethereum
       o
     end
 
+    def int_array_to_bytes(arr)
+      arr.pack('C*')
+    end
+
     def coerce_to_int(x)
       if x.is_a?(Numeric)
         x
@@ -139,6 +143,16 @@ module Ethereum
         decode_hex(x)
       else
         x
+      end
+    end
+
+    def coerce_addr_to_hex(x)
+      if x.is_a?(Numeric)
+        encode_hex zpad(int_to_big_endian(x), 20)
+      elsif x.size == 40 || x.size == 0
+        x
+      else
+        encode_hex zpad(x, 20)[-20..-1]
       end
     end
 

@@ -62,14 +62,14 @@ module Ethereum
 
           if %i(MLOAD MSTORE MSTORE8 SHA3 CALL CALLCODE CREATE CALLDATACOPY CODECOPY EXTCODECOPY).include?(_prevop)
             if s.memory.size < 1024
-              trace_data[:memory] = Utils.encode_hex(s.memory.map(&:chr).join)
+              trace_data[:memory] = Utils.encode_hex(Utils.int_array_to_bytes(s.memory))
             else
-              trace_data[:sha3memory] = Utils.encode_hex(Utils.keccak256(s.memory.map(&:chr).join))
+              trace_data[:sha3memory] = Utils.encode_hex(Utils.keccak256(Utils.int_array_to_bytes(s.memory)))
             end
           end
 
           if %i(SSTORE SLOAD).include?(_prevop) || steps == 0
-            trace_data[:storage] = ec.log_storage(msg.to)
+            trace_data[:storage] = ext.log_storage(msg.to)
           end
 
           if steps == 0
@@ -196,6 +196,79 @@ module Ethereum
             end
           end
         elsif opcode < 0x40 # SHA3 & Environmental Information
+          case opcode
+          when :SHA3
+            s0, s1 = stk.pop, stk.pop
+
+            s.gas -= Opcodes::GSHA3WORD * (Utils.ceil32(s1) / 32)
+            return vm_exception('OOG PAYING FOR SHA3') if s.gas < 0
+
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, s0, s1)
+
+            data = Utils.int_array_to_bytes mem[s0,s1]
+            stk.push Utils.big_endian_to_int(Utils.keccak256(data))
+          when :ADDRESS
+            stk.push Utils.coerce_to_int(msg.to)
+          when :BALANCE
+            s0 = stk.pop
+            addr = Utils.coerce_addr_to_hex(s0 % 2**160)
+            stk.push ext.get_balance(addr)
+          when :ORIGIN
+            stk.push Utils.coerce_to_int(ext.tx_origin)
+          when :CALLER
+            stk.push Utils.coerce_to_int(msg.sender)
+          when :CALLVALUE
+            stk.push msg.value
+          when :CALLDATALOAD
+            stk.push msg.data.extract32(stk.pop)
+          when :CALLDATASIZE
+            stk.push msg.data.size
+          when :CALLDATACOPY
+            mstart, dstart, size = stk.pop, stk.pop, stk.pop
+
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, mstart, size)
+            return vm_exception('OOG COPY DATA') unless data_copy(s, size)
+
+            msg.data.extract_copy(mem, mstart, dstart, size)
+          when :CODESIZE
+            stk.push processed_code.size
+          when :CODECOPY
+            mstart, cstart, size = stk.pop, stk.pop, stk.pop
+
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, start, size)
+            return vm_exception('OOG COPY CODE') unless data_copy(s, size)
+
+            size.times do |i|
+              if cstart + i < processed_code.size
+                mem[mstart+i] = processed_code[cstart+i][4] # copy opcode
+              else
+                mem[mstart+i] = 0
+              end
+            end
+          when :GASPRICE
+            stk.push ext.tx_gasprice
+          when :EXTCODESIZE
+            addr = stk.pop
+            addr = Utils.coerce_addr_to_hex(addr % 2**160)
+            stk.push (ext.get_code(addr) || Constant::BYTE_EMPTY).size
+          when :EXTCODECOPY
+            addr, mstart, cstart, size = stk.pop, stk.pop, stk.pop, stk.pop
+            addr = Utils.coerce_addr_to_hex(addr % 2**160)
+            extcode = ext.get_code(addr) || Constant::BYTE_EMPTY
+            raise ValueError, "extcode must be string" unless extcode.is_a?(String)
+
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, start, size)
+            return vm_exception('OOG COPY CODE') unless data_copy(s, size)
+
+            size.times do |i|
+              if cstart + i < extcode.size
+                mem[mstart+i] = extcode[cstart+i].ord
+              else
+                mem[mstart+i] = 0
+              end
+            end
+          end
+        elsif opcode < 0x50 # Block Information
         end
       end
 
@@ -219,6 +292,49 @@ module Ethereum
     def peaceful_exit(cause, gas, data, **kwargs)
       log_vm_exit.trace('EXIT', cause: cause, **kwargs)
       return 1, gas, data
+    end
+
+    def mem_extend(mem, s, op, start, sz)
+      if size > 0
+        oldsize = mem.size / 32
+        old_totalfee = mem_fee oldsize
+
+        newsize = Utils.ceil32(start + sz) / 32
+        new_totalfee = mem_fee newsize
+
+        if old_totalfee < new_totalfee
+          memfee = new_totalfee - old_totalfee
+
+          if s.gas < memfee
+            s.gas = 0
+            return false
+          end
+          s.gas -= memfee
+
+          m_extend = (newsize - oldsize) * 32
+          mem.concat([0]*m_extend)
+        end
+      end
+
+      true
+    end
+
+    def data_copy(s, sz)
+      if sz
+        copyfee = Opcodes::GCOPY * Utils.ceil32(sz) / 32
+
+        if s.gas < copyfee
+          s.gas = 0
+          return false
+        end
+        s.gas -= copyfee
+      end
+
+      true
+    end
+
+    def mem_fee(sz)
+      sz * Opcodes::GMEMORY + sz**2 / Opcodes::GQUADRATICMEMDENOM
     end
 
   end
