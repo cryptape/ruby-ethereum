@@ -19,7 +19,7 @@ module Ethereum
 
     include Constant
 
-    def execute(ec, msg, code)
+    def execute(ext, msg, code)
       s = State.new gas: msg.gas
 
       if VM.code_cache.has_key?(code)
@@ -203,7 +203,7 @@ module Ethereum
             s.gas -= Opcodes::GSHA3WORD * (Utils.ceil32(s1) / 32)
             return vm_exception('OOG PAYING FOR SHA3') if s.gas < 0
 
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, s0, s1)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, s1)
 
             data = Utils.int_array_to_bytes mem[s0,s1]
             stk.push Utils.big_endian_to_int(Utils.keccak256(data))
@@ -226,7 +226,7 @@ module Ethereum
           when :CALLDATACOPY
             mstart, dstart, size = stk.pop, stk.pop, stk.pop
 
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, mstart, size)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, size)
             return vm_exception('OOG COPY DATA') unless data_copy(s, size)
 
             msg.data.extract_copy(mem, mstart, dstart, size)
@@ -235,7 +235,7 @@ module Ethereum
           when :CODECOPY
             mstart, cstart, size = stk.pop, stk.pop, stk.pop
 
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, start, size)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, start, size)
             return vm_exception('OOG COPY CODE') unless data_copy(s, size)
 
             size.times do |i|
@@ -257,7 +257,7 @@ module Ethereum
             extcode = ext.get_code(addr) || Constant::BYTE_EMPTY
             raise ValueError, "extcode must be string" unless extcode.is_a?(String)
 
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, op, start, size)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, start, size)
             return vm_exception('OOG COPY CODE') unless data_copy(s, size)
 
             size.times do |i|
@@ -285,6 +285,66 @@ module Ethereum
             stk.push ext.block_gas_limit
           end
         elsif opcode < 0x60 # Stack, Memory, Storage and Flow Operations
+          case op
+          when :POP
+            stk.pop
+          when :MLOAD
+            s0 = stk.pop
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, 32)
+
+            data = Utils.int_array_to_bytes mem[s0, 32]
+            stk.push Utils.big_endian_to_int(data)
+          when :MSTORE
+            s0, s1 = stk.pop, stk.pop
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, 32)
+
+            32.times.to_a.reverse.each do |i|
+              mem[s0+i] = s1 % 256
+              s1 /= 256
+            end
+          when :MSTORE8
+            s0, s1 = stk.pop, stk.pop
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, 1)
+            mem[s0] = s1 % 256
+          when :SLOAD
+            s0 = stk.pop
+            stk.push ext.get_storage_data(msg.to, s0)
+          when :SSTORE
+            s0, s1 = stk.pop, stk.pop
+
+            if ext.get_storage_data(msg.to, s0) != 0
+              gascost = s1 == 0 ? Opcodes::GSTORAGEKILL : Opcodes::GSTORAGEMOD
+              refund = s1 == 0 ? Opcodes::GSTORAGEREFUND : 0
+            else
+              gascost = s1 == 0 ? Opcodes::GSTORAGEMOD : Opcodes::GSTORAGEADD
+              refund = 0
+            end
+
+            return vm_exception('OUT OF GAS') if s.gas < gascost
+
+            s.gas -= gascost
+            ext.add_refund refund
+            ext.set_storage_data msg.to, s0, s1
+          when :JUMP
+            s0 = stk.pop
+            s.pc = s0
+
+            op_new = s.pc < preprocess_code.size ? processed_code[s.pc][0] : :STOP
+            return vm_exception('BAD JUMPDEST') if op_new != :JUMPDEST
+          when :JUMPI
+            s0, s1 = stk.pop, stk.pop
+            if s1 != 0
+              s.pc = s0
+              op_new = s.pc < processed_code.size ? processed_code[s.pc][0] : :STOP
+              return vm_exception('BAD JUMPDEST') if op_new != :JUMPDEST
+            end
+          when :PC
+            stk.push(s.pc - 1)
+          when :MSIZE
+            stk.push mem.size
+          when :GAS
+            stk.push s.gas # AFTER subtracting cost 1
+          end
         end
       end
 
@@ -310,7 +370,7 @@ module Ethereum
       return 1, gas, data
     end
 
-    def mem_extend(mem, s, op, start, sz)
+    def mem_extend(mem, s, start, sz)
       if size > 0
         oldsize = mem.size / 32
         old_totalfee = mem_fee oldsize

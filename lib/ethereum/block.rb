@@ -194,7 +194,7 @@ module Ethereum
     end
 
     attr :env, :db, :config
-    attr_accessor :ether_delta, :ancestor_hashes, :log_listeners
+    attr_accessor :refunds, :ether_delta, :ancestor_hashes, :log_listeners
 
     ##
     # Arguments in format of:
@@ -245,7 +245,7 @@ module Ethereum
       @logs = []
       self.log_listeners = []
 
-      @refunds = 0
+      self.refunds = 0
       @ether_delta = 0
 
       self.ancestor_hashes = number > 0 ? [prevhash] : [nil]*256
@@ -379,7 +379,7 @@ module Ethereum
     end
 
     def add_refund(x)
-      @refunds += x
+      self.refunds += x
     end
 
     ##
@@ -425,7 +425,7 @@ module Ethereum
       raise ValueError, "gas remained cannot be negative" unless gas_remained >= 0
       logger.debug "TX APPLIED", result: result, gas_remained: gas_remained, data: data
 
-      if result
+      if result != 0
         logger.debug "TX SUCCESS", data: data
 
         gas_used = tx.startgas - gas_remained
@@ -621,7 +621,7 @@ module Ethereum
         gas: gas_used,
         txs: @transactions,
         txcount: @transaction_count,
-        refunds: @refunds,
+        refunds: refunds,
         suicides: @suicides,
         suicides_size: @suicides.size,
         logs: @logs,
@@ -659,7 +659,7 @@ module Ethereum
       @logs = mysnapshot[:logs]
       @logs.pop while @logs.size > mysnapshot[:logs_size]
 
-      @refunds = mysnapshot[:refunds]
+      self.refunds = mysnapshot[:refunds]
       @state.root_hash = mysnapshot[:state]
       self.gas_used = mysnapshot[:gas]
       @transactions = mysnapshot[:txs]
