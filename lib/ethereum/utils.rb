@@ -126,6 +126,10 @@ module Ethereum
       arr.pack('C*')
     end
 
+    def bytes_to_int_array(bytes)
+      bytes.unpack('C*')
+    end
+
     def coerce_to_int(x)
       if x.is_a?(Numeric)
         x

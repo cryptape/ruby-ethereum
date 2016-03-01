@@ -329,7 +329,7 @@ module Ethereum
             s0 = stk.pop
             s.pc = s0
 
-            op_new = s.pc < preprocess_code.size ? processed_code[s.pc][0] : :STOP
+            op_new = s.pc < processed_code.size ? processed_code[s.pc][0] : :STOP
             return vm_exception('BAD JUMPDEST') if op_new != :JUMPDEST
           when :JUMPI
             s0, s1 = stk.pop, stk.pop
@@ -345,19 +345,19 @@ module Ethereum
           when :GAS
             stk.push s.gas # AFTER subtracting cost 1
           end
-        elsif op.start_with?(Opcodes::PREFIX_PUSH)
+        elsif op[0,Opcodes::PREFIX_PUSH.size] == Opcodes::PREFIX_PUSH
           pushnum = op[Opcodes::PREFIX_PUSH.size..-1].to_i
           s.pc += pushnum
           stk.push pushval
-        elsif op.start_with?(Opcodes::PREFIX_DUP)
+        elsif op[0,Opcodes::PREFIX_DUP.size] == Opcodes::PREFIX_DUP
           depth = op[Opcodes::PREFIX_DUP.size..-1].to_i
           stk.push stk[-depth]
-        elsif op.start_with?(Opcodes::PREFIX_SWAP)
+        elsif op[0,Opcodes::PREFIX_SWAP.size] == Opcodes::PREFIX_SWAP
           depth = op[Opcodes::PREFIX_SWAP.size..-1].to_i
           temp = stk[-depth - 1]
           stk[-depth - 1] = stk[-1]
           stk[-1] = temp
-        elsif op.start_with?(Opcodes::PREFIX_LOG)
+        elsif op[0,Opcodes::PREFIX_LOG.size] == Opcodes::PREFIX_LOG
           # 0xa0 ... 0xa4, 32/64/96/128/160 + data.size gas
           #
           # a. Opcodes LOG0...LOG4 are added, takes 2-6 stake arguments:
@@ -481,9 +481,22 @@ module Ethereum
             s.gas -= (total_gas - submsg_gas)
             stk.push(0)
           end
+        elsif op == :RETURN
+          s0, s1 = stk.pop, stk.pop
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, s1)
+          peaceful_exit('RETURN', s.gas, mem[s0, s1])
+        elsif op == :SUICIDE
+          s0 = stk.pop
+          to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
+
+          xfer = ext.get_balance(msg.to)
+          ext.set_balance(to, ext.get_balance(to)+xfer)
+          ext.set_balance(msg.to, 0)
+          ext.add_suicide(msg.to)
+
+          return 1, s.gas, []
         end
       end
-
     end
 
     private
@@ -498,6 +511,35 @@ module Ethereum
 
     def log_log
       @log_log ||= Logger.new 'eth.vm.log'
+    end
+
+    # Preprocesses code, and determines which locations are in the middle of
+    # pushdata and thus invalid
+    def preprocess_code(code)
+      code = Utils.bytes_to_int_array code
+      ops = []
+
+      i = 0
+      while i < code.size
+        o = Opcodes::TABLE.fetch(code[i], [:INVALID, 0, 0, 0]) + [code[i], 0]
+        ops.push o
+
+        if o[0][0,Opcodes::PREFIX_PUSH.size] == Opcodes::PREFIX_PUSH
+          n = o[0][Opcodes::PREFIX_PUSH.size..-1].to_i
+          n.times do |j|
+            i += 1
+            byte = i < code.size ? code[i] : 0
+            o[-1] = (o[-1] << 8) + byte
+
+            # polyfill, these INVALID ops will be skipped in execution
+            ops.push [:INVALID, 0, 0, 0, byte, 0] if i < code.size
+          end
+        end
+
+        i += 1
+      end
+
+      ops
     end
 
     def vm_exception(error, **kwargs)
