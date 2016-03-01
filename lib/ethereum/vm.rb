@@ -386,6 +386,101 @@ module Ethereum
           ext.log(msg.to, topics, data)
           log_log.trace('LOG', to: msg.to, topics: topics, data: mem[mstart, msz])
         elsif op == :CREATE
+          value, mstart, msz = stk.pop, stk.pop, stk.pop
+
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, msz)
+
+          if ext.get_balance(msg.to) >= value && msg.depth < 1024
+            cd = CallData.new mem, mstart, msz
+            create_msg = Message.new(msg.to, Constant::BYTE_EMPTY, value, s.gas, cd, depth: msg.depth+1)
+
+            o, gas, addr = ext.create create_msg
+            if o != 0
+              stk.push Utils.coerce_to_int(addr)
+              s.gas = gas
+            else
+              stk.push 0
+              s.gas = 0
+            end
+          else
+            stk.push(0)
+          end
+        elsif op == :CALL
+          gas, to, value, memin_start, memin_sz, memout_start, memout_sz = \
+            stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
+
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memin_start, memin_sz)
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, memout_sz)
+
+          to = Utils.zpad_int(to)[12..-1] # last 20 bytes
+          extra_gas = (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT +
+            (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
+          submsg_gas = gas + Opcodes::GSTIPEND * (value > 0 ? 1 : 0)
+          total_gas = gas + extra_gas
+
+          return vm_exception('OUT OF GAS', needed: total_gas) if s.gas < total_gas
+
+          if ext.get_balance(msg.to) >= value && msg.depth < 1024
+            s.gas -= total_gas
+
+            cd = CallData.new mem, memin_start, memin_sz
+            call_msg = Message.new(msg.to, to, value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+
+            result, gas, data = ext.msg call_msg
+            if result == 0
+              stk.push 0
+            else
+              stk.push 1
+              s.gas += gas
+              [data.size, memout_sz].min.times do |i|
+                mem[memout_start+i] = data[i]
+              end
+            end
+          else
+            s.gas -= (total_gas - submsg_gas)
+            stk.push(0)
+          end
+        elsif op == :CALLCODE || op == :DELEGATECALL
+          gas, to, value, memin_start, memin_sz, memout_start, memout_sz = \
+            stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
+
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memin_start, memin_sz)
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, memout_sz)
+
+          extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
+          submsg_gas = gas + Opcodes::GSTIPEND * (value > 0 ? 1 : 0)
+          total_gas = gas + extra_gas
+
+          return vm_exception('OUT OF GAS', needed: total_gas) if s.gas < total_gas
+
+          if ext.get_balance(msg.to) >= value && msg.depth < 1024
+            s.gas -= total_gas
+
+            to = Utils.zpad_int(to)[12..-1] # last 20 bytes
+            cd = CallData.new mem, memin_start, memin_sz
+
+            if ext.post_homestead_hardfork && op == :DELEGATECALL
+              call_msg = Message.new(msg.sender, msg.to, msg.value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+            elsif op == :DELEGATECALL
+              return vm_exception('OPCODE INACTIVE')
+            else
+              call_msg = Message.new(msg.to, msg.to, value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+            end
+
+            result, gas, data = ext.msg call_msg
+            if result == 0
+              stk.push 0
+            else
+              stk.push 1
+              s.gas += gas
+              [data.size, memout_sz].min.times do |i|
+                mem[memout_start+i] = data[i]
+              end
+            end
+          else
+            s.gas -= (total_gas - submsg_gas)
+            stk.push(0)
+          end
         end
       end
 
