@@ -2,9 +2,10 @@
 
 require 'ethereum/vm/call_data'
 require 'ethereum/vm/message'
+require 'ethereum/vm/state'
 
 module Ethereum
-  class VM
+  module VM
 
   end
 end

@@ -1,7 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
 module Ethereum
-  class VM
+  module VM
 
     class Message
 
