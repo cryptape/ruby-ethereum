@@ -29,6 +29,10 @@ class UtilsTest < Minitest::Test
     assert_equal "9f7fd096d37ed2c0e3f7f0cfc924beef4ffceb68", hash160_hex("\x00")
   end
 
+  def test_mod_exp
+    assert_equal 1, mod_exp(2, 10, 1023)
+  end
+
   def test_base58_check_to_bytes
     assert_equal 'ethereum', base58_check_to_bytes('12v3WKYzeJnRZWgfV3')
     assert_equal 'ethereum', base58_check_to_bytes('x4BdNKWArBWmHMTgc')

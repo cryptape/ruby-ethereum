@@ -2,6 +2,7 @@
 
 require 'digest'
 require 'digest/sha3'
+require 'openssl'
 
 module Ethereum
   module Utils
@@ -39,6 +40,14 @@ module Ethereum
 
     def hash160_hex(x)
       encode_hex hash160(x)
+    end
+
+    def mod_exp(x, y, n)
+      x.to_bn.mod_exp(y, n).to_i
+    end
+
+    def to_signed(i)
+      i > Constant::INT_MAX ? (i-Constant::TT256) : i
     end
 
     def base58_check_to_bytes(s)

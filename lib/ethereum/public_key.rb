@@ -1,4 +1,4 @@
-require 'openssl'
+# -*- encoding : ascii-8bit -*-
 
 module Ethereum
   class PublicKey
@@ -41,7 +41,7 @@ module Ethereum
       when :bin_compressed
         x = BaseConvert.decode raw[1,32], 256
         m = x*x*x + Secp256k1::A*x + Secp256k1::B
-        n = m.to_bn.mod_exp((Secp256k1::P+1)/4, Secp256k1::P).to_i
+        n = Utils.mod_exp(m, (Secp256k1::P+1)/4, Secp256k1::P)
         q = (n + raw[0].ord) % 2
         y = q == 1 ? (Secp256k1::P - n) : n
         [x, y]
