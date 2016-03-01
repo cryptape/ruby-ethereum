@@ -14,4 +14,9 @@ class VMStateTest < Minitest::Test
     assert_equal 3, s.a
   end
 
+  def initialize_with_attributes
+    s = VM::State.new(gas: 100)
+    assert_equal 100, s.gas
+  end
+
 end
