@@ -156,7 +156,7 @@ module Ethereum
     private
 
     def logger
-      Logger['eth.chain.tx']
+      @logger ||= Logger.new 'eth.chain.tx'
     end
 
   end

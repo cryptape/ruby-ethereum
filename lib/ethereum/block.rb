@@ -290,9 +290,9 @@ module Ethereum
     end
 
     ##
-    # The hex encoded block hash. This is equivalent to `header.hex_full_hash`.
+    # The hex encoded block hash. This is equivalent to `header.full_hash_hex`.
     #
-    def hex_full_hash
+    def full_hash_hex
       Utils.encode_hex full_hash
     end
 
@@ -339,7 +339,7 @@ module Ethereum
       uncles.each do |uncle|
         raise InvalidUncles, "Cannot find uncle prevhash in db" unless db.include?(uncle.prevhash)
         if uncle.number == number
-          logger.error "uncle at same block height block=#{self}"
+          logger.error "uncle at same block height", block: self
           return false
         end
       end
@@ -362,12 +362,13 @@ module Ethereum
         return false unless uncle.check_pow
 
         unless eligible_ancestor_hashes.include?(uncle.prevhash)
-          logger.error "Uncle does not have a valid ancestor block=#{self} eligible=#{eligible_ancestor_hashes.map {|h| Utils.encode_hex(h) }} uncle_prevhash=#{Utils.encode_hex uncle.prevhash}"
+          eligible = eligible_ancestor_hashes.map {|h| Utils.encode_hex(h) }
+          logger.error "Uncle does not have a valid ancestor", block: self, eligible: eligible, uncle_prevhash: Utils.encode_hex(uncle.prevhash)
           return false
         end
 
         if ineligible.include?(uncle)
-          logger.error "Duplicate uncle block=#{self} uncle=#{Utils.encode_hex Utils.keccak256_rlp(uncle)}"
+          logger.error "Duplicate uncle", block: self, uncle: Utils.encode_hex(Utils.keccak256_rlp(uncle))
           return false
         end
 
@@ -400,7 +401,7 @@ module Ethereum
     def apply_transaction(tx)
       validate_transaction tx
 
-      logger.debug "apply transaction tx=#{tx.log_dict}"
+      logger.debug "apply transaction", tx: tx.log_dict
       increment_nonce tx.sender
 
       # buy startgas
@@ -415,17 +416,17 @@ module Ethereum
 
       if tx.to && !tx.to.empty? && tx.to != Address::CREATE_CONTRACT
         result, gas_remained, data = ec.apply_msg message
-        logger.debug "_res_ result=#{result} gas_remained=#{gas_remained} data=#{data}"
+        logger.debug "_res_", result: result, gas_remained: gas_remained, data: data
       else # CREATE
         result, gas_remained, data = ec.create message
         raise ValueError, "gas remained is not numeric" unless gas_remained.is_a?(Numeric)
-        logger.debug "_create_ result=#{result} gas_remained=#{gas_remained} data=#{data}"
+        logger.debug "_create_", result: result, gas_remained: gas_remained, data: data
       end
       raise ValueError, "gas remained cannot be negative" unless gas_remained >= 0
-      logger.debug "TX APPLIED result=#{result} gas_remained=#{gas_remained} data=#{data}"
+      logger.debug "TX APPLIED", result: result, gas_remained: gas_remained, data: data
 
       if result
-        logger.debug "TX SUCCESS data=#{data}"
+        logger.debug "TX SUCCESS", data: data
 
         gas_used = tx.startgas - gas_remained
 
@@ -433,7 +434,7 @@ module Ethereum
         if block.refunds > 0
           gas_refund = [block.refunds, gas_used/2].min
 
-          logger.debug "Refunding gas_refunded=#{gas_refund}"
+          logger.debug "Refunding", gas_refunded: gas_refund
           gas_remained += gas_refund
           gas_used -= gas_refund
           block.refunds = 0
@@ -446,7 +447,7 @@ module Ethereum
         output = tx.to && !tx.to.empty? ? data.map(&:chr).join : data
         success = 1
       else # 0 = OOG failure in both cases
-        logger.debug "TX FAILED reason='out of gas' startgas=#{tx.startgas} gas_remained=#{gas_remained}"
+        logger.debug "TX FAILED", reason: 'out of gas', startgas: tx.startgas, gas_remained: gas_remained
 
         block.gas_used += tx.startgas
         block.delta_balance block.coinbase, tx.gasprice*tx.startgas
@@ -644,7 +645,7 @@ module Ethereum
       # if @journal changed after snapshot
       while @journal.size > mysnapshot[:journal_size]
         cache, index, prev, post = @journal.pop
-        logger.debug "revert journal cache=#{cache} index=#{index} prev=#{prev} post=#{post}"
+        logger.debug "revert journal", cache: cache, index: index, prev: prev, post: post
         if prev
           @caches[cache][index] = prev
         else
@@ -969,7 +970,7 @@ module Ethereum
     private
 
     def logger
-      Logger['eth.block']
+      @logger ||= Logger.new 'eth.block'
     end
 
     def initialize_state(transaction_list, parent, making)

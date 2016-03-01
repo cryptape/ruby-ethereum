@@ -25,7 +25,7 @@ module Ethereum
       logger.debug "chain @ head_hash=#{head}"
 
       @genesis = get @index.get_block_by_number(0)
-      logger.debug "got genesis nonce=#{Utils.encode_hex @genesis.nonce} difficulty=#{@genesis.difficulty}"
+      logger.debug "got genesis", nonce: Utils.encode_hex(@genesis.nonce), difficulty: @genesis.difficulty
 
       @head_candidate = nil
       update_head_candidate
@@ -48,7 +48,7 @@ module Ethereum
     private
 
     def logger
-      @logger = Logger['eth.chain']
+      @logger ||= Logger.new 'eth.chain'
     end
 
     def initialize_blockchain(genesis=nil)
@@ -56,7 +56,7 @@ module Ethereum
 
       unless genesis
         genesis = blocks.genesis @env # TODO - blocks
-        logger.info "new genesis genesis_hash=#{genesis} difficulty=#{genesis.difficulty}"
+        logger.info "new genesis", genesis_hash: genesis, difficulty: genesis.difficulty
         @index.add_block genesis
       end
 
@@ -78,7 +78,7 @@ module Ethereum
     end
 
     def update_head_candidate(forward_pending_transaction=true)
-      logger.debug "updating head candidate head=#{head}"
+      logger.debug "updating head candidate", head: head
 
       current_blk = head_blk = head # parent of the block we are collecting uncles for
       uncles = Set.new get_brothers(current_blk).map(&:header)

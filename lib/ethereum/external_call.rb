@@ -158,11 +158,11 @@ module Ethereum
     end
 
     def log_msg
-      Logger['eth.external_call.msg']
+      @log_msg ||= Logger.new 'eth.external_call.msg'
     end
 
     def log_state
-      Logger['eth.external_call.state']
+      @log_state ||= Logger.new 'eth.external_call.state'
     end
 
   end

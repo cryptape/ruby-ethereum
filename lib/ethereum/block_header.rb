@@ -127,7 +127,7 @@ module Ethereum
       Utils.keccak256_rlp self
     end
 
-    def hex_full_hash
+    def full_hash_hex
       Utils.encode_hex full_hash
     end
 
@@ -145,7 +145,7 @@ module Ethereum
     # @return [Bool]
     #
     def check_pow(nonce=nil)
-      logger.debug "checking pow block=#{hex_full_hash[0,8]}"
+      logger.debug "checking pow", block: full_hash_hex[0,8]
       Miner.check_pow(number, mining_hash, mixhash, nonce || self.nonce, difficulty)
     end
 
@@ -173,7 +173,7 @@ module Ethereum
     end
 
     def to_s
-      "#<#{self.class.name}:#{object_id} ##{number} #{hex_full_hash[0,8]}>"
+      "#<#{self.class.name}:#{object_id} ##{number} #{full_hash_hex[0,8]}>"
     end
     alias :inspect :to_s
 
@@ -192,7 +192,7 @@ module Ethereum
     private
 
     def logger
-      Logger['eth.block_header']
+      @logger ||= Logger.new 'eth.block.header'
     end
 
     def get_with_block(attr)

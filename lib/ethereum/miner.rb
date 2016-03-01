@@ -20,7 +20,7 @@ module Ethereum
         # TODO: implement stub
         return true
 
-        Logger['eth.miner'].debug "checking pow block_number=#{block_number}"
+        Logger.new('eth.miner').debug "checking pow",  block_number: block_number
 
         return false if mixhash.size != 32 || header_hash.size != 32 || nonce.size != 8
 
@@ -50,7 +50,7 @@ module Ethereum
     private
 
     def logger
-      Logger['eth.miner']
+      @logger ||= Logger.new 'eth.miner'
     end
 
   end
