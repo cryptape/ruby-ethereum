@@ -194,7 +194,7 @@ module Ethereum
     end
 
     attr :env, :db, :config
-    attr_accessor :refunds, :ether_delta, :ancestor_hashes, :log_listeners
+    attr_accessor :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
 
     ##
     # Arguments in format of:
@@ -241,8 +241,8 @@ module Ethereum
       reset_cache
       @get_transactions_cache = []
 
-      @suicides = []
-      @logs = []
+      self.suicides = []
+      self.logs = []
       self.log_listeners = []
 
       self.refunds = 0
@@ -536,6 +536,54 @@ module Ethereum
     end
 
     ##
+    # Serialize the block to a readable hash.
+    #
+    # @param with_state [Bool] include state for all accounts
+    # @param full_transactions [Bool] include serialized transactions (hashes
+    #   otherwise)
+    # @param with_storage_roots [Bool] if account states are included also
+    #   include their storage roots
+    # @param with_uncles [Bool] include uncle hashes
+    #
+    # @return [Hash] a hash represents the block
+    #
+    def to_h(with_state: false, full_transactions: false, with_storage_roots: false, with_uncles: false)
+      b = { header: header.to_h }
+
+      txlist = []
+      get_transactions.each_with_index do |tx, i|
+        receipt_rlp = @receipts[RLP.encode(i)]
+        receipt = RLP.decode receipt_rlp, sedes: Receipt
+        txjson = full_transactions ? tx.to_h : tx.hash
+
+        logs = receipt.logs.map {|l| Log.serialize(l) }
+
+        txlist.push(
+          tx: txjson,
+          medstate: Utils.encode_hex(receipt.state_root),
+          gas: receipt.gas_used.to_s,
+          logs: logs,
+          bloom: Utils.int256.serialize(receipt.bloom)
+        )
+      end
+      b[:transactions] = txlist
+
+      if with_state
+        state_dump = {}
+        @state.each do |address, v|
+          state_dump[Utils.encode_hex(address)] = account_to_dict(address, with_storage_root: with_storage_roots)
+        end
+        b[:state] = state_dump
+      end
+
+      if with_uncles
+        b[:uncles] = uncles.map {|u| RLP.decode(u, sedes: BlockHeader) }
+      end
+
+      b
+    end
+
+    ##
     # Commit account caches. Write the account caches on the corresponding
     # tries.
     #
@@ -561,7 +609,7 @@ module Ethereum
           val = RLP.encode v
           changes.push ['storage', addr, k, v]
 
-          v && v != 0 ? t.update(enckey, val) : t.delete(enckey)
+          v && v != 0 ? t.set(enckey, val) : t.delete(enckey)
         end
 
         acct.storage = t.root_hash
@@ -583,7 +631,7 @@ module Ethereum
     end
 
     def add_log(log)
-      @logs.push log
+      logs.push log
       log_listeners.each {|l| l(log) }
     end
 
@@ -622,10 +670,10 @@ module Ethereum
         txs: @transactions,
         txcount: @transaction_count,
         refunds: refunds,
-        suicides: @suicides,
-        suicides_size: @suicides.size,
-        logs: @logs,
-        logs_size: @logs.size,
+        suicides: suicides,
+        suicides_size: suicides.size,
+        logs: logs,
+        logs_size: logs.size,
         journal: @journal, # pointer to reference, so is not static
         journal_size: @journal.size,
         ether_delta: @ether_delta
@@ -653,11 +701,11 @@ module Ethereum
         end
       end
 
-      @suicides = mysnapshot[:suicides]
-      @suicides.pop while @suicides.size > mysnapshot[:suicides_size]
+      self.suicides = mysnapshot[:suicides]
+      suicides.pop while suicides.size > mysnapshot[:suicides_size]
 
-      @logs = mysnapshot[:logs]
-      @logs.pop while @logs.size > mysnapshot[:logs_size]
+      self.logs = mysnapshot[:logs]
+      logs.pop while logs.size > mysnapshot[:logs_size]
 
       self.refunds = mysnapshot[:refunds]
       @state.root_hash = mysnapshot[:state]
@@ -853,7 +901,7 @@ module Ethereum
       key = Utils.zpad Utils.coerce_to_bytes(index), 32
       value = get_storage(address)[key]
 
-      value ? RLP.decode(value, sedes: Sedes.big_endian_int) : 0
+      value && !value.empty? ? RLP.decode(value, sedes: Sedes.big_endian_int) : 0
     end
 
     ##
@@ -1169,7 +1217,7 @@ module Ethereum
     end
 
     def mk_transaction_receipt(tx)
-      Receipt.new state_root, gas_used, @logs
+      Receipt.new state_root, gas_used, logs
     end
 
   end

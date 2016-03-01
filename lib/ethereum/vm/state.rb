@@ -1,7 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
 module Ethereum
-  module VM
+  class VM
     class State
 
       attr_accessor :memory, :stack, :pc, :gas

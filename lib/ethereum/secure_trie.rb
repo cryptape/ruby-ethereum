@@ -16,12 +16,14 @@ module Ethereum
     def [](k)
       @trie[Utils.keccak256(k)]
     end
+    alias :get :[]
 
     def []=(k, v)
       h = Utils.keccak256 k
       @db.put h, k
       @trie[h] = v
     end
+    alias :set :[]=
 
     def delete(k)
       @trie.delete Utils.keccak256(k)

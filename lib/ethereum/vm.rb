@@ -5,10 +5,10 @@ require 'ethereum/vm/message'
 require 'ethereum/vm/state'
 
 module Ethereum
-  module VM
+  class VM
 
     class <<self
-      def code_cahe
+      def code_cache
         @code_cache ||= {}
       end
 
