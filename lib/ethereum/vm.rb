@@ -29,13 +29,11 @@ module Ethereum
         VM.code_cache[code] = processed_code
       end
 
-      timestamp = Time.now
-      op = nil
-
       # for trace only
       steps = 0
       _prevop = nil
 
+      timestamp = Time.now
       loop do
         return peaceful_exit('CODE OUT OF RANGE', s.gas, []) if s.pc >= processed_code.size
 
@@ -105,7 +103,59 @@ module Ethereum
           when :SUB
             r = (stk.pop - stk.pop) & UINT_MAX
             stk.push r
+          when :MUL
+            r = (stk.pop * stk.pop) & UINT_MAX
+            stk.push r
+          when :DIV
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s1 == 0 ? 0 : s0 / s1)
+          when :MOD
+            s0, s1 = stk.pop, stk.pop
+            stk.push(s1 == 0 ? 0 : s0 % s1)
+          when :SDIV
+            s0, s1 = Utils.to_signed(stk.pop), Utils.to_signed(stk.pop)
+            r = s1 == 0 ? 0 : ((s0.abs / s1.abs * (s0*s1 < 0 ? -1 : 1)) & UINT_MAX)
+            stk.push r
+          when :SMOD
+            s0, s1 = Utils.to_signed(stk.pop), Utils.to_signed(stk.pop)
+            r = s1 == 0 ? 0 : ((s0.abs % s1.abs * (s0 < 0 ? -1 : 1)) & UINT_MAX)
+          when :ADDMOD
+            s0, s1, s2 = stk.pop, stk.pop, stk.pop
+            r = s2 == 0 ? 0 : (s0+s1) % s2
+            stk.push r
+          when :MULMOD # TODO: optimizable by FFI?
+            s0, s1, s2 = stk.pop, stk.pop, stk.pop
+            r = s2 == 0 ? 0 : (s0*s1) % s2
+            stk.push r
+          when :EXP
+            base, exponent = stk.pop, stk.pop
+
+            # fee for exponent is dependent on its bytes
+            # calc n bytes to represent exponent
+            nbytes = Utils.encode_int(exponent).size
+            expfee = nbytes * Opcodes::GEXPONENTBYTE
+            if s.gas < expfee
+              s.gas = 0
+              return vm_exception('OOG EXPONENT')
+            end
+
+            s.gas -= expfee
+            stk.push Utils.mod_exp(base, exponent, TT256)
+          when :SIGNEXTEND # extend sign from bytes at s0 to left
+            s0, s1 = stk.pop, stk.pop
+            if s0 < 32
+              testbit = s0*8 + 7
+              mask = 1 << testbit
+              if s1 & mask # extend 1s
+                stk.push(s1 | (TT256 - mask))
+              else # extend 0s
+                stk.push(s1 & (mask - 1))
+              end
+            else
+              stk.push s1
+            end
           end
+        elsif opcode < 0x20
         end
       end
 
