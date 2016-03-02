@@ -11,4 +11,8 @@ class ArrayTest < Minitest::Test
     assert_equal [], [].safe_slice(1024..2048)
   end
 
+  def test_zero_length_slice_optimization
+    assert_equal [], [].safe_slice(2**128, 0)
+  end
+
 end

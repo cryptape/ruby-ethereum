@@ -15,7 +15,7 @@ module Ethereum
       end
 
       def extract_all
-        d = @data[@offset, @size]
+        d = @data.safe_slice(@offset, @size)
         d += [0] * (@size - d.size)
         d.map {|x| x.chr }.join
       end
@@ -24,7 +24,7 @@ module Ethereum
         return 0 if i >= @size
 
         right = [@offset+i+32, @rlimit].min
-        o = @data[@offset+i...right]
+        o = @data.safe_slice(@offset+i...right)
         Utils.bytearray_to_int(o + [0]*(32-o.size))
       end
 
