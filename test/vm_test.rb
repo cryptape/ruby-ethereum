@@ -26,8 +26,8 @@ class VMFixtureTest < Minitest::Test
   )
 
   set_fixture_limit 2048
-  #run_fixture "VMTests/vmInputLimitsLight.json"
-  run_fixtures "VMTests"
+  run_fixture "VMTests/vmArithmeticTest.json"
+  #run_fixtures "VMTests"
 
   @@env = Env.new DB::EphemDB.new
 

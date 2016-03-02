@@ -146,10 +146,10 @@ module Ethereum
             if s0 < 32
               testbit = s0*8 + 7
               mask = 1 << testbit
-              if s1 & mask # extend 1s
-                stk.push(s1 | (TT256 - mask))
-              else # extend 0s
+              if s1 & mask == 0 # extend 0s
                 stk.push(s1 & (mask - 1))
+              else # extend 1s
+                stk.push(s1 | (TT256 - mask))
               end
             else
               stk.push s1
