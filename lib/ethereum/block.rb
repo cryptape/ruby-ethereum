@@ -17,8 +17,17 @@ module Ethereum
     HeaderGetters = (BlockHeader.serializable_fields.keys - %i(state_root receipts_root tx_list_root)).freeze
     HeaderSetters = HeaderGetters.map {|field| :"#{field}=" }.freeze
 
+    set_serializable_fields(
+      header: BlockHeader,
+      transaction_list: RLP::Sedes::CountableList.new(Transaction),
+      uncles: RLP::Sedes::CountableList.new(BlockHeader)
+    )
+
     extend Forwardable
     def_delegators :header, *HeaderGetters, *HeaderSetters
+
+    attr :env, :db, :config
+    attr_accessor :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
 
     class UnknownParentError < StandardError; end
     class UnsignedTransactionError < StandardError; end
@@ -28,12 +37,6 @@ module Ethereum
     class InsufficientBalance < ValidationError; end
     class BlockGasLimitReached < ValidationError; end
     class BlockVerificationError < ValidationError; end
-
-    set_serializable_fields(
-      header: BlockHeader,
-      transaction_list: RLP::Sedes::CountableList.new(Transaction),
-      uncles: RLP::Sedes::CountableList.new(BlockHeader)
-    )
 
     class <<self
       ##
@@ -193,9 +196,6 @@ module Ethereum
       end
     end
 
-    attr :env, :db, :config
-    attr_accessor :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
-
     ##
     # Arguments in format of:
     #   `header, transaction_list=[], uncles=[], env=nil, parent=nil,
@@ -246,7 +246,7 @@ module Ethereum
       self.log_listeners = []
 
       self.refunds = 0
-      @ether_delta = 0
+      self.ether_delta = 0
 
       self.ancestor_hashes = number > 0 ? [prevhash] : [nil]*256
 
@@ -430,44 +430,45 @@ module Ethereum
 
         gas_used = tx.startgas - gas_remained
 
-        block.refunds += block.suicides.uniq.size * Opcodes::GSUICIDEERFUND
-        if block.refunds > 0
-          gas_refund = [block.refunds, gas_used/2].min
+        self.refunds += self.suicides.uniq.size * Opcodes::GSUICIDEREFUND
+        if refunds > 0
+          gas_refund = [refunds, gas_used/2].min
 
           logger.debug "Refunding", gas_refunded: gas_refund
           gas_remained += gas_refund
           gas_used -= gas_refund
-          block.refunds = 0
+          self.refunds = 0
         end
 
-        block.delta_balance tx.sender, tx.gasprice * gas_remained
-        block.delta_balance block.coinbase, tx.gasprice * gas_used
-        block.gas_used += gas_used
+        delta_balance tx.sender, tx.gasprice * gas_remained
+        delta_balance coinbase, tx.gasprice * gas_used
+        self.gas_used += gas_used
 
         output = tx.to && !tx.to.empty? ? data.map(&:chr).join : data
         success = 1
       else # 0 = OOG failure in both cases
         logger.debug "TX FAILED", reason: 'out of gas', startgas: tx.startgas, gas_remained: gas_remained
 
-        block.gas_used += tx.startgas
-        block.delta_balance block.coinbase, tx.gasprice*tx.startgas
+        self.gas_used += tx.startgas
+        delta_balance coinbase, tx.gasprice*tx.startgas
 
         output = Constant::BYTE_EMPTY
         success = 0
       end
 
-      block.commit_state
+      commit_state
 
-      suicides = block.suicides
-      block.suicides = []
-      suicides.each do |s|
-        block.ether_delta -= block.get_balance(s)
-        block.set_balance(s, 0)
-        block.del_account(s)
+      _suicides = self.suicides
+      self.suicides = []
+
+      _suicides.each do |s|
+        self.ether_delta -= get_balance(s)
+        set_balance s, 0
+        del_account s
       end
 
-      block.add_transaction_to_list tx
-      block.logs = []
+      add_transaction_to_list tx
+      self.logs = []
 
       return success, output
     end
@@ -523,13 +524,13 @@ module Ethereum
       delta = @config[:block_reward] + @config[:nephew_reward] * uncles.size
 
       delta_balance coinbase, delta
-      @ether_delta += delta
+      self.ether_delta += delta
 
       uncles.each do |uncle|
         r = @config[:block_reward] * (@config[:uncle_depth_penalty_factor] + uncle.number - number) / @config[:uncle_depth_penalty_factor]
 
         delta_balance coinbase, r
-        @ether_delta += r
+        self.ether_delta += r
       end
 
       commit_state
@@ -581,6 +582,23 @@ module Ethereum
       end
 
       b
+    end
+
+    def get_parent_header
+      raise UnknownParentError, "Genesis block has no parent" if number == 0
+      BlockHeader.find db, prevhash
+    rescue KeyError
+      raise UnknownParentError, Utils.encode_hex(prevhash) unless parent_header
+    end
+
+    ##
+    # Get the parent of this block.
+    #
+    def get_parent
+      raise UnknownParentError, "Genesis block has no parent" if number == 0
+      Block.find env, prevhash
+    rescue KeyError
+      raise UnknownParentError, Utils.encode_hex(prevhash)
     end
 
     ##
@@ -665,7 +683,7 @@ module Ethereum
     # Make a snapshot of the current state to enable later reverting.
     #
     def snapshot
-      { state: state.root_hash,
+      { state: @state.root_hash,
         gas: gas_used,
         txs: @transactions,
         txcount: @transaction_count,
@@ -676,7 +694,7 @@ module Ethereum
         logs_size: logs.size,
         journal: @journal, # pointer to reference, so is not static
         journal_size: @journal.size,
-        ether_delta: @ether_delta
+        ether_delta: ether_delta
       }
     end
 
@@ -712,7 +730,7 @@ module Ethereum
       self.gas_used = mysnapshot[:gas]
       @transactions = mysnapshot[:txs]
       @transaction_count = mysnapshot[:txcount]
-      @ether_delta = mysnapshot[:ether_delta]
+      self.ether_delta = mysnapshot[:ether_delta]
 
       @get_transactions_cache = []
     end
@@ -1117,15 +1135,6 @@ module Ethereum
     #
     def validate_fields
       RLP.decode(RLP.encode(self)) == self
-    end
-
-    def get_parent_header
-      raise UnknownParentError, "Genesis block has no parent" if number == 0
-
-      parent_header = BlockHeader.find db, prevhash
-      raise UnknownParentError, Utils.encode_hex(prevhash) unless parent_header
-
-      parent_header
     end
 
     ##

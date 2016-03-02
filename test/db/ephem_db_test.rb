@@ -16,7 +16,7 @@ class EphemDBTest < Minitest::Test
 
     content.each do |k, v|
       assert_equal false, db.has_key?(k)
-      assert_equal nil, db.get(k)
+      assert_raises(KeyError) { db.get(k) }
     end
 
     content.each do |k, v|
@@ -34,7 +34,7 @@ class EphemDBTest < Minitest::Test
     content.each do |k, v|
       db.delete k
       assert_equal false, db.has_key?(k)
-      assert_equal nil, db.get(k)
+      assert_raises(KeyError) { db.get(k) }
     end
   end
 

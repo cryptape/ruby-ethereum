@@ -68,10 +68,6 @@ module Ethereum
       @tx.gasprice
     end
 
-    def create(msg)
-      create_contract msg
-    end
-
     def msg(msg)
       apply_msg msg, get_code(msg.code_address)
     end
@@ -80,10 +76,8 @@ module Ethereum
       @block.number >= @block.config[:homestead_fork_blknum]
     end
 
-    private
-
-    def create_contract(msg)
-      sender = Utils.normalize_address(msg.sender, allow_blank: true).to_bytes
+    def create(msg)
+      sender = Utils.normalize_address(msg.sender, allow_blank: true)
 
       @block.increment_nonce msg.sender if tx_origin != msg.sender
 
@@ -156,6 +150,8 @@ module Ethereum
 
       return res, gas, dat
     end
+
+    private
 
     def log_msg
       @log_msg ||= Logger.new 'eth.external_call.msg'
