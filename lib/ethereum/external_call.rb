@@ -140,9 +140,9 @@ module Ethereum
 
       # main loop
       if SpecialContract[msg.code_address]
-        res, gas, dat = SpecialContract[msg.code_address].call(self, msg) #TODO
+        res, gas, dat = SpecialContract[msg.code_address].call(self, msg)
       else
-        res, gas, dat = VM.execute self, msg, code #TODO
+        res, gas, dat = VM.execute self, msg, code
       end
 
       log_msg.trace "MSG APPLIED", gas_remained: gas, sender: msg.sender, to: msg.to, data: dat

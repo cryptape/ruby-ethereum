@@ -17,7 +17,7 @@ module Ethereum
       def extract_all
         d = @data.safe_slice(@offset, @size)
         d += [0] * (@size - d.size)
-        d.map {|x| x.chr }.join
+        Utils.int_array_to_bytes(d)
       end
 
       def extract32(i)

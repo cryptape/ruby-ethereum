@@ -1,5 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
+$:.unshift File.expand_path('../../lib', __FILE__)
+
 require 'minitest/autorun'
 require 'ethereum'
 require 'json'
