@@ -5,6 +5,8 @@ module Ethereum
 
     class CallData
 
+      attr :size
+
       def initialize(parent_memory, offset=0, size=nil)
         @data = parent_memory
         @offset = offset

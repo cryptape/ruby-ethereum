@@ -105,12 +105,14 @@ end
 
 class Minitest::Test
   class <<self
-    def run_fixture(path, options: {})
+    def run_fixture(path, limit: nil, except: nil, only: nil)
       fixture = load_fixture(path).to_a
-      fixture = fixture[0,options[:limit]] if options[:limit]
+      fixture = fixture[0,limit] if limit
 
       fixture.each do |name, pairs|
         break if fixture_limit > 0 && fixture_loaded.size >= fixture_limit
+        next if except && name =~ except
+        next if only && name !~ only
         fixture_loaded.push name
 
         define_method("test_fixture_#{name}") do
@@ -123,7 +125,7 @@ class Minitest::Test
       Dir[fixture_path("#{path}/**/*.json")].each do |file_path|
         next if except && file_path =~ except
         next if only && file_path !~ only
-        run_fixture file_path.sub(fixture_root, ''), options: options
+        run_fixture file_path.sub(fixture_root, ''), **options
       end
     end
 

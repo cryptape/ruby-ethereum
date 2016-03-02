@@ -205,7 +205,7 @@ module Ethereum
 
             return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, s1)
 
-            data = Utils.int_array_to_bytes mem[s0,s1]
+            data = Utils.int_array_to_bytes mem.safe_slice(s0,s1)
             stk.push Utils.big_endian_to_int(Utils.keccak256(data))
           when :ADDRESS
             stk.push Utils.coerce_to_int(msg.to)
@@ -235,7 +235,7 @@ module Ethereum
           when :CODECOPY
             mstart, cstart, size = stk.pop, stk.pop, stk.pop
 
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, start, size)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, size)
             return vm_exception('OOG COPY CODE') unless data_copy(s, size)
 
             size.times do |i|
@@ -257,7 +257,7 @@ module Ethereum
             extcode = ext.get_code(addr) || Constant::BYTE_EMPTY
             raise ValueError, "extcode must be string" unless extcode.is_a?(String)
 
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, start, size)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, size)
             return vm_exception('OOG COPY CODE') unless data_copy(s, size)
 
             size.times do |i|
@@ -292,7 +292,7 @@ module Ethereum
             s0 = stk.pop
             return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, 32)
 
-            data = Utils.int_array_to_bytes mem[s0, 32]
+            data = Utils.int_array_to_bytes mem.safe_slice(s0, 32)
             stk.push Utils.big_endian_to_int(data)
           when :MSTORE
             s0, s1 = stk.pop, stk.pop
@@ -374,7 +374,7 @@ module Ethereum
           # c. The ordered list of logs in the transation are expreseed as
           #    [log0, log1, ..., logN].
           #
-          depth = op[PREFIX_LOG.size..-1].to_i
+          depth = op[Opcodes::PREFIX_LOG.size..-1].to_i
           mstart, msz = stk.pop, stk.pop
           topics = depth.times.map {|i| stk.pop }
 
@@ -382,9 +382,9 @@ module Ethereum
 
           return vm_exception("OOG EXTENDING MEMORY") unless mem_extend(mem, s, mstart, msz)
 
-          data = Utils.int_array_to_bytes mem[mstart, msz]
-          ext.log(msg.to, topics, data)
-          log_log.trace('LOG', to: msg.to, topics: topics, data: mem[mstart, msz])
+          data = mem.safe_slice(mstart, msz)
+          ext.log(msg.to, topics, Utils.int_array_to_bytes(data))
+          log_log.trace('LOG', to: msg.to, topics: topics, data: data)
         elsif op == :CREATE
           value, mstart, msz = stk.pop, stk.pop, stk.pop
 
@@ -484,7 +484,7 @@ module Ethereum
         elsif op == :RETURN
           s0, s1 = stk.pop, stk.pop
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, s1)
-          peaceful_exit('RETURN', s.gas, mem[s0, s1])
+          peaceful_exit('RETURN', s.gas, mem.safe_slice(s0, s1))
         elsif op == :SUICIDE
           s0 = stk.pop
           to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
@@ -553,7 +553,7 @@ module Ethereum
     end
 
     def mem_extend(mem, s, start, sz)
-      if size > 0
+      if sz > 0
         oldsize = mem.size / 32
         old_totalfee = mem_fee oldsize
 

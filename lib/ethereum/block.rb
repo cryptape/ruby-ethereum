@@ -351,10 +351,10 @@ module Ethereum
       # Uncles of this block cannot be direct ancestors and cannot also be
       # uncles included 1-6 blocks ago.
       ineligible = []
-      ancestor_chain[1..-1].each {|a| ineligible.concat a.uncles }
+      ancestor_chain.safe_slice(1..-1).each {|a| ineligible.concat a.uncles }
       ineligible.concat(ancestor_chain.map {|a| a.header })
 
-      eligible_ancestor_hashes = ancestor_chain[2..-1].map(&:full_hash)
+      eligible_ancestor_hashes = ancestor_chain.safe_slice(2..-1).map(&:full_hash)
 
       uncles.each do |uncle|
         parent = Block.find env, uncle.prevhash
@@ -896,7 +896,7 @@ module Ethereum
       address = Utils.normalize_address address
 
       cache = @caches["storage:#{address}"]
-      return cache[index] if cache && cache[index].has_key?(index)
+      return cache[index] if cache && cache.has_key?(index)
 
       key = Utils.zpad Utils.coerce_to_bytes(index), 32
       value = get_storage(address)[key]
