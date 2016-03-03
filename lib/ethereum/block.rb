@@ -529,7 +529,7 @@ module Ethereum
       uncles.each do |uncle|
         r = @config[:block_reward] * (@config[:uncle_depth_penalty_factor] + uncle.number - number) / @config[:uncle_depth_penalty_factor]
 
-        delta_balance coinbase, r
+        delta_balance uncle.coinbase, r
         self.ether_delta += r
       end
 
