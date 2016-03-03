@@ -132,7 +132,7 @@ module Ethereum
     end
 
     def mining_hash
-      Utils.keccak256 RLP.encode(self, sedes: self.class.exclude(['mixhash', 'nonce']))
+      Utils.keccak256 RLP.encode(self, sedes: self.class.exclude(%i(mixhash nonce)))
     end
 
     ##
