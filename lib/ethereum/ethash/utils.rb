@@ -1,5 +1,6 @@
 # -*- encoding : ascii-8bit -*-
 
+
 module Ethereum
   module Ethash
     module Utils
@@ -7,13 +8,13 @@ module Ethereum
       # sha3 hash function, outputs 64 bytes
       def keccak512(x)
         hash_words(x) do |v|
-          Utils.keccak512(v)
+          Ethereum::Utils.keccak512(v)
         end
       end
 
       def keccak256(x)
         hash_words(x) do |v|
-          Utils.keccak256(v)
+          Ethereum::Utils.keccak256(v)
         end
       end
 
@@ -35,12 +36,13 @@ module Ethereum
       end
 
       def encode_int(i)
-        Utils.int_to_big_endian(i).reverse
+        # `pack('L<`) will introduce leading zeros
+        Ethereum::Utils.int_to_big_endian(i).reverse
       end
 
       # Assumes little endian bit ordering (same as Intel architectures)
       def decode_int(s)
-        s && !s.empty? ? Utils.big_endian_to_int(s.reverse) : 0
+        s && !s.empty? ? s.unpack('L<').first : 0
       end
 
       def zpad(s, len)

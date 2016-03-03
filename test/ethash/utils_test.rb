@@ -31,6 +31,7 @@ class EthashUtilsTest < Minitest::Test
   def test_decode_int
     assert_equal 0, decode_int('')
     assert_equal 16909060, decode_int("\x04\x03\x02\x01")
+    assert_equal 503971949, decode_int("m\x00\n\x1e")
   end
 
   def test_encode_int
