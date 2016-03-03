@@ -15,6 +15,10 @@ class BloomTest < Minitest::Test
     assert_equal [[1323], [431], [1319]], Bloom.bits(Utils.decode_hex('0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6'))
   end
 
+  def test_bloom_from_array
+    assert_equal 0, Bloom.from_array([])
+  end
+
 end
 
 class BloomFixtureTest < Minitest::Test

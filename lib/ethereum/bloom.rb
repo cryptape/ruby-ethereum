@@ -45,7 +45,7 @@ module Ethereum
       end
 
       def combine(*args)
-        args.reduce(&:|)
+        args.reduce(0, &:|)
       end
 
       def bits(v)
