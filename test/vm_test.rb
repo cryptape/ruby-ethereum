@@ -136,11 +136,11 @@ class VMFixtureTest < Minitest::Test
     class <<ext
       attr_accessor :apply_message_calls
 
-      alias :orig_msg :msg
+      alias :orig_apply_msg :apply_msg
       alias :orig_create :create
       alias :orig_block_hash :block_hash
 
-      def msg(msg)
+      def apply_msg(msg, code=nil)
         hexdata = encode_hex msg.data.extract_all
 
         apply_message_calls.push(

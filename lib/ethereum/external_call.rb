@@ -68,10 +68,6 @@ module Ethereum
       @tx.gasprice
     end
 
-    def msg(msg)
-      apply_msg msg, get_code(msg.code_address)
-    end
-
     def post_homestead_hardfork
       @block.number >= @block.config[:homestead_fork_blknum]
     end
@@ -120,7 +116,9 @@ module Ethereum
       end
     end
 
-    def apply_msg(msg, code)
+    def apply_msg(msg, code=nil)
+      code ||= get_code msg.code_address
+
       log_msg.debug "MSG APPLY",  sender: Utils.encode_hex(msg.sender), to: Utils.encode_hex(msg.to), gas: msg.gas, value: msg.value, data: Utils.encode_hex(msg.data.extract_all)
       log_state.trace "MSG PRE STATE SENDER", account: msg.sender, balance: get_balance(msg.sender), state: log_storage(msg.sender)
       log_state.trace "MSG PRE STATE RECIPIENT", account: msg.to, balance: get_balance(msg.to), state: log_storage(msg.to)

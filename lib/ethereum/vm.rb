@@ -96,7 +96,7 @@ module Ethereum
         if opcode < 0x10 # Stop & Arithmetic Operations
           case op
           when :STOP
-            peaceful_exit('STOP', s.gas, [])
+            return peaceful_exit('STOP', s.gas, [])
           when :ADD
             r = (stk.pop + stk.pop) & UINT_MAX
             stk.push r
@@ -426,7 +426,7 @@ module Ethereum
             cd = CallData.new mem, memin_start, memin_sz
             call_msg = Message.new(msg.to, to, value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
 
-            result, gas, data = ext.msg call_msg
+            result, gas, data = ext.apply_msg call_msg
             if result == 0
               stk.push 0
             else
@@ -467,7 +467,7 @@ module Ethereum
               call_msg = Message.new(msg.to, msg.to, value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
             end
 
-            result, gas, data = ext.msg call_msg
+            result, gas, data = ext.apply_msg call_msg
             if result == 0
               stk.push 0
             else
@@ -578,7 +578,7 @@ module Ethereum
     end
 
     def data_copy(s, sz)
-      if sz
+      if sz > 0
         copyfee = Opcodes::GCOPY * Utils.ceil32(sz) / 32
 
         if s.gas < copyfee
