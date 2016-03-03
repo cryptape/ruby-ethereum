@@ -588,7 +588,7 @@ module Ethereum
       raise UnknownParentError, "Genesis block has no parent" if number == 0
       BlockHeader.find db, prevhash
     rescue KeyError
-      raise UnknownParentError, Utils.encode_hex(prevhash) unless parent_header
+      raise UnknownParentError, Utils.encode_hex(prevhash)
     end
 
     ##
@@ -726,11 +726,13 @@ module Ethereum
       logs.pop while logs.size > mysnapshot[:logs_size]
 
       self.refunds = mysnapshot[:refunds]
-      @state.root_hash = mysnapshot[:state]
       self.gas_used = mysnapshot[:gas]
+      self.ether_delta = mysnapshot[:ether_delta]
+
       @transactions = mysnapshot[:txs]
       @transaction_count = mysnapshot[:txcount]
-      self.ether_delta = mysnapshot[:ether_delta]
+
+      @state.set_root_hash mysnapshot[:state]
 
       @get_transactions_cache = []
     end
@@ -853,8 +855,7 @@ module Ethereum
     # @return [Bool] `true` if successful, otherwise `false`
     #
     def transfer_value(from, to, value)
-      raise ArgumentError, "value must be greater than zero" unless value > 0
-
+      raise ArgumentError, "value must be greater or equal than zero" unless value >= 0
       delta_balance(from, -value) && delta_balance(to, value)
     end
 

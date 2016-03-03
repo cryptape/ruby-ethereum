@@ -5,7 +5,7 @@ module Ethereum
 
     class Message
 
-      attr :sender, :to, :value, :gas, :data, :depth, :logs, :code_address, :is_create
+      attr_accessor :sender, :to, :value, :gas, :data, :depth, :logs, :code_address, :is_create
 
       def initialize(sender, to, value, gas, data, depth:0, code_address:nil, is_create:false)
         @sender = sender

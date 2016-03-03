@@ -28,7 +28,6 @@ module Ethereum
         processed_code = preprocess_code code
         VM.code_cache[code] = processed_code
       end
-
       # for trace only
       steps = 0
       _prevop = nil
@@ -484,7 +483,7 @@ module Ethereum
         elsif op == :RETURN
           s0, s1 = stk.pop, stk.pop
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, s1)
-          peaceful_exit('RETURN', s.gas, mem.safe_slice(s0, s1))
+          return peaceful_exit('RETURN', s.gas, mem.safe_slice(s0, s1))
         elsif op == :SUICIDE
           s0 = stk.pop
           to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
