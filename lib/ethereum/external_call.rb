@@ -89,8 +89,10 @@ module Ethereum
       end
 
       msg.is_create = true
-      msg.data = VM::CallData.new [], 0, 0
+
       code = msg.data.extract_all
+      msg.data = VM::CallData.new [], 0, 0
+
       res, gas, dat = apply_msg msg, code
 
       if res != 0
