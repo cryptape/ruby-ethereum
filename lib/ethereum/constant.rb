@@ -7,6 +7,7 @@ module Ethereum
     BYTE_ZERO = "\x00".freeze
     BYTE_ONE  = "\x01".freeze
 
+    TT32  = 2**32
     TT256 = 2**256
 
     UINT_MAX = 2**256 - 1

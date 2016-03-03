@@ -18,6 +18,10 @@ module Ethereum
       Digest::SHA3.new(256).digest(x)
     end
 
+    def keccak512(x)
+      Digest::SHA3.new(512).digest(x)
+    end
+
     def keccak256_rlp(x)
       keccak256 RLP.encode(x)
     end
