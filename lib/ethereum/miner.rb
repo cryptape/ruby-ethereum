@@ -17,34 +17,21 @@ module Ethereum
     class <<self
       # TODO: @lru_cache(maxsize=32)
       def check_pow(block_number, header_hash, mixhash, nonce, difficulty)
-        # TODO: implement stub
-        return true
-
         Logger.new('eth.miner').debug "checking pow",  block_number: block_number
 
         return false if mixhash.size != 32 || header_hash.size != 32 || nonce.size != 8
 
-        cache = get_cache block_number
+        cache = Ethash::Cache.get block_number
         mining_output = hashimoto_light block_number, cache, header_hash, nonce
 
         return false if mining_output[:mixhash] != mixhash
-        return Utils.big_endian_to_int(mining_output[:result]) <= (2**256 / difficulty)
-      end
-
-      def get_cache(block_number)
+        return Utils.big_endian_to_int(mining_output[:result]) <= (Constant::TT256 / difficulty)
       end
 
       def hashimoto_light(*args)
         # TODO: switch to ethhash c++ binding
         Ethash.hashimoto_light(*args)
       end
-    end
-
-    ##
-    # @param block [Block] the block for which to find a valid nonce
-    #
-    def initialize(block)
-      #TODO
     end
 
     private
