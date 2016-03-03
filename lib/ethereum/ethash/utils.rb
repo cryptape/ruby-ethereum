@@ -1,6 +1,5 @@
 # -*- encoding : ascii-8bit -*-
 
-
 module Ethereum
   module Ethash
     module Utils

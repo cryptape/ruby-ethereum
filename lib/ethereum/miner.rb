@@ -15,7 +15,6 @@ module Ethereum
   class Miner
 
     class <<self
-      # TODO: @lru_cache(maxsize=32)
       def check_pow(block_number, header_hash, mixhash, nonce, difficulty)
         Logger.new('eth.miner').debug "checking pow",  block_number: block_number
 
@@ -27,6 +26,7 @@ module Ethereum
         return false if mining_output[:mixhash] != mixhash
         return Utils.big_endian_to_int(mining_output[:result]) <= (Constant::TT256 / difficulty)
       end
+      lru_cache :check_pow, 32
 
       def hashimoto_light(*args)
         # TODO: switch to ethhash c++ binding

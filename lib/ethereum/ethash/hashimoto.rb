@@ -9,11 +9,12 @@ module Ethereum
       include Utils
 
       def light(block_number, cache, header, nonce)
-        lookup = ->(x) { calc_dataset_item(cache, x) }
-        hashimoto header, nonce, get_full_size(block_number), lookup
+        run header, nonce, get_full_size(block_number) do |x|
+          calc_dataset_item(cache, x)
+        end
       end
 
-      def run(header, nonce, full_size, dataset_lookup)
+      def run(header, nonce, full_size, &dataset_lookup)
         n = full_size / HASH_BYTES
         w = MIX_BYTES / WORD_BYTES
         mixhashes = MIX_BYTES / HASH_BYTES
@@ -27,7 +28,7 @@ module Ethereum
           p = fnv(i ^ s[0], mix[i % w]) % (n / mixhashes) * mixhashes
 
           newdata = []
-          mixhashes.times {|j| newdata.concat dataset_lookup(p + j) }
+          mixhashes.times {|j| newdata.concat dataset_lookup.call(p + j) }
           mix = mix.zip(newdata).map {|(a,b)| fnv(a, b) }
         end
 

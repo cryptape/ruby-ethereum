@@ -24,7 +24,6 @@ module Ethereum
 
     FNV_PRIME = 0x01000193
 
-
     class <<self
       def hashimoto_light(*args)
         Hashimoto.new.light(*args)

@@ -22,7 +22,7 @@ module Ethereum
         def get_seed(block_number)
           epoch_no = block_number / EPOCH_LENGTH
           while seeds.size <= epoch_no
-            seeds.push Utils.keccak256(seeds.last)
+            seeds.push Ethereum::Utils.keccak256(seeds.last)
           end
 
           seeds[epoch_no]
@@ -44,7 +44,7 @@ module Ethereum
             end
           end
         end
-        lru_cache :get, 5
+        lru_cache :get, 16
       end
 
       def initialize(block_number)
