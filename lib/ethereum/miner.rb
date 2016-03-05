@@ -26,7 +26,7 @@ module Ethereum
         return false if mining_output[:mixhash] != mixhash
         return Utils.big_endian_to_int(mining_output[:result]) <= (Constant::TT256 / difficulty)
       end
-      lru_cache :check_pow, 32
+      lru_cache :check_pow, 256
 
       def hashimoto_light(*args)
         # TODO: switch to ethhash c++ binding
