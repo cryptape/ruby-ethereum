@@ -394,7 +394,7 @@ module Ethereum
       r = mk_transaction_receipt tx
       @receipts[k] = RLP.encode(r)
 
-      @bloom |= r.bloom
+      self.bloom |= r.bloom
       @transaction_count += 1
     end
 
