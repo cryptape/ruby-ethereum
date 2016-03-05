@@ -73,8 +73,8 @@ class BlockFixtureTest < Minitest::Test
   include Ethereum
 
   set_fixture_limit 283 # TODO: extends to all tests
-  #run_fixtures "BlockchainTests", options: {limit: 500}, except: /TestNetwork|Homestead/
-  run_fixture 'BlockchainTests/bcInvalidHeaderTest.json', only: /wrongMixHash/
+  run_fixtures "BlockchainTests", options: {limit: 500}, except: /TestNetwork|Homestead/
+  #run_fixture 'BlockchainTests/bcInvalidHeaderTest.json', only: /wrongUncleHash/
 
   EXCLUDES = %w(
     bcWalletTest_walletReorganizeOwners

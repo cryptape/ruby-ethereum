@@ -322,10 +322,6 @@ module Ethereum
       reset_cache
     end
 
-    def uncles_hash
-      Utils.keccak256_rlp uncles
-    end
-
     def transaction_list
       @transaction_count.times.map {|i| get_transaction(i) }
     end
@@ -334,6 +330,7 @@ module Ethereum
     # Validate the uncles of this block.
     #
     def validate_uncles
+      return false if Utils.keccak256_rlp(uncles) != uncles_hash
       return false if uncles.size > config[:max_uncles]
 
       uncles.each do |uncle|
@@ -1089,7 +1086,7 @@ module Ethereum
       raise BlockVerificationError, "difficulty mistmatch actual: #{difficulty} target: #{original_values[:difficulty]}" if difficulty != original_values[:difficulty]
       raise BlockVerificationError, "bloom mistmatch actual: #{bloom} target: #{original_values[:bloom]}" if bloom != original_values[:bloom]
 
-      uh = Utils.keccak256 RLP.encode(uncles)
+      uh = Utils.keccak256_rlp uncles
       raise BlockVerificationError, "uncles_hash mistmatch actual: #{uh} target: #{original_values[:uncles_hash]}" if uh != original_values[:uncles_hash]
 
       raise BlockVerificationError, "header must reference no block" unless header.block.nil?
