@@ -19,6 +19,19 @@ module Ethereum
           @cache_by_seed ||= {} # ordered hash
         end
 
+        def cache_by_file(block_number, data=nil)
+          path = "/tmp/ruby_ethereum_hashimoto_cache_#{block_number}"
+          if data
+            File.open(path, 'wb') {|f| f.write Marshal.dump(data) }
+          else
+            if File.exist?(path)
+              File.open(path, 'rb') {|f| Marshal.load f.read }
+            else
+              nil
+            end
+          end
+        end
+
         def get_seed(block_number)
           epoch_no = block_number / EPOCH_LENGTH
           while seeds.size <= epoch_no
@@ -37,8 +50,14 @@ module Ethereum
             return c
           end
 
+          if c = cache_by_file(block_number)
+            cache_by_seed[seed] = c
+            return c
+          end
+
           new(block_number).to_a.tap do |c|
             cache_by_seed[seed] = c
+            cache_by_file block_number, c
             if cache_by_seed.size > CACHE_BY_SEED_MAX
               cache_by_seed.delete cache_by_seed.keys.first # remove last recently accessed
             end
