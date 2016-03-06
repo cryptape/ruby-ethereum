@@ -411,7 +411,7 @@ module Ethereum
 
       ec = ExternalCall.new self, tx
 
-      if tx.to && !tx.to.empty? && tx.to != Address::CREATE_CONTRACT
+      if tx.to.true? && tx.to != Address::CREATE_CONTRACT
         result, gas_remained, data = ec.apply_msg message
         logger.debug "_res_", result: result, gas_remained: gas_remained, data: data
       else # CREATE
@@ -441,7 +441,7 @@ module Ethereum
         delta_balance coinbase, tx.gasprice * gas_used
         self.gas_used += gas_used
 
-        output = tx.to && !tx.to.empty? ? data.map(&:chr).join : data
+        output = tx.to.true? ? data.map(&:chr).join : data
         success = 1
       else # 0 = OOG failure in both cases
         logger.debug "TX FAILED", reason: 'out of gas', startgas: tx.startgas, gas_remained: gas_remained
@@ -917,7 +917,7 @@ module Ethereum
       key = Utils.zpad Utils.coerce_to_bytes(index), 32
       value = get_storage(address)[key]
 
-      value && !value.empty? ? RLP.decode(value, sedes: Sedes.big_endian_int) : 0
+      value.true? ? RLP.decode(value, sedes: Sedes.big_endian_int) : 0
     end
 
     ##
@@ -1098,9 +1098,9 @@ module Ethereum
       #raise ValueError, "Block is invalid" unless validate_fields # TODO: uncomment to see if tests break
 
       raise ValueError, "Extra data cannot exceed #{config[:max_extradata_length]} bytes" if header.extra_data.size > config[:max_extradata_length]
-      raise ValueError, "Coinbase cannot be empty address" if header.coinbase.nil? || header.coinbase.empty?
+      raise ValueError, "Coinbase cannot be empty address" if header.coinbase.false?
       raise ValueError, "State merkle root of block #{self} not found in database" unless @state.root_hash_valid?
-      raise ValueError, "PoW check failed" if !genesis? && (nonce && !nonce.empty?) && !header.check_pow
+      raise ValueError, "PoW check failed" if !genesis? && nonce.true? && !header.check_pow
     end
 
     def validate_transaction(tx)

@@ -211,7 +211,7 @@ module Ethereum
       case get_node_type(node)
       when :branch
         sizes = node[0,BRANCH_CARDINAL].map {|n| get_size decode_to_node(n) }
-        sizes.push(node.last.nil? || node.last.empty? ? 0 : 1)
+        sizes.push(node.last.false? ? 0 : 1)
         sizes.reduce(0, &:+)
       when :extension
         get_size decode_to_node(node[1])
@@ -528,7 +528,7 @@ module Ethereum
           sub_hash.each {|k, v| hash[NibbleKey.new([i]) + k] = v }
         end
 
-        hash[NibbleKey.terminator] = node.last if node.last && !node.last.empty?
+        hash[NibbleKey.terminator] = node.last if node.last.true?
         hash
       when *NODE_KV_TYPE
         nibbles = NibbleKey.decode(node[0]).terminate(false)
