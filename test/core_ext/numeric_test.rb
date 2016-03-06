@@ -2,7 +2,7 @@
 
 require 'test_helper'
 
-class NumericTest < Minitest::Test
+class CoreExtNumericTest < Minitest::Test
 
   def test_denominations
     assert_equal 10**18, 1.ether

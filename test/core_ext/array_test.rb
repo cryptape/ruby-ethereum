@@ -2,7 +2,7 @@
 
 require 'test_helper'
 
-class ArrayTest < Minitest::Test
+class CoreExtArrayTest < Minitest::Test
 
   def test_safe_slice
     assert_equal nil, [].safe_slice(1024)

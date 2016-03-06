@@ -2,7 +2,7 @@
 
 require 'test_helper'
 
-class ModuleTest < Minitest::Test
+class CoreExtModuleTest < Minitest::Test
 
   class LruCacheTest
     attr :count
