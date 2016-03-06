@@ -1,6 +1,10 @@
 # -*- encoding : ascii-8bit -*-
 
 class Object
+  def true?
+    !false?
+  end
+
   def false?
     respond_to?(:empty?) ? empty? : !self
   end

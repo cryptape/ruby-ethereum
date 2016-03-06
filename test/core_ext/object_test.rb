@@ -4,7 +4,7 @@ require 'test_helper'
 
 class CoreExtObjectTest < Minitest::Test
 
-  def test_false_predict
+  def test_truth_predict
     assert_equal true, [].false?
     assert_equal false, [0].false?
     assert_equal true, ''.false?
@@ -15,6 +15,14 @@ class CoreExtObjectTest < Minitest::Test
     assert_equal false, 1.false?
     assert_equal true, 0.false?
     assert_equal true, 0.0.false?
+
+    assert_equal false, [].true?
+    assert_equal true, [0].true?
+    assert_equal false, ''.true?
+    assert_equal true, ' '.true?
+    assert_equal true, 1.true?
+    assert_equal false, 0.true?
+    assert_equal false, 0.0.true?
   end
 
 end
