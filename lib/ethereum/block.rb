@@ -1069,6 +1069,9 @@ module Ethereum
       end
     end
 
+    ##
+    # Validate block (header) against previous block.
+    #
     def validate_parent!(parent)
       raise ValidationError, "Parent lives in different database" if parent && db != parent.db && db.db != parent.db # TODO: refactor the db.db mess
       raise ValidationError, "Block's prevhash and parent's hash do not match" if prevhash != parent.full_hash
@@ -1080,6 +1083,10 @@ module Ethereum
       raise ValidationError, "Timestamp way too large" if timestamp > Constant::UINT_MAX
     end
 
+    ##
+    # Validate (transaction applied) block against its header, plus fields and
+    # value check.
+    #
     def validate_block!(original_values)
       raise BlockVerificationError, "gas_used mistmatch actual: #{gas_used} target: #{original_values[:gas_used]}" if gas_used != original_values[:gas_used]
       raise BlockVerificationError, "timestamp mistmatch actual: #{timestamp} target: #{original_values[:timestamp]}" if timestamp != original_values[:timestamp]
@@ -1095,7 +1102,7 @@ module Ethereum
       raise BlockVerificationError, "tx_list_root mistmatch actual: #{@transactions.root_hash} target: #{header.tx_list_root}" if @transactions.root_hash != header.tx_list_root
       raise BlockVerificationError, "receipts_root mistmatch actual: #{@receipts.root_hash} target: #{header.receipts_root}" if @receipts.root_hash != header.receipts_root
 
-      #raise ValueError, "Block is invalid" unless validate_fields # TODO: uncomment to see if tests break
+      raise ValueError, "Block is invalid" unless validate_fields
 
       raise ValueError, "Extra data cannot exceed #{config[:max_extradata_length]} bytes" if header.extra_data.size > config[:max_extradata_length]
       raise ValueError, "Coinbase cannot be empty address" if header.coinbase.false?
@@ -1132,7 +1139,8 @@ module Ethereum
     # Serialize and deserialize and check that the values didn't change.
     #
     def validate_fields
-      RLP.decode(RLP.encode(self)) == self
+      l = Block.serialize self
+      RLP.decode(RLP.encode(l)) == l
     end
 
     ##
