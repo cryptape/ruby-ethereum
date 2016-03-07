@@ -28,6 +28,7 @@ module Ethereum
         processed_code = preprocess_code code
         VM.code_cache[code] = processed_code
       end
+
       # for trace only
       steps = 0
       _prevop = nil

@@ -95,7 +95,7 @@ module Ethereum
 
       res, gas, dat = apply_msg msg, code
 
-      if res != 0
+      if res.true?
         return 1, gas, msg.to if dat.empty?
 
         gcost = dat.size * Opcodes::GCONTRACTBYTE
@@ -111,7 +111,7 @@ module Ethereum
           log_msg.debug "CONTRACT creation oog have=#{gas} want=#{gcost}"
         end
 
-        @block.set_code msg.to, dat.map(&:chr).join
+        @block.set_code msg.to, Utils.int_array_to_bytes(dat)
         return 1, gas, msg.to
       else
         return 0, gas, Constant::BYTE_EMPTY

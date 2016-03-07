@@ -369,6 +369,7 @@ module Ethereum
           return false
         end
 
+        # FIXME: what if uncles include previously rewarded uncle?
         ineligible.push uncle
       end
 
@@ -422,7 +423,7 @@ module Ethereum
       raise ValueError, "gas remained cannot be negative" unless gas_remained >= 0
       logger.debug "TX APPLIED", result: result, gas_remained: gas_remained, data: data
 
-      if result != 0
+      if result.true?
         logger.debug "TX SUCCESS", data: data
 
         gas_used = tx.startgas - gas_remained
@@ -441,7 +442,7 @@ module Ethereum
         delta_balance coinbase, tx.gasprice * gas_used
         self.gas_used += gas_used
 
-        output = tx.to.true? ? data.map(&:chr).join : data
+        output = tx.to.true? ? Utils.int_array_to_bytes(data) : data
         success = 1
       else # 0 = OOG failure in both cases
         logger.debug "TX FAILED", reason: 'out of gas', startgas: tx.startgas, gas_remained: gas_remained
@@ -455,14 +456,12 @@ module Ethereum
 
       commit_state
 
-      _suicides = self.suicides
-      self.suicides = []
-
-      _suicides.each do |s|
+      suicides.each do |s|
         self.ether_delta -= get_balance(s)
-        set_balance s, 0
+        set_balance s, 0 # TODO: redundant with code in SUICIDE op?
         del_account s
       end
+      self.suicides = []
 
       add_transaction_to_list tx
       self.logs = []
@@ -624,7 +623,7 @@ module Ethereum
           val = RLP.encode v
           changes.push ['storage', addr, k, v]
 
-          v && v != 0 ? t.set(enckey, val) : t.delete(enckey)
+          v.true? ? t.set(enckey, val) : t.delete(enckey)
         end
 
         acct.storage = t.root_hash
@@ -1119,7 +1118,7 @@ module Ethereum
       min_gas = tx.intrinsic_gas_used
       if number >= config[:homestead_fork_blknum]
         raise ValidationError, "invalid s in transaction signature" unless tx.s*2 < Secp256k1::N
-        min_gas += Opcodes::CREATE[3] if !tx.to || tx.to == Address::CREATE_CONTRACT
+        min_gas += Opcodes::CREATE[3] if tx.to.false? || tx.to == Address::CREATE_CONTRACT
       end
       raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}" if tx.startgas < min_gas
 
