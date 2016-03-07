@@ -33,6 +33,10 @@ class UtilsTest < Minitest::Test
     assert_equal 1, mod_exp(2, 10, 1023)
   end
 
+  def test_mod_mul
+    assert_equal 1, mod_mul(2, 4, 7)
+  end
+
   def test_base58_check_to_bytes
     assert_equal 'ethereum', base58_check_to_bytes('12v3WKYzeJnRZWgfV3')
     assert_equal 'ethereum', base58_check_to_bytes('x4BdNKWArBWmHMTgc')

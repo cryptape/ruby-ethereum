@@ -122,9 +122,9 @@ module Ethereum
             s0, s1, s2 = stk.pop, stk.pop, stk.pop
             r = s2 == 0 ? 0 : (s0+s1) % s2
             stk.push r
-          when :MULMOD # TODO: optimizable by FFI?
+          when :MULMOD
             s0, s1, s2 = stk.pop, stk.pop, stk.pop
-            r = s2 == 0 ? 0 : (s0*s1) % s2
+            r = s2 == 0 ? 0 : Utils.mod_mul(s0, s1, s2)
             stk.push r
           when :EXP
             base, exponent = stk.pop, stk.pop

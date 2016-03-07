@@ -50,6 +50,10 @@ module Ethereum
       x.to_bn.mod_exp(y, n).to_i
     end
 
+    def mod_mul(x, y, n)
+      x.to_bn.mod_mul(y, n).to_i
+    end
+
     def to_signed(i)
       i > Constant::INT_MAX ? (i-Constant::TT256) : i
     end
