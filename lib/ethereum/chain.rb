@@ -38,12 +38,131 @@ module Ethereum
       Block.find @env, ptr
     end
 
+    def coinbase
+      raise AssertError, "coinbase changed!" unless @head_candidate.coinbase == @coinbase
+      @coinbase
+    end
+
+    def coinbase=(v)
+      @coinbase = v
+      # block reward goes to different address => redo finalization of head candidate
+      update_head head
+    end
+
+    ##
+    # Return the uncles of `block`.
+    #
+    def get_uncles(block)
+      if block.has_parent?
+        get_brothers(block.get_parent)
+      else
+        []
+      end
+    end
+
+    ##
+    # Return the uncles of the hypothetical child of `block`.
+    #
+    def get_brothers(block)
+      o = []
+      i = 0
+
+      while block.has_parent? && i < @env.config[:max_uncle_depth]
+        parent = block.get_parent
+        children = get_children(parent).select {|c| c != block }
+        o.concat children
+        block = parent
+        i += 1
+      end
+
+      o
+    end
+
+    def get(blockhash)
+      raise ArgumentError, "blockhash must be a String" unless blockhash.instance_of?(String)
+      raise ArgumentError, "blockhash size must be 32" unless blockhash.size == 32
+      Block.find(@env, blockhash)
+    end
+
+    def get_bloom(blockhash)
+      b = RLP.decode RLP.descend(@db.get(blockhash), 0, 6)
+      Utils.big_endian_to_int b
+    end
+
+    def has_block(blockhash)
+      raise ArgumentError, "blockhash must be a String" unless blockhash.instance_of?(String)
+      raise ArgumentError, "blockhash size must be 32" unless blockhash.size == 32
+      @db.include?(blockhash)
+    end
+    alias :include? :has_block
+    alias :has_key? :has_block
+
     def commit
       @db.commit
     end
 
-    def include?(blk_hash)
-      @db.has_key?(blk_hash)
+    ##
+    # Returns `true` if block was added successfully.
+    #
+    def add_block(block, forward_pending_transaction=true)
+      unless block.has_parent? || block.genesis?
+        logger.debug "missing parent", block_hash: block
+        return false
+      end
+
+      unless block.validate_uncles
+        logger.debug "invalid uncles", block_hash: block
+        return false
+      end
+
+      unless block.header.check_pow || block.genesis?
+        logger.debug "invalid nonce", block_hash: block
+        return false
+      end
+
+      if block.has_parent?
+        begin
+          Block.verify(block, block.get_parent)
+        rescue Block::BlockVerificationError => e
+          log.fatal "VERIFICATION FAILED", block_hash: block, error: e
+
+          f = File.join Utils.data_dir, 'badblock.log'
+          File.write(f, Utils.encode_hex(RLP.encode(block)))
+          return false
+        end
+      end
+
+      if block.number < head.number
+        logger.debug "older than head", block_hash: block, head_hash: head
+      end
+
+      @index.add_block block
+      store_block block
+
+      # set to head if this makes the longest chain w/ most work for that number
+      if block.chain_difficulty > head.chain_difficulty
+        logger.debug "new head", block_hash: block, num_tx: block.transaction_count
+        update_head block, forward_pending_transaction
+      elsif block.number > head.number
+        logger.warn "has higher blk number than head but lower chain_difficulty", block_has: block, head_hash: head, block_difficulty: block.chain_difficulty, head_difficulty: head.chain_difficulty
+      end
+
+      # Refactor the long calling chain
+      block.transactions.clear_all
+      block.receipts.clear_all
+      block.state.db.commit_refcount_changes block.number
+      block.state.db.cleanup block.number
+
+      commit # batch commits all changes that came with the new block
+      true
+    end
+
+    def get_children(block)
+      @index.get_children(block.full_hash).map {|c| get(c) }
+    end
+
+    def add_transaction(transaction)
+      # TODO
     end
 
     private
@@ -97,7 +216,7 @@ module Ethereum
           logger.warn "reverting"
 
           while h.number > b.number
-            h.db.revert_refcount_changes h.number
+            h.state.db.revert_refcount_changes h.number
             h = h.get_parent
           end
           while b.number > h.number
@@ -106,7 +225,7 @@ module Ethereum
           end
 
           while b.full_hash != h.full_hash
-            h.db.revert_refcount_changes h.number
+            h.state.db.revert_refcount_changes h.number
             h = h.get_parent
 
             b_children.push b
@@ -174,10 +293,6 @@ module Ethereum
           end
         end
       end
-    end
-
-    def get_brothers(blk)
-      #TODO
     end
 
   end

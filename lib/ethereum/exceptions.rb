@@ -6,5 +6,6 @@ module Ethereum
   class FormatError < StandardError; end
   class ValidationError < StandardError; end
   class ValueError < StandardError; end
+  class AssertError < StandardError; end
 
 end

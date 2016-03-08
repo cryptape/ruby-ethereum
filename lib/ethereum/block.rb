@@ -27,7 +27,7 @@ module Ethereum
     def_delegators :header, *HeaderGetters, *HeaderSetters
 
     attr :env, :db, :config
-    attr_accessor :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
+    attr_accessor :state, :transactions, :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
 
     class UnknownParentError < StandardError; end
     class UnsignedTransactionError < StandardError; end
@@ -616,6 +616,23 @@ module Ethereum
     end
 
     ##
+    # Get the summarized difficulty.
+    #
+    # If the summarized difficulty is not stored in the database, it will be
+    # calculated recursively and put int the database.
+    #
+    def chain_difficulty
+      return difficulty if genesis?
+
+      k = "difficulty:#{Utils.encode_hex(full_hash)}"
+      return Utils.decode_int(db.get(k)) if db.has_key?(k)
+
+      o = difficulty + get_parent.chain_difficulty
+      @state.db.put_temporarily k, Utils.encode_int(o)
+      o
+    end
+
+    ##
     # Commit account caches. Write the account caches on the corresponding
     # tries.
     #
@@ -1047,6 +1064,31 @@ module Ethereum
     def genesis?
       number == 0
     end
+
+    ##
+    # Two blocks are equal iff they have the same hash.
+    #
+    def ==(other)
+      (other.instance_of?(Block) || other.instance_of?(CachedBlock)) &&
+        full_hash == other.full_hash
+    end
+
+    def hash
+      Utils.big_endian_to_int full_hash
+    end
+
+    def >(other)
+      number > other.number
+    end
+
+    def <(other)
+      number < other.number
+    end
+
+    def to_s
+      "#<#{self.class.name}:#{object_id} ##{number} #{Utils.encode_hex full_hash[0,8]}>"
+    end
+    alias :inspect :to_s
 
     private
 
