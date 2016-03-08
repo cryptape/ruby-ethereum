@@ -18,7 +18,7 @@ module Ethereum
     end
 
     def add_block(blk)
-      add_child blk.prevhash, blk.hash
+      add_child blk.prevhash, blk.full_hash
       add_transactions blk if @index_transactions
     end
 
@@ -31,16 +31,16 @@ module Ethereum
     def update_blocknumbers(blk)
       loop do
         if blk.number > 0
-          @db.put_temporarily block_by_number_key(blk.number), blk.hash
+          @db.put_temporarily block_by_number_key(blk.number), blk.full_hash
         else
-          @db.put block_by_number_key(blk.number), blk.hash
+          @db.put block_by_number_key(blk.number), blk.full_hash
         end
         @db.commit_refcount_changes blk.number
 
         break if blk.number == 0
 
         blk = blk.get_parent()
-        break if has_block_by_number(blk.number) && get_block_by_number(blk.number) == blk.hash
+        break if has_block_by_number(blk.number) && get_block_by_number(blk.number) == blk.full_hash
       end
     end
 
@@ -80,7 +80,7 @@ module Ethereum
 
     def add_transactions(blk)
       blk.get_transactions.each_with_index do |tx, i|
-        @db.put_temporarily tx.hash, RLP.encode([blk.hash, i])
+        @db.put_temporarily tx.full_hash, RLP.encode([blk.full_hash, i])
       end
 
       @db.commit_refcount_changes blk.number

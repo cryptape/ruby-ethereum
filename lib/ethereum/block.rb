@@ -48,6 +48,14 @@ module Ethereum
       end
       lru_cache :find, 1024
 
+      def verify(block, parent)
+        block2 = RLP.decode RLP.encode(block, sedes: Block, env: parent.env, parent: parent)
+        raise "block not match" unless block == block2
+        true
+      rescue BlockVerificationError
+        false
+      end
+
       ##
       # Create a block without specifying transactions or uncles.
       #
@@ -578,6 +586,16 @@ module Ethereum
       end
 
       b
+    end
+
+    ##
+    # `true` if this block has a known parent, otherwise `false`.
+    #
+    def has_parent?
+      get_parent
+      true
+    rescue UnknownParentError
+      false
     end
 
     def get_parent_header
