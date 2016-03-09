@@ -6,7 +6,6 @@ module Ethereum
 
       def initialize
         @db = {}
-        @kv = @db
       end
 
       def get(k)

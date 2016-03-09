@@ -9,13 +9,13 @@ module Ethereum
 
       def initialize(db)
         @db = db
-        @kv = nil
         @overlay = {}
       end
 
       def get(k)
         if @overlay.has_key?(k)
-          @overlay[k] or raise KeyError, k.inspect
+          raise KeyError, k.inspect if @overlay[k].nil?
+          return @overlay[k]
         end
 
         db.get k
