@@ -6,7 +6,7 @@ class ChainTest < Minitest::Test
   include Ethereum
 
   def setup
-    @db = EphemDB.new
+    @db = DB::EphemDB.new
     @env = Env.new @db
 
     k = Utils.keccak256('cow')
@@ -17,11 +17,21 @@ class ChainTest < Minitest::Test
     @accounts = [k,v,k2,v2]
   end
 
+  def test_mining
+    blk = mkgenesis db: @db
+    assert_equal 0, blk.number
+    assert_equal 1, blk.difficulty
+
+    2.times do |i|
+      blk = mine_next_block blk
+      assert_equal i+1, blk.number
+    end
+  end
 
   private
 
-  def mkgenesis(initial_alloc={}, db=nil)
-    assert @db
+  def mkgenesis(initial_alloc: {}, db: nil)
+    assert db
 
     o = Block.genesis Env.new(db), start_alloc: initial_alloc, difficulty: 1
     assert_equal 1, o.difficulty
@@ -53,6 +63,7 @@ class ChainTest < Minitest::Test
     rounds = 100
     nonce = 0
 
+    b = nil
     loop do
       b = m.mine(rounds, nonce)
       break if b

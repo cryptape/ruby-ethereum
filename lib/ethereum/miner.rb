@@ -64,7 +64,7 @@ module Ethereum
       cache = Ethash::Cache.get block_number
       nonce = start_nonce
       difficulty ||= 1
-      target = Utils.zpad Utils.int_to_big_endian(Constant::TT256 / difficulty)
+      target = Utils.zpad Utils.int_to_big_endian(Constant::TT256 / difficulty), 32
 
       (1..rounds).each do |i|
         bin_nonce = Utils.zpad Utils.int_to_big_endian((nonce+i) & Constant::TT64M1), 8

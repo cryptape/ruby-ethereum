@@ -345,9 +345,9 @@ module Ethereum
 
     def store_block(block)
       if block.number > 0
-        @db.put_temporarily block.hash, RLP.encode(block)
+        @db.put_temporarily block.full_hash, RLP.encode(block)
       else
-        @db.put block.hash, RLP.encode(block)
+        @db.put block.full_hash, RLP.encode(block)
       end
     end
 
@@ -370,7 +370,7 @@ module Ethereum
 
       # create block
       ts = [Time.now.to_i, head.timestamp+1].max
-      _env = Env.new OverlayDB.new(head.db), @env.config, @env.global_config
+      _env = Env.new DB::OverlayDB.new(head.db), config: @env.config, global_config: @env.global_config
       hc = Block.build_from_parent head, @coinbase, timestamp: ts, uncles: uncles, env: _env
       raise ValidationError, "invalid uncles" unless hc.validate_uncles
 
