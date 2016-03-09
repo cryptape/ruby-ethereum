@@ -27,7 +27,7 @@ module Ethereum
     def_delegators :header, *HeaderGetters, *HeaderSetters
 
     attr :env, :db, :config
-    attr_accessor :state, :transactions, :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
+    attr_accessor :state, :transactions, :receipts, :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
 
     class <<self
       ##
@@ -35,12 +35,13 @@ module Ethereum
       #   cached including hash.
       def find(env, hash)
         raise ArgumentError, "env must be instance of Env" unless env.instance_of?(Env)
-        RLP.decode env.db.get(hash), sedes: CachedBlock, env: env
+        #RLP.decode env.db.get(hash), sedes: CachedBlock, env: env
+        RLP.decode env.db.get(hash), sedes: Block, env: env
       end
       lru_cache :find, 1024
 
       def verify(block, parent)
-        block2 = RLP.decode RLP.encode(block, sedes: Block, env: parent.env, parent: parent)
+        block2 = RLP.decode RLP.encode(block), sedes: Block, env: parent.env, parent: parent
         raise "block not match" unless block == block2
         true
       rescue InvalidBlock
@@ -94,7 +95,7 @@ module Ethereum
           parent: parent,
           making: true
         ).tap do |blk|
-          blk.ancestor_hashes = [parent.hash] + parent.ancestor_hashes
+          blk.ancestor_hashes = [parent.full_hash] + parent.ancestor_hashes
           blk.log_listeners = parent.log_listeners
         end
       end
@@ -550,7 +551,7 @@ module Ethereum
       get_transactions.each_with_index do |tx, i|
         receipt_rlp = @receipts[RLP.encode(i)]
         receipt = RLP.decode receipt_rlp, sedes: Receipt
-        txjson = full_transactions ? tx.to_h : tx.hash
+        txjson = full_transactions ? tx.to_h : tx.full_hash
 
         logs = receipt.logs.map {|l| Log.serialize(l) }
 
@@ -577,6 +578,10 @@ module Ethereum
       end
 
       b
+    end
+
+    def mining_hash
+      header.mining_hash
     end
 
     ##
