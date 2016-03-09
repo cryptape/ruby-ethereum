@@ -9,6 +9,8 @@ module Ethereum
 
     HEAD_KEY = 'HEAD'.freeze
 
+    attr :head_candidate
+
     ##
     # @param env [Ethereum::Env] configuration of the chain
     #
@@ -172,39 +174,39 @@ module Ethereum
     def add_transaction(transaction)
       raise AssertError, "head candiate cannot be nil" unless @head_candidate
 
-      head_candidate = @head_candidate
-      logger.debug "add tx", num_txs: transaction_count, tx: transaction, on: head_candidate
+      hc = @head_candidate
+      logger.debug "add tx", num_txs: transaction_count, tx: transaction, on: hc
 
       if @head_candidate.includes_transaction(transaction.full_hash)
         logger.debug "known tx"
         return
       end
 
-      old_state_root = head_candidate.state_root
+      old_state_root = hc.state_root
       # revert finalization
-      head_candidate.state_root = @pre_finalize_state_root
+      hc.state_root = @pre_finalize_state_root
       begin
-        success, output = head_candidate.apply_transaction(transaction)
+        success, output = hc.apply_transaction(transaction)
       rescue InvalidTransaction => e
         # if unsuccessful the prerequisites were not fullfilled and the tx is
         # invalid, state must not have changed
         logger.debug "invalid tx", error: e
-        head_candidate.state_root = old_state_root
+        hc.state_root = old_state_root
         return false
       end
       logger.debug "valid tx"
 
       # we might have a new head_candidate (due to ctx switches in up layer)
-      if @head_candidate != head_candidate
+      if @head_candidate != hc
         logger.debug "head_candidate changed during validation, trying again"
         return add_transaction(transaction)
       end
 
-      @pre_finalize_state_root = head_candidate.state_root
-      head_candidate.finalize
+      @pre_finalize_state_root = hc.state_root
+      hc.finalize
       logger.debug "tx applied", result: output
 
-      raise AssertError, "state root unchanged!" unless old_state_root != head_candidate.state_root
+      raise AssertError, "state root unchanged!" unless old_state_root != hc.state_root
       true
     end
 
@@ -264,38 +266,6 @@ module Ethereum
       block_numbers.map {|n| get @index.get_block_by_number(n) }
     end
 
-    private
-
-    def logger
-      @logger ||= Logger.new 'eth.chain'
-    end
-
-    def initialize_blockchain(genesis=nil)
-      logger.info "Initializing new chain"
-
-      unless genesis
-        genesis = Block.genesis(@env)
-        logger.info "new genesis", genesis_hash: genesis, difficulty: genesis.difficulty
-        @index.add_block genesis
-      end
-
-      store_block genesis
-      raise "failed to store block" unless genesis == Block.find(@env, genesis.full_hash)
-
-      update_head genesis
-      raise "falied to update head" unless include?(genesis.full_hash)
-
-      commit
-    end
-
-    def store_block(block)
-      if block.number > 0
-        @db.put_temporarily block.hash, RLP.encode(block)
-      else
-        @db.put block.hash, RLP.encode(block)
-      end
-    end
-
     def update_head(block, forward_pending_transaction=true)
       logger.debug "updating head"
       logger.debug "New Head is on a different branch", head_hash: block, old_head_hash: head if !block.genesis? && block.get_parent != head
@@ -349,6 +319,38 @@ module Ethereum
       @new_head_cb.call(block) if @new_head_cb && !block.genesis?
     end
 
+    private
+
+    def logger
+      @logger ||= Logger.new 'eth.chain'
+    end
+
+    def initialize_blockchain(genesis=nil)
+      logger.info "Initializing new chain"
+
+      unless genesis
+        genesis = Block.genesis(@env)
+        logger.info "new genesis", genesis_hash: genesis, difficulty: genesis.difficulty
+        @index.add_block genesis
+      end
+
+      store_block genesis
+      raise "failed to store block" unless genesis == Block.find(@env, genesis.full_hash)
+
+      update_head genesis
+      raise "falied to update head" unless include?(genesis.full_hash)
+
+      commit
+    end
+
+    def store_block(block)
+      if block.number > 0
+        @db.put_temporarily block.hash, RLP.encode(block)
+      else
+        @db.put block.hash, RLP.encode(block)
+      end
+    end
+
     # after new head is set
     def update_head_candidate(forward_pending_transaction=true)
       logger.debug "updating head candidate", head: head
@@ -369,19 +371,19 @@ module Ethereum
       # create block
       ts = [Time.now.to_i, head.timestamp+1].max
       _env = Env.new OverlayDB.new(head.db), @env.config, @env.global_config
-      head_candidate = Block.build_from_parent head, @coinbase, timestamp: ts, uncles: uncles, env: _env
-      raise ValidationError, "invalid uncles" unless head_candidate.validate_uncles
+      hc = Block.build_from_parent head, @coinbase, timestamp: ts, uncles: uncles, env: _env
+      raise ValidationError, "invalid uncles" unless hc.validate_uncles
 
-      @pre_finalize_state_root = head_candidate.state_root
-      head_candidate.finalize
+      @pre_finalize_state_root = hc.state_root
+      hc.finalize
 
       # add transactions from previous head candidate
-      old_head_candidate = @head_candidate
-      @head_candidate = head_candidate
+      old_hc = @head_candidate
+      @head_candidate = hc
 
-      if old_head_candidate
+      if old_hc
         tx_hashes = head.get_transaction_hashes
-        pending = old_head_candidate.get_transactions.select {|tx| !tx_hashes.include?(tx.full_hash) }
+        pending = old_hc.get_transactions.select {|tx| !tx_hashes.include?(tx.full_hash) }
 
         if pending.true?
           if forward_pending_transaction

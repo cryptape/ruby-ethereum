@@ -9,6 +9,7 @@ module Ethereum
 
     TT32  = 2**32
     TT256 = 2**256
+    TT64M1 = 2**64 - 1
 
     UINT_MAX = 2**256 - 1
     INT_MAX = 2**255 - 1
