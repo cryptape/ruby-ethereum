@@ -123,7 +123,7 @@ module Ethereum
       if block.has_parent?
         begin
           Block.verify(block, block.get_parent)
-        rescue Block::BlockVerificationError => e
+        rescue InvalidBlock => e
           log.fatal "VERIFICATION FAILED", block_hash: block, error: e
 
           f = File.join Utils.data_dir, 'badblock.log'
@@ -161,8 +161,107 @@ module Ethereum
       @index.get_children(block.full_hash).map {|c| get(c) }
     end
 
+    ##
+    # Add a transaction to the `head_candidate` block.
+    #
+    # If the transaction is invalid, the block will not be changed.
+    #
+    # @return [Bool,NilClass] `true` is the transaction was successfully added or
+    #   `false` if the transaction was invalid, `nil` if it's already included
+    #
     def add_transaction(transaction)
-      # TODO
+      raise AssertError, "head candiate cannot be nil" unless @head_candidate
+
+      head_candidate = @head_candidate
+      logger.debug "add tx", num_txs: transaction_count, tx: transaction, on: head_candidate
+
+      if @head_candidate.includes_transaction(transaction.full_hash)
+        logger.debug "known tx"
+        return
+      end
+
+      old_state_root = head_candidate.state_root
+      # revert finalization
+      head_candidate.state_root = @pre_finalize_state_root
+      begin
+        success, output = head_candidate.apply_transaction(transaction)
+      rescue InvalidTransaction => e
+        # if unsuccessful the prerequisites were not fullfilled and the tx is
+        # invalid, state must not have changed
+        logger.debug "invalid tx", error: e
+        head_candidate.state_root = old_state_root
+        return false
+      end
+      logger.debug "valid tx"
+
+      # we might have a new head_candidate (due to ctx switches in up layer)
+      if @head_candidate != head_candidate
+        logger.debug "head_candidate changed during validation, trying again"
+        return add_transaction(transaction)
+      end
+
+      @pre_finalize_state_root = head_candidate.state_root
+      head_candidate.finalize
+      logger.debug "tx applied", result: output
+
+      raise AssertError, "state root unchanged!" unless old_state_root != head_candidate.state_root
+      true
+    end
+
+    ##
+    # Get a list of new transactions not yet included in a mined block but
+    # known to the chain.
+    #
+    def get_transactions
+      if @head_candidate
+        logger.debug "get_transactions called", on: @head_candidate
+        @head_candidate.get_transactions
+      else
+        []
+      end
+    end
+
+    def transaction_count
+      @head_candidate ? @head_candidate.transaction_count : 0
+    end
+
+    ##
+    # Return `count` of blocks starting from head or `start`.
+    #
+    def get_chain(start='', count=10)
+      logger.debug "get_chain", start: Utils.encode_hex(start), count: count
+
+      if start.true?
+        return [] unless @index.db.include?(start)
+
+        block = get start
+        return [] unless in_main_branch?(block)
+      else
+        block = head
+      end
+
+      blocks = []
+      count.times do |i|
+        blocks.push block
+        break if block.genesis?
+        block = block.get_parent
+      end
+
+      blocks
+    end
+
+    def in_main_branch?(block)
+      block.full_hash == @index.get_block_by_number(block.number)
+    rescue KeyError
+      false
+    end
+
+    def get_descendants(block, count=1)
+      logger.debug "get_descendants", block_hash: block
+      raise AssertError, "cannot find block hash in current chain" unless include?(block.full_hash)
+
+      block_numbers = (block.number+1)...([head.number+1, block.number+count+1].min)
+      block_numbers.map {|n| get @index.get_block_by_number(n) }
     end
 
     private
