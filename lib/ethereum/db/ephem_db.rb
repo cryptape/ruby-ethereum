@@ -10,7 +10,7 @@ module Ethereum
       end
 
       def get(k)
-        @db[k] or raise KeyError, k
+        @db[k] or raise KeyError, k.inspect
       end
 
       def put(k, v)
