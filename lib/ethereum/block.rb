@@ -29,15 +29,6 @@ module Ethereum
     attr :env, :db, :config
     attr_accessor :state, :transactions, :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
 
-    class UnknownParentError < StandardError; end
-    class UnsignedTransactionError < StandardError; end
-    class InvalidNonce < ValidationError; end
-    class InvalidUncles < ValidationError; end
-    class InsufficientStartGas < ValidationError; end
-    class InsufficientBalance < ValidationError; end
-    class BlockGasLimitReached < ValidationError; end
-    class BlockVerificationError < ValidationError; end
-
     class <<self
       ##
       # Assumption: blocks loaded from the db are not manipulated -> can be
@@ -52,7 +43,7 @@ module Ethereum
         block2 = RLP.decode RLP.encode(block, sedes: Block, env: parent.env, parent: parent)
         raise "block not match" unless block == block2
         true
-      rescue BlockVerificationError
+      rescue InvalidBlock
         false
       end
 
@@ -1147,19 +1138,19 @@ module Ethereum
     # value check.
     #
     def validate_block!(original_values)
-      raise BlockVerificationError, "gas_used mistmatch actual: #{gas_used} target: #{original_values[:gas_used]}" if gas_used != original_values[:gas_used]
-      raise BlockVerificationError, "timestamp mistmatch actual: #{timestamp} target: #{original_values[:timestamp]}" if timestamp != original_values[:timestamp]
-      raise BlockVerificationError, "difficulty mistmatch actual: #{difficulty} target: #{original_values[:difficulty]}" if difficulty != original_values[:difficulty]
-      raise BlockVerificationError, "bloom mistmatch actual: #{bloom} target: #{original_values[:bloom]}" if bloom != original_values[:bloom]
+      raise InvalidBlock, "gas_used mistmatch actual: #{gas_used} target: #{original_values[:gas_used]}" if gas_used != original_values[:gas_used]
+      raise InvalidBlock, "timestamp mistmatch actual: #{timestamp} target: #{original_values[:timestamp]}" if timestamp != original_values[:timestamp]
+      raise InvalidBlock, "difficulty mistmatch actual: #{difficulty} target: #{original_values[:difficulty]}" if difficulty != original_values[:difficulty]
+      raise InvalidBlock, "bloom mistmatch actual: #{bloom} target: #{original_values[:bloom]}" if bloom != original_values[:bloom]
 
       uh = Utils.keccak256_rlp uncles
-      raise BlockVerificationError, "uncles_hash mistmatch actual: #{uh} target: #{original_values[:uncles_hash]}" if uh != original_values[:uncles_hash]
+      raise InvalidBlock, "uncles_hash mistmatch actual: #{uh} target: #{original_values[:uncles_hash]}" if uh != original_values[:uncles_hash]
 
-      raise BlockVerificationError, "header must reference no block" unless header.block.nil?
+      raise InvalidBlock, "header must reference no block" unless header.block.nil?
 
-      raise BlockVerificationError, "state_root mistmatch actual: #{Utils.encode_hex @state.root_hash} target: #{Utils.encode_hex header.state_root}" if @state.root_hash != header.state_root
-      raise BlockVerificationError, "tx_list_root mistmatch actual: #{@transactions.root_hash} target: #{header.tx_list_root}" if @transactions.root_hash != header.tx_list_root
-      raise BlockVerificationError, "receipts_root mistmatch actual: #{@receipts.root_hash} target: #{header.receipts_root}" if @receipts.root_hash != header.receipts_root
+      raise InvalidBlock, "state_root mistmatch actual: #{Utils.encode_hex @state.root_hash} target: #{Utils.encode_hex header.state_root}" if @state.root_hash != header.state_root
+      raise InvalidBlock, "tx_list_root mistmatch actual: #{@transactions.root_hash} target: #{header.tx_list_root}" if @transactions.root_hash != header.tx_list_root
+      raise InvalidBlock, "receipts_root mistmatch actual: #{@receipts.root_hash} target: #{header.receipts_root}" if @receipts.root_hash != header.receipts_root
 
       raise ValueError, "Block is invalid" unless validate_fields
 
