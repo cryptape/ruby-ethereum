@@ -35,8 +35,8 @@ module Ethereum
       #   cached including hash.
       def find(env, hash)
         raise ArgumentError, "env must be instance of Env" unless env.instance_of?(Env)
-        #RLP.decode env.db.get(hash), sedes: CachedBlock, env: env
-        RLP.decode env.db.get(hash), sedes: Block, env: env
+        blk = RLP.decode env.db.get(hash), sedes: Block, env: env
+        CachedBlock.create_cached blk
       end
       lru_cache :find, 1024
 
