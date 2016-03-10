@@ -1,7 +1,10 @@
 module Ethereum
-  class CachedBlock < Block
+  module CachedBlock
 
-    inherit_serializable_fields!
+    def self.create_cached(blk)
+      blk.singleton_class.send :include, self
+      blk
+    end
 
     def state_root=(*args)
       raise NotImplementedError
