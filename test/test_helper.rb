@@ -6,6 +6,8 @@ require 'minitest/autorun'
 require 'ethereum'
 require 'json'
 
+Logging.logger.root.level = :error
+
 def fixture_root
   File.expand_path('../../fixtures', __FILE__)
 end
