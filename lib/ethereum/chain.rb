@@ -9,7 +9,7 @@ module Ethereum
 
     HEAD_KEY = 'HEAD'.freeze
 
-    attr :head_candidate
+    attr :env, :index, :head_candidate
 
     ##
     # @param env [Ethereum::Env] configuration of the chain
@@ -177,7 +177,7 @@ module Ethereum
       hc = @head_candidate
       logger.debug "add tx", num_txs: transaction_count, tx: transaction, on: hc
 
-      if @head_candidate.includes_transaction(transaction.full_hash)
+      if @head_candidate.include_transaction?(transaction.full_hash)
         logger.debug "known tx"
         return
       end
@@ -230,7 +230,7 @@ module Ethereum
     ##
     # Return `count` of blocks starting from head or `start`.
     #
-    def get_chain(start='', count=10)
+    def get_chain(start: '', count: 10)
       logger.debug "get_chain", start: Utils.encode_hex(start), count: count
 
       if start.true?
@@ -258,7 +258,7 @@ module Ethereum
       false
     end
 
-    def get_descendants(block, count=1)
+    def get_descendants(block, count: 1)
       logger.debug "get_descendants", block_hash: block
       raise AssertError, "cannot find block hash in current chain" unless include?(block.full_hash)
 

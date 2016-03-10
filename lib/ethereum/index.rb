@@ -11,6 +11,8 @@ module Ethereum
   #
   class Index
 
+    attr :db
+
     def initialize(env, index_transactions=true)
       @env = env
       @db = env.db

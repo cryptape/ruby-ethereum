@@ -86,7 +86,7 @@ module Ethereum
       }.merge(options)
 
       fields[:coinbase] = Utils.decode_hex(fields[:coinbase]) if fields[:coinbase].size == 40
-      raise ArgumentError, "invalid coinbase #{coinbase}" unless fields[:coinbase].size == 20
+      raise ArgumentError, "invalid coinbase #{fields[:coinbase]}" unless fields[:coinbase].size == 20
       raise ArgumentError, "invalid difficulty" unless fields[:difficulty] > 0
 
       self.block = nil
