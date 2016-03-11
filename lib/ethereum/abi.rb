@@ -1,6 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
 require 'ethereum/abi/type'
+require 'ethereum/abi/contract_translator'
 
 module Ethereum
 
