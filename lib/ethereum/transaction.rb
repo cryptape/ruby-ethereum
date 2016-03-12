@@ -40,6 +40,15 @@ module Ethereum
       s: big_endian_int
     )
 
+    class <<self
+      ##
+      # A contract is a special transaction without the `to` argument.
+      #
+      def contract(nonce, gasprice, startgas, endowment, code, v=0, r=0, s=0)
+        new nonce, gasprice, startgas, '', endowment, code, v, r, s
+      end
+    end
+
     def initialize(*args)
       fields = {v: 0, r: 0, s: 0}.merge parse_field_args(args)
       fields[:to] = Utils.normalize_address(fields[:to], allow_blank: true)
