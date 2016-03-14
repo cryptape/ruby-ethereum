@@ -52,7 +52,7 @@ module Ethereum
       key = Utils.keccak256 val
 
       @db.put key, val
-      #spv_grabbing(@root_node)
+      SPV.proof.grabbing @root_node
 
       key
     end
@@ -231,7 +231,7 @@ module Ethereum
 
       hashkey = Utils.keccak256 rlp_node
       @db.put hashkey, rlp_node
-      #spv_storing node
+      SPV.proof.store node
 
       hashkey
     end
@@ -241,7 +241,7 @@ module Ethereum
       return encoded if encoded.instance_of?(Array)
 
       RLP.decode(@db.get(encoded))
-        #.tap {|o| spv_grabbing(o) }
+        .tap {|o| SPV.proof.grabbing o }
     end
 
     # TODO: refactor, abstract delete storage logic
@@ -543,6 +543,7 @@ module Ethereum
         # do nothing
       end
     end
+
   end
 
 end

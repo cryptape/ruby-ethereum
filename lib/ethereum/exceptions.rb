@@ -2,6 +2,7 @@
 
 module Ethereum
 
+  class DeprecatedError < StandardError; end
   class ChecksumError < StandardError; end
   class FormatError < StandardError; end
   class ValidationError < StandardError; end
@@ -18,5 +19,7 @@ module Ethereum
   class InsufficientStartGas < InvalidTransaction; end
   class InsufficientBalance < InvalidTransaction; end
   class BlockGasLimitReached < InvalidTransaction; end
+
+  class InvalidSPVProof < ValidationError; end
 
 end
