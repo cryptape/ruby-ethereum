@@ -1,0 +1,1 @@
+require 'ethereum/spv/proof'

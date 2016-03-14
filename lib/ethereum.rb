@@ -22,6 +22,7 @@ require 'ethereum/pruning_trie'
 require 'ethereum/secure_trie'
 require 'ethereum/transient_trie'
 require 'ethereum/bloom'
+require 'ethereum/spv'
 
 require 'ethereum/ethash'
 require 'ethereum/miner'
