@@ -46,5 +46,7 @@ require 'ethereum/cached_block'
 require 'ethereum/index'
 require 'ethereum/chain'
 
+require 'ethereum/tester'
+
 module Ethereum
 end

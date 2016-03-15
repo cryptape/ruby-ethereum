@@ -148,6 +148,7 @@ module Ethereum
         o = {}
         num_accounts.times {|i| o[Fixture.accounts[i]] = {wei: 10**24} }
         (1...5).each {|i| o[Fixture.int_to_addr(i)] = {wei: 1} }
+        o
       end
 
       def _send_tx(sender, to, value, evmdata: '', output: nil, funid: nil, abi: nil, profiling: 0)
@@ -159,12 +160,13 @@ module Ethereum
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
         tx = Transaction.new(sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, to, value, evmdata)
         @last_tx = tx
+        tx.sign(sender)
 
         recorder = profiling > 1 ? LogRecorder.new : nil
 
         success, output = @block.apply_transaction(tx)
         raise TransactionFailed if success.false?
-        out = {output: o}
+        out = {output: output}
 
         if profiling > 0
           zero_bytes = tx.data.count Constant::BYTE_ZERO
