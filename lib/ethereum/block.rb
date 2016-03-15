@@ -466,6 +466,7 @@ module Ethereum
       add_transaction_to_list tx
       self.logs = []
 
+      # TODO: change success to Bool type
       return success, output
     end
 
