@@ -72,7 +72,7 @@ def decode_uint(x)
 end
 
 # some hex string in fixtures miss leading 0
-def normalize_hex(s)
+def normalize_hex_without_prefix(s)
   if s[0,2] == '0x'
     (s.size % 2 == 1 ? '0' : '') + s[2..-1]
   else
@@ -80,11 +80,29 @@ def normalize_hex(s)
   end
 end
 
+def normalize_hex(s)
+  s.size > 2 ? s : '0x00'
+end
+
+def normalize_value(k, p)
+  if p.has_key?(k)
+    if k == :gas
+      parse_int_or_hex(p[k])
+    elsif k == :callcreates
+      p[k].map {|c| callcreate_standard_form c }
+    else
+      k.to_s
+    end
+  end
+
+  return nil
+end
+
 def parse_int_or_hex(s)
   if s.is_a?(Numeric)
     s
   elsif s[0,2] == '0x'
-    Ethereum::Utils.big_endian_to_int decode_hex(normalize_hex(s))
+    Ethereum::Utils.big_endian_to_int decode_hex(normalize_hex_without_prefix(s))
   else
     s.to_i
   end

@@ -183,22 +183,4 @@ class VMFixtureTest < Minitest::Test
     ext
   end
 
-  def normalize_hex(s)
-    s.size > 2 ? s : '0x00'
-  end
-
-  def normalize_value(k, p)
-    if p.has_key?(k)
-      if k == :gas
-        parse_int_or_hex(p[k])
-      elsif k == :callcreates
-        p[k].map {|c| callcreate_standard_form c }
-      else
-        k.to_s
-      end
-    end
-
-    return nil
-  end
-
 end

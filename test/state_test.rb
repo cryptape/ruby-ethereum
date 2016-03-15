@@ -5,8 +5,8 @@ require 'test_helper'
 class StateTest < Minitest::Test
   include Ethereum
 
-  set_fixture_limit 3
-  run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/
+  set_fixture_limit 6
+  run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/, only: /stRefundTest/, options: {only: /refund_CallA/}
 
   def on_fixture_test(name, data)
     check_state_test data
