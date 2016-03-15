@@ -20,6 +20,7 @@ module Ethereum
 
     class <<self # extensions
       def ecdsa_raw_sign(msghash, priv, compact=false)
+        priv = PrivateKey.new(priv).encode(:bin)
         raise ArgumentError, "private key must be 32 bytes" unless priv.size == 32
 
         sig = sign_compact Utils.zpad(msghash, 32), priv, compact

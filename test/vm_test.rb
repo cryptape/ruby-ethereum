@@ -183,39 +183,6 @@ class VMFixtureTest < Minitest::Test
     ext
   end
 
-  def compare_post_states(shouldbe, reallyis)
-    return true if shouldbe.nil? && reallyis.nil?
-
-    raise "state mismatch! shouldbe: #{shouldbe} reallyis: #{reallyis}" if shouldbe.nil? || reallyis.nil?
-
-    shouldbe.each do |k, v|
-      if !reallyis.has_key?(k)
-        r = {nonce: 0, balance: 0, code: '0x', storage: {}}
-      else
-        r = acct_standard_form reallyis[k]
-      end
-      s = acct_standard_form shouldbe[k]
-
-      raise "key #{k} state mismatch! shouldbe: #{s} reallyis: #{r}" if s != r
-    end
-
-    true
-  end
-
-  def acct_standard_form(a)
-    a = symbolize_keys a
-
-    storage = a[:storage]
-      .map {|k,v| [normalize_hex(k), normalize_hex(v)] }
-      .select {|(k,v)| v !~ /^0x0*$/ }
-      .to_h
-
-    { balance: parse_int_or_hex(a[:balance]),
-      nonce: parse_int_or_hex(a[:nonce]),
-      code: a[:code],
-      storage: storage }
-  end
-
   def normalize_hex(s)
     s.size > 2 ? s : '0x00'
   end
@@ -232,10 +199,6 @@ class VMFixtureTest < Minitest::Test
     end
 
     return nil
-  end
-
-  def symbolize_keys(h)
-    h.map {|k,v| [k.to_sym, v] }.to_h
   end
 
 end

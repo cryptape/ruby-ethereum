@@ -47,6 +47,10 @@ def to_bytes(obj)
   end
 end
 
+def remove_0x_head(s)
+  s[0,2] == '0x' ? s[2..-1] : s
+end
+
 def encode_hex(s)
   RLP::Utils.encode_hex s
 end
@@ -84,6 +88,43 @@ def parse_int_or_hex(s)
   else
     s.to_i
   end
+end
+
+def compare_post_states(shouldbe, reallyis)
+  return true if shouldbe.nil? && reallyis.nil?
+
+  raise "state mismatch! shouldbe: #{shouldbe} reallyis: #{reallyis}" if shouldbe.nil? || reallyis.nil?
+
+  shouldbe.each do |k, v|
+    if !reallyis.has_key?(k)
+      r = {nonce: 0, balance: 0, code: '0x', storage: {}}
+    else
+      r = acct_standard_form reallyis[k]
+    end
+    s = acct_standard_form shouldbe[k]
+
+    raise "key #{k} state mismatch! shouldbe: #{s} reallyis: #{r}" if s != r
+  end
+
+  true
+end
+
+def acct_standard_form(a)
+  a = symbolize_keys a
+
+  storage = a[:storage]
+    .map {|k,v| [normalize_hex(k), normalize_hex(v)] }
+    .select {|(k,v)| v !~ /^0x0*$/ }
+    .to_h
+
+  { balance: parse_int_or_hex(a[:balance]),
+    nonce: parse_int_or_hex(a[:nonce]),
+    code: a[:code],
+    storage: storage }
+end
+
+def symbolize_keys(h)
+  h.map {|k,v| [k.to_sym, v] }.to_h
 end
 
 module Scanner

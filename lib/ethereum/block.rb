@@ -561,7 +561,7 @@ module Ethereum
           medstate: Utils.encode_hex(receipt.state_root),
           gas: receipt.gas_used.to_s,
           logs: logs,
-          bloom: Utils.int256.serialize(receipt.bloom)
+          bloom: Sedes.int256.serialize(receipt.bloom)
         )
       end
       b[:transactions] = txlist
