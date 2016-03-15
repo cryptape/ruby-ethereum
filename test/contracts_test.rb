@@ -41,4 +41,50 @@ def test_sixten
   assert_equal 610, Utils.big_endian_to_int(o)
 end
 
+TEST_WITH_CODE = <<EOF
+def f1():
+    o = array(4)
+    with x = 5:
+        o[0] = x
+        with y = 7:
+            o[1] = y
+            with x = 8:
+                o[2] = x
+        o[3] = x
+    return(o:arr)
+
+
+def f2():
+    with x = 5:
+        with y = 7:
+            x = 2
+        return(x)
+
+def f3():
+    with x = 5:
+        with y = seq(x = 7, 2):
+            return(x)
+
+def f4():
+    o = array(4)
+    with x = 5:
+        o[0] = x
+        with y = 7:
+            o[1] = y
+            with x = x:
+                o[2] = x
+                with y = x:
+                    o[3] = y
+    return(o:arr)
+EOF
+def test_with
+  s = Tester::State.new
+  c = s.abi_contract TEST_WITH_CODE
+  assert_equal [5,7,8,5], c.f1
+  assert_equal 2, c.f2
+  assert_equal 7, c.f3
+  assert_equal [5, 7, 5, 5], c.f4
 end
+
+end
+

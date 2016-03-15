@@ -2,6 +2,7 @@
 
 $:.unshift File.expand_path('../../lib', __FILE__)
 
+require 'pry-byebug'
 require 'minitest/autorun'
 require 'ethereum'
 require 'json'

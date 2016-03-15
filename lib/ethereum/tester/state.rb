@@ -59,14 +59,15 @@ module Ethereum
         raise AssertError, "Contract code empty" if @block.get_code(addr).empty?
 
         abi = lang.mk_full_signature(code, **cn_args)
-        ABIContract.new(abi, addr, listen: listen, log_listener: log_listener)
+        ABIContract.new(self, abi, addr, listen: listen, log_listener: log_listener)
       end
 
-      def evm(opcodes, sender: Fixture.keys[0], endowment: 0, gas: Fixture::GAS_LIMIT)
+      def evm(opcodes, sender: Fixture.keys[0], endowment: 0, gas: nil)
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
 
-        tx = Transaction.contract sendnonce, Fixture::GAS_PRICE, gas, endowment, opcodes
+        tx = Transaction.contract sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, endowment, opcodes
         tx.sign sender
+        tx.startgas = gas if gas
 
         success, output = @block.apply_transaction tx
         raise ContractCreationFailed if success.false?

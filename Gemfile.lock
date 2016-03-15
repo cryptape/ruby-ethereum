@@ -4,6 +4,11 @@ PATH
     rlp (0.6.1)
 
 PATH
+  remote: ../ruby-serpent
+  specs:
+    serpent (0.2.1)
+
+PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
@@ -16,6 +21,7 @@ PATH
 GEM
   remote: https://ruby.taobao.org/
   specs:
+    byebug (8.2.2)
     coderay (1.1.0)
     digest-sha3 (1.1.0)
     ffi (1.9.10)
@@ -31,8 +37,10 @@ GEM
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
       slop (~> 3.4)
+    pry-byebug (3.3.0)
+      byebug (~> 8.0)
+      pry (~> 0.10)
     rake (10.5.0)
-    serpent (0.2.1)
     slop (3.6.0)
     yard (0.8.7.6)
 
@@ -42,10 +50,11 @@ PLATFORMS
 DEPENDENCIES
   minitest (= 5.8.3)
   pry
+  pry-byebug (>= 2.0.0)
   rake (~> 10.5.0)
   rlp!
   ruby-ethereum!
-  serpent (>= 0.2.1)
+  serpent!
   yard (= 0.8.7.6)
 
 BUNDLED WITH

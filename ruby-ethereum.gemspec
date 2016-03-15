@@ -24,4 +24,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency('minitest', '5.8.3')
   s.add_development_dependency('yard', '0.8.7.6')
   s.add_development_dependency('serpent', '>= 0.2.1')
+  s.add_development_dependency('pry-byebug', '>= 2.0.0')
 end

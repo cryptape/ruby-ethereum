@@ -22,8 +22,9 @@ module Ethereum
           end
         end
 
-        @translator.function_data
-
+        @translator.function_data.each do |f, _|
+          generate_function f
+        end
       end
 
       private
@@ -41,7 +42,7 @@ module Ethereum
 
           if output == :raw
             outdata = o[:output]
-          elsif output.false?
+          elsif o[:output].false?
             outdata = nil
           else
             outdata = @translator.decode '#{f}', o[:output]
