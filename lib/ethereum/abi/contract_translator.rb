@@ -39,7 +39,7 @@ module Ethereum
           if sig_item['type'] == 'function'
             decode_types = sig_item['outputs'].map {|f| f['type'] }
             is_unknown_type = sig_item['outputs'].size.true? && sig_item['outputs'][0]['name'] == 'unknown_out'
-            @v[:function_data][name.to_sym] = {
+            function_data[name.to_sym] = {
               prefix: method_id(name, encode_types),
               encode_types: encode_types,
               decode_types: decode_types,
@@ -51,7 +51,7 @@ module Ethereum
             indexed = sig_item['inputs'].map {|f| f['indexed'] }
             names = sig_item['inputs'].map {|f| f['name'] }
 
-            @v[:event_data][event_id(name, encode_types)] = {
+            event_data[event_id(name, encode_types)] = {
               types: encode_types,
               name: name,
               names: names,
@@ -63,14 +63,14 @@ module Ethereum
       end
 
       def encode(name, args)
-        fdata = @v[:function_data][name.to_sym]
+        fdata = function_data[name.to_sym]
         id = Utils.zpad(Utils.encode_int(fdata[:prefix]), 4)
         calldata = ABI.encode_abi fdata[:encode_types], args
         "#{id}#{calldata}"
       end
 
       def decode(name, data)
-        fdata = @v[:function_data][name.to_sym]
+        fdata = function_data[name.to_sym]
 
         if fdata[:is_unknown_type]
           i = 0
@@ -88,22 +88,30 @@ module Ethereum
         end
       end
 
+      def function_data
+        @v[:function_data]
+      end
+
+      def event_data
+        @v[:event_data]
+      end
+
       def function(name)
-        @v[:function_data][name.to_sym]
+        function_data[name.to_sym]
       end
 
       def event(name, encode_types)
-        @v[:event_data][event_id(name, encode_types)]
+        event_data[event_id(name, encode_types)]
       end
 
       def is_unknown_type(name)
-        @v[:function_data][name.to_sym][:is_unknown_type]
+        function_data[name.to_sym][:is_unknown_type]
       end
 
       def listen(log, noprint=false)
-        return if log.topics.size == 0 || !@v[:event_data].has_key?(log.topics[0])
+        return if log.topics.size == 0 || !event_data.has_key?(log.topics[0])
 
-        data = @v[:event_data][log.topics[0]]
+        data = event_data[log.topics[0]]
         types = data[:types]
         name = data[:name]
         names = data[:names]
