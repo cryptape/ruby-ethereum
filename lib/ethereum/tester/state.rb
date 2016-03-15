@@ -11,6 +11,8 @@ module Ethereum
       class ContractCreationFailed < StandardError; end
       class TransactionFailed < StandardError; end
 
+      attr :block, :blocks
+
       def initialize(num_accounts=Fixture::NUM_ACCOUNTS)
         @temp_data_dir = Dir.mktmpdir TMP_DIR_PREFIX
 
@@ -78,6 +80,40 @@ module Ethereum
 
       def send_tx(*args, **kwargs)
         _send_tx(*args, **kwargs)[:output]
+      end
+
+      def _send_tx(sender, to, value, evmdata: '', output: nil, funid: nil, abi: nil, profiling: 0)
+        if funid || abi
+          raise ArgumentError, "Send with funid+abi is deprecated. Please use the abi_contract mechanism."
+        end
+
+        t1, g1 = Time.now, @block.gas_used
+        sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
+        tx = Transaction.new(sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, to, value, evmdata)
+        @last_tx = tx
+        tx.sign(sender)
+
+        recorder = profiling > 1 ? LogRecorder.new : nil
+
+        success, output = @block.apply_transaction(tx)
+        raise TransactionFailed if success.false?
+        out = {output: output}
+
+        if profiling > 0
+          zero_bytes = tx.data.count Constant::BYTE_ZERO
+          none_zero_bytes = tx.data.size - zero_bytes
+          intrinsic_gas_used = Opcodes::GTXDATAZERO * zero_bytes +
+            Opcodes::GTXDATANONZERO * none_zero_bytes
+          t2, g2 = Time.now, @block.gas_used
+          output[:time] = t2 - t1
+          output[:gas] = g2 - g1 - intrinsic_gas_used
+        end
+
+        if profiling > 1
+          # TODO: collect all traced ops use LogRecorder
+        end
+
+        out
       end
 
       def profile(*args, **kwargs)
@@ -149,40 +185,6 @@ module Ethereum
         num_accounts.times {|i| o[Fixture.accounts[i]] = {wei: 10**24} }
         (1...5).each {|i| o[Fixture.int_to_addr(i)] = {wei: 1} }
         o
-      end
-
-      def _send_tx(sender, to, value, evmdata: '', output: nil, funid: nil, abi: nil, profiling: 0)
-        if funid || abi
-          raise ArgumentError, "Send with funid+abi is deprecated. Please use the abi_contract mechanism."
-        end
-
-        t1, g1 = Time.now, @block.gas_used
-        sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
-        tx = Transaction.new(sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, to, value, evmdata)
-        @last_tx = tx
-        tx.sign(sender)
-
-        recorder = profiling > 1 ? LogRecorder.new : nil
-
-        success, output = @block.apply_transaction(tx)
-        raise TransactionFailed if success.false?
-        out = {output: output}
-
-        if profiling > 0
-          zero_bytes = tx.data.count Constant::BYTE_ZERO
-          none_zero_bytes = tx.data.size - zero_bytes
-          intrinsic_gas_used = Opcodes::GTXDATAZERO * zero_bytes +
-            Opcodes::GTXDATANONZERO * none_zero_bytes
-          t2, g2 = Time.now, @block.gas_used
-          output[:time] = t2 - t1
-          output[:gas] = g2 - g1 - intrinsic_gas_used
-        end
-
-        if profiling > 1
-          # TODO: collect all traced ops use LogRecorder
-        end
-
-        out
       end
 
     end

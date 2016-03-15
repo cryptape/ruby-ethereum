@@ -678,7 +678,7 @@ module Ethereum
 
     def add_log(log)
       logs.push log
-      log_listeners.each {|l| l(log) }
+      log_listeners.each {|l| l.call log }
     end
 
     ##
