@@ -26,11 +26,19 @@ module Ethereum
       end
 
       def record
-        self.proofs.push ProofConstructor.new
+        proofs.push ProofConstructor.new
         result = yield
         nodes = proof.decoded_nodes
-        self.proofs.pop
         [result, nodes]
+      ensure
+        proofs.pop
+      end
+
+      def verify(nodes)
+        proofs.push ProofVerifier.new(nodes: nodes)
+        yield
+      ensure
+        proofs.pop
       end
 
       def mode
@@ -44,7 +52,7 @@ module Ethereum
         end
       end
 
-      def mk_transaction_proof(block, tx)
+      def make_transaction_proof(block, tx)
         result, nodes = record do
           block.apply_transaction(tx)
         end
@@ -54,6 +62,17 @@ module Ethereum
           .uniq
           .map {|x| RLP.decode(x) }
       end
+
+      def verify_transaction_proof(block, tx, nodes)
+        verify do
+          block.apply_transaction(tx)
+        end
+        true
+      rescue
+        puts $!
+        false
+      end
+
     end
 
   end

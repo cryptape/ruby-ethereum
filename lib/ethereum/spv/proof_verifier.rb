@@ -6,7 +6,7 @@ module Ethereum
   module SPV
     class ProofVerifier < Proof
 
-      def initialize(nodes: Set.new, exempts: [])
+      def initialize(nodes, exempts: [])
         nodes = nodes.map {|n| RLP.encode(n) }.to_set
         super(nodes: nodes, exempts: exempts)
       end
