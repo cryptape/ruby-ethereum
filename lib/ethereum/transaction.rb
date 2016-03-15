@@ -58,8 +58,8 @@ module Ethereum
       @sender = nil
       @logs = []
 
-      raise ValidationError, "Values way too high!" if [gasprice, startgas, value, nonce].max > Constant::UINT_MAX
-      raise ValidationError, "Startgas too low" if startgas < intrinsic_gas_used
+      raise InvalidTransaction, "Values way too high!" if [gasprice, startgas, value, nonce].max > Constant::UINT_MAX
+      raise InvalidTransaction, "Startgas too low" if startgas < intrinsic_gas_used
 
       logger.debug "deserialized tx #{Utils.encode_hex(full_hash)[0,8]}"
     end
@@ -67,15 +67,15 @@ module Ethereum
     def sender
       unless @sender
         if v && v > 0
-          raise ValidationError, "Invalid signature values!" if r >= Secp256k1::N || s >= Secp256k1::N || v < 27 || v > 28 || r == 0 || s == 0
+          raise InvalidTransaction, "Invalid signature values!" if r >= Secp256k1::N || s >= Secp256k1::N || v < 27 || v > 28 || r == 0 || s == 0
 
           logger.debug "recovering sender"
           rlpdata = RLP.encode(self, sedes: UnsignedTransaction)
           rawhash = Utils.keccak256 rlpdata
           pub = Secp256k1.ecdsa_raw_recover rawhash, [v,r,s]
 
-          raise ValidationError, "Invalid signature values (x^3+7 is non-residue)" unless pub
-          raise ValidationError, "Invalid signature (zero privkey cannot sign)" if pub == Constant::PUBKEY_ZERO
+          raise InvalidTransaction, "Invalid signature values (x^3+7 is non-residue)" unless pub
+          raise InvalidTransaction, "Invalid signature (zero privkey cannot sign)" if pub == Constant::PUBKEY_ZERO
 
           @sender = PublicKey.new(pub).to_address
         end
@@ -94,7 +94,7 @@ module Ethereum
     # A potentially already existing signature would be override.
     #
     def sign(key)
-      raise ValidationError, "Zero privkey cannot sign" if [0, '', Constant::PRIVKEY_ZERO].include?(key)
+      raise InvalidTransaction, "Zero privkey cannot sign" if [0, '', Constant::PRIVKEY_ZERO].include?(key)
 
       rawhash = Utils.keccak256 RLP.encode(self, sedes: UnsignedTransaction)
       self.v, self.r, self.s = Secp256k1.ecdsa_raw_sign rawhash, key
