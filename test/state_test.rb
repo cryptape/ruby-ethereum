@@ -5,7 +5,7 @@ require 'test_helper'
 class StateTest < Minitest::Test
   include Ethereum
 
-  set_fixture_limit 1
+  set_fixture_limit 3
   run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/
 
   def on_fixture_test(name, data)
@@ -127,10 +127,7 @@ class StateTest < Minitest::Test
       end
     end
 
-    apply_msg = lambda do |msg, code=nil|
-      orig_apply_msg(msg, code)
-    end
-    ExternalCall.send :define_method, :apply_msg, &apply_msg
+    ExternalCall.send :alias_method, :apply_msg, :orig_apply_msg
 
     params2 = Marshal.load Marshal.dump(params)
     params2['logs'] = blk.get_receipt(0).logs.map {|log| log.to_h } if success.true?
