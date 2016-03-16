@@ -24,7 +24,7 @@ deep VM stack.
 Set `RUBY_THREAD_VM_STACK_SIZE` in your shell/environment:
 
 ```
-export RUBY_THREAD_VM_STACK_SIZE=10485760 # 10M, 10 times default
+export RUBY_THREAD_VM_STACK_SIZE=104857600 # 100M, 100 times default
 ```
 
 ## License
