@@ -9,7 +9,7 @@ module Ethereum
 
         return false if mixhash.size != 32 || header_hash.size != 32 || nonce.size != 8
 
-        cache = Ethash::Cache.get block_number
+        cache = Ethash.get_cache block_number
         mining_output = hashimoto_light block_number, cache, header_hash, nonce
 
         return false if mining_output[:mixhash] != mixhash
@@ -18,7 +18,6 @@ module Ethereum
       lru_cache :check_pow, 256
 
       def hashimoto_light(*args)
-        # TODO: switch to ethhash c++ binding
         Ethash.hashimoto_light(*args)
       end
     end
@@ -61,7 +60,7 @@ module Ethereum
     def _mine(block_number, difficulty, mining_hash, start_nonce=0, rounds=1000)
       raise AssertError, "start nonce must be an integer" unless start_nonce.is_a?(Integer)
 
-      cache = Ethash::Cache.get block_number
+      cache = Ethash.get_cache block_number
       nonce = start_nonce
       difficulty ||= 1
       target = Utils.zpad Utils.int_to_big_endian(Constant::TT256 / difficulty), 32
