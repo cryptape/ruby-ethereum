@@ -14,6 +14,19 @@ make
 sudo make install
 ```
 
+## Caveats
+
+### Increase Ruby Stack Size Limit
+
+Or some tests will fail because the default stack size cannot hold a maximum (1024) levels
+deep VM stack.
+
+Set `RUBY_THREAD_VM_STACK_SIZE` in your shell/environment:
+
+```
+export RUBY_THREAD_VM_STACK_SIZE=10485760 # 10M, 10 times default
+```
+
 ## License
 
 [MIT License](LICENSE)
