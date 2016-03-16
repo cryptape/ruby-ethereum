@@ -125,8 +125,10 @@ module Ethereum
       log_state.trace "MSG PRE STATE SENDER", account: msg.sender, balance: get_balance(msg.sender), state: log_storage(msg.sender)
       log_state.trace "MSG PRE STATE RECIPIENT", account: msg.to, balance: get_balance(msg.to), state: log_storage(msg.to)
 
-      # transfer value
+      # snapshot before execution
       snapshot = @block.snapshot
+
+      # transfer value
       unless @block.transfer_value(msg.sender, msg.to, msg.value)
         log_msg.debug "MSG transfer failed have=#{get_balance(msg.to)} want=#{msg.value}"
         return [1, msg.gas, []]
