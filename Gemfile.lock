@@ -12,18 +12,20 @@ PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
-      digest-sha3 (~> 1.1.0)
-      ffi (~> 1.9.10)
-      logging (~> 2.0.0)
-      lru_redux (~> 1.1.0)
-      rlp (~> 0.6.0)
+      digest-sha3 (~> 1.1)
+      ethash (~> 0.2)
+      ffi (>= 1.9.10)
+      logging (~> 2.0)
+      lru_redux (~> 1.1)
+      rlp (~> 0.6)
 
 GEM
-  remote: https://ruby.taobao.org/
+  remote: https://rubygems.org/
   specs:
     byebug (8.2.2)
     coderay (1.1.0)
     digest-sha3 (1.1.0)
+    ethash (0.2.0)
     ffi (1.9.10)
     little-plugger (1.1.4)
     logging (2.0.0)
@@ -51,7 +53,7 @@ DEPENDENCIES
   minitest (= 5.8.3)
   pry
   pry-byebug (>= 2.0.0)
-  rake (~> 10.5.0)
+  rake (~> 10.5)
   rlp!
   ruby-ethereum!
   serpent!
