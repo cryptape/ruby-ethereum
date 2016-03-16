@@ -3,7 +3,7 @@
 require 'prime'
 
 module Ethereum
-  module Ethash
+  module EthashRuby
 
     class Hashimoto
       include Utils

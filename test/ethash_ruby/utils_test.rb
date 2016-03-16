@@ -2,9 +2,9 @@
 
 require 'test_helper'
 
-class EthashUtilsTest < Minitest::Test
+class EthashRubyUtilsTest < Minitest::Test
   include Ethereum
-  include Ethereum::Ethash::Utils
+  include Ethereum::EthashRuby::Utils
 
   def test_keccak512
     assert_equal [2620437088, 2865270727, 2892105390, 2338067752, 1006496725, 702760908, 3861168948, 2100008890, 2644375569, 2659489748, 1971258991, 3262865397, 1844246636, 2612442309, 3265633223, 3404757258], keccak512('ethereum')

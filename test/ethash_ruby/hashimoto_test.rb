@@ -2,11 +2,11 @@
 
 require 'test_helper'
 
-class EthashHashimotoTest < Minitest::Test
+class EthashRubyHashimotoTest < Minitest::Test
   include Ethereum
 
   def setup
-    @h = Ethash::Hashimoto.new
+    @h = EthashRuby::Hashimoto.new
   end
 
   def test_fnv

@@ -1,7 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
 module Ethereum
-  module Ethash
+  module EthashRuby
     module Utils
 
       # sha3 hash function, outputs 64 bytes
