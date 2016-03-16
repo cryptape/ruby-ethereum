@@ -5,8 +5,8 @@ require 'test_helper'
 class StateTest < Minitest::Test
   include Ethereum
 
-  set_fixture_limit 6
-  run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/, only: /stRefundTest/, options: {only: /refund_CallA/}
+  set_fixture_limit 19
+  run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/
 
   def on_fixture_test(name, data)
     check_state_test data
@@ -71,22 +71,7 @@ class StateTest < Minitest::Test
     end
 
     # execute transactions
-    ExternalCall.send :alias_method, :orig_apply_msg, :apply_msg
-
-    apply_msg = lambda do |msg, code=nil|
-      block_hash = lambda do |n|
-        if n >= blk.number || n < blk.number - 256
-          Constant::BYTE_EMPTY
-        else
-          Utils.keccak256(n.to_s)
-        end
-      end
-      singleton_class.send :define_method, :block_hash, &block_hash
-
-      orig_apply_msg(msg, code)
-    end
-    ExternalCall.send :define_method, :apply_msg, &apply_msg
-
+    patch_external_call blk
     begin
       tx = Transaction.new(
         nonce: parse_int_or_hex(exek['nonce'] || '0'),
@@ -115,6 +100,7 @@ class StateTest < Minitest::Test
       time_pre = Time.now
       begin
         success, output = blk.apply_transaction(tx)
+
         blk.commit_state
       rescue InvalidTransaction
         success, output = false, Constant::BYTE_EMPTY
@@ -126,8 +112,6 @@ class StateTest < Minitest::Test
         output = blk.get_code(output)
       end
     end
-
-    ExternalCall.send :alias_method, :apply_msg, :orig_apply_msg
 
     params2 = Marshal.load Marshal.dump(params)
     params2['logs'] = blk.get_receipt(0).logs.map {|log| log.to_h } if success.true?
@@ -155,6 +139,30 @@ class StateTest < Minitest::Test
       end
     when :time
       time_post - time_pre
+    end
+  end
+
+  def patch_external_call(blk)
+    class <<blk
+      def build_external_call(tx)
+        blk = self
+        apply_msg = lambda do |msg, code=nil|
+          block_hash = lambda do |n|
+            if n >= blk.number || n < blk.number - 256
+              Constant::BYTE_EMPTY
+            else
+              Utils.keccak256(n.to_s)
+            end
+          end
+          singleton_class.send :define_method, :block_hash, &block_hash
+
+          super(msg, code)
+        end
+
+        super(tx).tap do |ec|
+          ec.singleton_class.send :define_method, :apply_msg, &apply_msg
+        end
+      end
     end
   end
 

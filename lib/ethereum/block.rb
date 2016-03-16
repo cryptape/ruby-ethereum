@@ -396,6 +396,10 @@ module Ethereum
       @transaction_count += 1
     end
 
+    def build_external_call(tx)
+      ExternalCall.new self, tx
+    end
+
     def apply_transaction(tx)
       validate_transaction tx
 
@@ -410,7 +414,7 @@ module Ethereum
       message_data = VM::CallData.new tx.data.bytes, 0, tx.data.size
       message = VM::Message.new tx.sender, tx.to, tx.value, message_gas, message_data, code_address: tx.to
 
-      ec = ExternalCall.new self, tx
+      ec = build_external_call tx
 
       if tx.to.true? && tx.to != Address::CREATE_CONTRACT
         result, gas_remained, data = ec.apply_msg message
@@ -1019,7 +1023,7 @@ module Ethereum
           hexkey = "0x#{Utils.encode_hex Utils.zunpad(k)}"
 
           v = cache[Utils.big_endian_to_int(k)]
-          if v && v != 0
+          if v.true?
             h[:storage][hexkey] = "0x#{Utils.encode_hex Utils.int_to_big_endian(v)}"
           else
             v = sh[k]

@@ -395,7 +395,7 @@ module Ethereum
             create_msg = Message.new(msg.to, Constant::BYTE_EMPTY, value, s.gas, cd, depth: msg.depth+1)
 
             o, gas, addr = ext.create create_msg
-            if o != 0
+            if o.true?
               stk.push Utils.coerce_to_int(addr)
               s.gas = gas
             else
@@ -499,20 +499,6 @@ module Ethereum
       end
     end
 
-    private
-
-    def log_vm_exit
-      @log_vm_exit ||= Logger.new 'eth.vm.exit'
-    end
-
-    def log_vm_op
-      @log_vm_op ||= Logger.new 'eth.vm.op'
-    end
-
-    def log_log
-      @log_log ||= Logger.new 'eth.vm.log'
-    end
-
     # Preprocesses code, and determines which locations are in the middle of
     # pushdata and thus invalid
     def preprocess_code(code)
@@ -540,6 +526,20 @@ module Ethereum
       end
 
       ops
+    end
+
+    private
+
+    def log_vm_exit
+      @log_vm_exit ||= Logger.new 'eth.vm.exit'
+    end
+
+    def log_vm_op
+      @log_vm_op ||= Logger.new 'eth.vm.op'
+    end
+
+    def log_log
+      @log_log ||= Logger.new 'eth.vm.log'
     end
 
     def vm_exception(error, **kwargs)
