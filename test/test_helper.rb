@@ -145,6 +145,17 @@ def symbolize_keys(h)
   h.map {|k,v| [k.to_sym, v] }.to_h
 end
 
+def stringify_possible_keys(obj)
+  case obj
+  when Array
+    obj.map {|x| stringify_possible_keys x }
+  when Hash
+    obj.map {|k,v| [k.to_s, v] }.to_h
+  else
+    obj
+  end
+end
+
 module Scanner
   extend self
 

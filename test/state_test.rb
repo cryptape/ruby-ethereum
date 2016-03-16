@@ -5,7 +5,6 @@ require 'test_helper'
 class StateTest < Minitest::Test
   include Ethereum
 
-  set_fixture_limit 19
   run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/
 
   def on_fixture_test(name, data)
@@ -131,7 +130,7 @@ class StateTest < Minitest::Test
 
       %w(pre exec env callcreates out gas logs postStateRoot).each do |k|
         shouldbe = params1[k]
-        reallyis = params2[k]
+        reallyis = stringify_possible_keys params2[k]
 
         if shouldbe != reallyis
           raise "Mismatch: #{k}:\n shouldbe #{shouldbe}\n reallyis #{reallyis}"
@@ -149,9 +148,9 @@ class StateTest < Minitest::Test
         apply_msg = lambda do |msg, code=nil|
           block_hash = lambda do |n|
             if n >= blk.number || n < blk.number - 256
-              Constant::BYTE_EMPTY
+              Ethereum::Constant::BYTE_EMPTY
             else
-              Utils.keccak256(n.to_s)
+              Ethereum::Utils.keccak256(n.to_s)
             end
           end
           singleton_class.send :define_method, :block_hash, &block_hash
