@@ -119,6 +119,7 @@ module Ethereum
           when :SMOD
             s0, s1 = Utils.to_signed(stk.pop), Utils.to_signed(stk.pop)
             r = s1 == 0 ? 0 : ((s0.abs % s1.abs * (s0 < 0 ? -1 : 1)) & UINT_MAX)
+            stk.push r
           when :ADDMOD
             s0, s1, s2 = stk.pop, stk.pop, stk.pop
             r = s2 == 0 ? 0 : (s0+s1) % s2
