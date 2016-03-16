@@ -59,7 +59,7 @@ module Ethereum
     end
 
     def base58_check_to_bytes(s)
-      leadingzbytes = s.match(/^1*/)[0]
+      leadingzbytes = s.match(/\A1*/)[0]
       data = Constant::BYTE_ZERO * leadingzbytes.size + BaseConvert.convert(s, 58, 256)
 
       raise ChecksumError, "double sha256 checksum doesn't match" unless double_sha256(data[0...-4])[0,4] == data[-4..-1]
@@ -68,7 +68,7 @@ module Ethereum
 
     def bytes_to_base58_check(bytes, magicbyte=0)
       bs = "#{magicbyte.chr}#{bytes}"
-      leadingzbytes = bs.match(/^#{Constant::BYTE_ZERO}*/)[0]
+      leadingzbytes = bs.match(/\A#{Constant::BYTE_ZERO}*/)[0]
       checksum = double_sha256(bs)[0,4]
       '1'*leadingzbytes.size + BaseConvert.convert("#{bs}#{checksum}", 256, 58)
     end
@@ -86,7 +86,7 @@ module Ethereum
     end
 
     def big_endian_to_int(s)
-      RLP::Sedes.big_endian_int.deserialize s.sub(/^(\x00)+/, '')
+      RLP::Sedes.big_endian_int.deserialize s.sub(/\A(\x00)+/, '')
     end
 
     def int_to_big_endian(n)
@@ -103,7 +103,7 @@ module Ethereum
     end
 
     def zunpad(x)
-      x.sub /^\x00+/, ''
+      x.sub /\A\x00+/, ''
     end
 
     def zpad_int(n, l=32)

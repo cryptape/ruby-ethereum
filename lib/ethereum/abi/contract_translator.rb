@@ -160,9 +160,9 @@ module Ethereum
 
       def canonical_name(x)
         case x
-        when /^(uint|int)(\[.*\])?$/
+        when /\A(uint|int)(\[.*\])?\z/
           "#{$1}256#{$2}"
-        when /^(real|ureal|fixed|ufixed)(\[.*\])?$/
+        when /\A(real|ureal|fixed|ufixed)(\[.*\])?\z/
           "#{$1}128x128#{$2}"
         else
           x

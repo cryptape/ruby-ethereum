@@ -23,13 +23,13 @@ module Ethereum
           when 'bytes'
             raise ParseError, "Maximum 32 bytes for fixed-length string or bytes" unless sub.empty? || sub.to_i <= 32
           when 'uint', 'int'
-            raise ParseError, "Integer type must have numerical suffix" unless sub =~ /^[0-9]+$/
+            raise ParseError, "Integer type must have numerical suffix" unless sub =~ /\A[0-9]+\z/
 
             size = sub.to_i
             raise ParseError, "Integer size out of bounds" unless size >= 8 && size <= 256
             raise ParseError, "Integer size must be multiple of 8" unless size % 8 == 0
           when 'ureal', 'real', 'fixed', 'ufixed'
-            raise ParseError, "Real type must have suffix of form <high>x<low>, e.g. 128x128" unless sub =~ /^[0-9]+x[0-9]+$/
+            raise ParseError, "Real type must have suffix of form <high>x<low>, e.g. 128x128" unless sub =~ /\A[0-9]+x[0-9]+\z/
 
             high, low = sub.split('x').map(&:to_i)
             total = high + low
@@ -37,7 +37,7 @@ module Ethereum
             raise ParseError, "Real size out of bounds (max 32 bytes)" unless total >= 8 && total <= 256
             raise ParseError, "Real high/low sizes must be multiples of 8" unless high % 8 == 0 && low % 8 == 0
           when 'hash'
-            raise ParseError, "Hash type must have numerical suffix" unless sub =~ /^[0-9]+$/
+            raise ParseError, "Hash type must have numerical suffix" unless sub =~ /\A[0-9]+\z/
           when 'address'
             raise ParseError, "Address cannot have suffix" unless sub.empty?
           when 'bool'

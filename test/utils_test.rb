@@ -59,6 +59,10 @@ class UtilsTest < Minitest::Test
     assert_equal 255, big_endian_to_int("\x00\x00\xff")
   end
 
+  def test_coerce_to_int
+    assert_equal 571329460454981322332848927582483177110542410654, coerce_to_int("d\x13L\x8F\x0E\xD5*\x13\xBD\n\x00\xFF\x9F\xC6\xDBn\b2\xE3\x9E")
+  end
+
   def test_normalize_address
     assert_equal Ethereum::Address::BLANK, normalize_address(Ethereum::Address::BLANK, allow_blank: true)
     assert_raises(Ethereum::ValueError) { normalize_address(Ethereum::Address::BLANK) }

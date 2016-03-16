@@ -57,7 +57,7 @@ class BloomFixtureTest < Minitest::Test
   end
 
   def decode_int_from_hex(x)
-    Utils.decode_int Utils.decode_hex(x).sub(/^(\x00)+/, '')
+    Utils.decode_int Utils.decode_hex(x).sub(/\A(\x00)+/, '')
   end
 
 end

@@ -19,7 +19,7 @@ end
 
 def load_fixture(path)
   fixture = {}
-  name = File.basename(path).sub(/#{File.extname(path)}$/, '')
+  name = File.basename(path).sub(/#{File.extname(path)}\z/, '')
 
   json = File.open(fixture_path(path)) {|f| JSON.load f }
   json.each do |k, v|
@@ -132,7 +132,7 @@ def acct_standard_form(a)
 
   storage = a[:storage]
     .map {|k,v| [normalize_hex(k), normalize_hex(v)] }
-    .select {|(k,v)| v !~ /^0x0*$/ }
+    .select {|(k,v)| v !~ /\A0x0*\z/ }
     .to_h
 
   { balance: parse_int_or_hex(a[:balance]),
