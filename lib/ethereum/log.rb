@@ -10,11 +10,16 @@ module Ethereum
       data: Sedes.binary
     )
 
-    def initialize(address, topics, data)
+    def initialize(*args)
+      h = parse_field_args args
+
+      address = h[:address]
       raise ArgumentError, "invalid address: #{address}" unless address.size == 20 || address.size == 40
 
       address = Utils.decode_hex(address) if address.size == 40
-      super(address, topics, data)
+
+      h[:address] = address
+      super(h)
     end
 
     def bloomables
