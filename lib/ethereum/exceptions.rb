@@ -22,4 +22,7 @@ module Ethereum
 
   class InvalidSPVProof < ValidationError; end
 
+  class ContractCreationFailed < StandardError; end
+  class TransactionFailed < StandardError; end
+
 end

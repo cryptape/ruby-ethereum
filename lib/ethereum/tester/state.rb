@@ -8,9 +8,6 @@ module Ethereum
 
       TMP_DIR_PREFIX = 'eth-tester-'.freeze
 
-      class ContractCreationFailed < StandardError; end
-      class TransactionFailed < StandardError; end
-
       attr :block, :blocks
 
       def initialize(num_accounts=Fixture::NUM_ACCOUNTS)

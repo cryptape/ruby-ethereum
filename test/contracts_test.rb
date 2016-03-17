@@ -223,6 +223,53 @@ def test_data_feeds
   assert_equal 1, c.set(500, 726)
 end
 
+TOKEN_SOLIDITY_CODE = <<EOF
+contract Token {
+    address issuer;
+    mapping (address => uint) balances;
+
+    event Issue(address account, uint amount);
+    event Transfer(address from, address to, uint amount);
+
+    function Token() {
+        issuer = msg.sender;
+    }
+
+    function issue(address account, uint amount) {
+        if (msg.sender != issuer) throw;
+        balances[account] += amount;
+    }
+
+    function transfer(address to, uint amount) {
+        if (balances[msg.sender] < amount) throw;
+
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
+
+        Transfer(msg.sender, to, amount);
+    }
+
+    function getBalance(address account) constant returns (uint) {
+        return balances[account];
+    }
+}
+EOF
+def test_token_solidity
+  c = @s.abi_contract TOKEN_SOLIDITY_CODE, language: :solidity
+
+  assert_equal 0, c.getBalance(Tester::Fixture.accounts[2])
+  c.issue Tester::Fixture.accounts[2], 100
+  assert_equal 100, c.getBalance(Tester::Fixture.accounts[2])
+
+  assert_raises(TransactionFailed) { c.issue Tester::Fixture.accounts[3], 100, sender: Tester::Fixture.keys[4] }
+  assert_equal 0, c.getBalance(Tester::Fixture.accounts[3])
+
+  c.transfer Tester::Fixture.accounts[3], 90, sender: Tester::Fixture.keys[2]
+  assert_equal 90, c.getBalance(Tester::Fixture.accounts[3])
+
+  assert_raises(TransactionFailed) { c.transfer Tester::Fixture.accounts[3], 90, sender: Tester::Fixture.keys[2] }
+end
+
 private
 
 def with_file(prefix, code)
