@@ -9,7 +9,8 @@ module Ethereum
           return @all if @all
 
           @all = {
-            serpent: Serpent
+            serpent: Serpent,
+            solidity: SolidityWrapper.solc_path && SolidityWrapper
           }
 
           @all
