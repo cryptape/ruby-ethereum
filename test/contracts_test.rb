@@ -25,7 +25,7 @@ class ContractsTest < Minitest::Test
     assert_equal [32], o
   end
 
-  TEST_SIXTEN_CODE = <<-EOF
+  SIXTEN_CODE = <<-EOF
     (with 'x 10
       (with 'y 20
         (with 'z 30
@@ -39,7 +39,7 @@ class ContractsTest < Minitest::Test
   EOF
   def test_sixten
     c = Utils.decode_hex '1231231231231234564564564564561231231231'
-    @s.block.set_code c, Serpent.compile_lll(TEST_SIXTEN_CODE)
+    @s.block.set_code c, Serpent.compile_lll(SIXTEN_CODE)
     o = @s.send_tx(Tester::Fixture.keys[0], c, 0)
     assert_equal 610, Utils.big_endian_to_int(o)
   end
@@ -350,6 +350,337 @@ class ContractsTest < Minitest::Test
     @s.mine n: 100, coinbase: Tester::Fixture.accounts[3]
     o6 = c2.main 0, 0
     assert_equal 4, o6
+  end
+
+  LIFO_CODE = <<-EOF
+    def init():
+        self.storage[0] = 10
+
+    def f1():
+        self.storage[0] += 1
+
+    def f2():
+        self.storage[0] *= 10
+        self.f1()
+        self.storage[0] *= 10
+
+    def f3():
+        return(self.storage[0])
+  EOF
+  def test_lifo
+    c = @s.abi_contract LIFO_CODE
+    c.f2
+    assert_equal 1010, c.f3
+  end
+
+  SUICIDER_CODE = <<-EOF
+    def mainloop(rounds):
+        self.storage[15] = 40
+        self.suicide()
+        i = 0
+        while i < rounds:
+            i += 1
+            self.storage[i] = i
+
+    def entry(rounds):
+        self.storage[15] = 20
+        self.mainloop(rounds, gas=msg.gas - 600)
+
+    def ping_ten():
+        return(10)
+
+    def suicide():
+        suicide(0)
+
+    def ping_storage15():
+        return(self.storage[15])
+  EOF
+  def test_suicider
+    c = @s.abi_contract SUICIDER_CODE
+
+    prev_gas_limit = Tester::Fixture.gas_limit
+    Tester::Fixture.gas_limit = 200000
+
+    # Run normally: suicide processes, so the attempt to ping the contract
+    # fails.
+    c.entry 5
+    assert_equal nil, c.ping_ten
+
+    c = @s.abi_contract SUICIDER_CODE
+
+    # Run the suicider in such a way that it suicides in a sub-call, then runs
+    # out of gas, leading to a revert of the suicide and storage mutation.
+    c.entry 8000
+
+    # Check that the suicide got reverted.
+    assert_equal 10, c.ping_ten
+
+    # Check that the storage op got reverted
+    assert_equal 20, c.ping_storage15
+  ensure
+    Tester::Fixture.gas_limit = prev_gas_limit
+  end
+
+  REVERTER_CODE = <<-EOF
+    def entry():
+        self.non_recurse(gas=100000)
+        self.recurse(gas=100000)
+
+    def non_recurse():
+        send(7, 9)
+        self.storage[8080] = 4040
+        self.storage[160160] = 2020
+
+    def recurse():
+        send(8, 9)
+        self.storage[8081] = 4039
+        self.storage[160161] = 2019
+        self.recurse()
+        while msg.gas > 0:
+            self.storage["waste_some_gas"] = 0
+  EOF
+  def test_reverter
+    c = @s.abi_contract REVERTER_CODE, endowment: 10**15
+    c.entry
+
+    assert_equal 4040, @s.block.get_storage_data(c.address, 8080)
+    assert_equal 9, @s.block.get_balance(Utils.zpad_int(7, 20))
+    assert_equal 0, @s.block.get_storage_data(c.address, 8081)
+    assert_equal 0, @s.block.get_balance(Utils.zpad_int(8, 20))
+  end
+
+  ADD1_CODE = <<-EOF
+    def main(x):
+        self.storage[1] += x
+  EOF
+  CALLCODE_TEST_CODE = <<-EOF
+    extern add1: [main:[int256]:int256]
+
+    x = create("%s")
+    x.main(6)
+    x.main(4, call=code)
+    x.main(60, call=code)
+    x.main(40)
+    return(self.storage[1])
+  EOF
+  def test_callcode
+    with_file('callcode_add1', ADD1_CODE) do |filename|
+      c = @s.contract(CALLCODE_TEST_CODE % filename)
+      o = @s.send_tx Tester::Fixture.keys[0], c, 0
+      assert_equal 64, Utils.big_endian_to_int(o)
+    end
+  end
+
+  ARRAY_CODE = <<-EOF
+    def main():
+        a = array(1)
+        a[0] = 1
+        return(a, items=1)
+  EOF
+  def test_arrary
+    c = @s.abi_contract ARRAY_CODE
+    assert_equal [1], c.main
+  end
+
+  ARRAY_CODE2 = <<-EOF
+    def main():
+        a = array(1)
+        something = 2
+        a[0] = 1
+        return(a, items=1)
+  EOF
+  def test_array2
+    c = @s.abi_contract ARRAY_CODE2
+    assert_equal [1], c.main
+  end
+
+  ARRAY_CODE3 = <<-EOF
+    def main():
+        a = array(3)
+        return(a, items=3)
+  EOF
+  def test_array3
+    c = @s.abi_contract ARRAY_CODE3
+    assert_equal [0,0,0], c.main
+  end
+
+  CALLTEST_CODE = <<-EOF
+    def main():
+        self.first(1, 2, 3, 4, 5)
+        self.second(2, 3, 4, 5, 6)
+        self.third(3, 4, 5, 6, 7)
+
+    def first(a, b, c, d, e):
+        self.storage[1] = a * 10000 + b * 1000 + c * 100 + d * 10 + e
+
+    def second(a, b, c, d, e):
+        self.storage[2] = a * 10000 + b * 1000 + c * 100 + d * 10 + e
+
+    def third(a, b, c, d, e):
+        self.storage[3] = a * 10000 + b * 1000 + c * 100 + d * 10 + e
+
+    def get(k):
+        return(self.storage[k])
+  EOF
+  def test_calls
+    c = @s.abi_contract CALLTEST_CODE
+    c.main
+
+    assert_equal 12345, c.get(1)
+    assert_equal 23456, c.get(2)
+    assert_equal 34567, c.get(3)
+
+    c.first(4,5,6,7,8)
+    assert_equal 45678, c.get(1)
+
+    c.second(5,6,7,8,9)
+    assert_equal 56789, c.get(2)
+  end
+
+  STORAGE_OBJECT_TEST_CODE = <<-EOF
+    extern te.se: [ping:[]:_, query_chessboard:[int256,int256]:int256, query_items:[int256,int256]:int256, query_person:[]:int256[], query_stats:[int256]:int256[], testping:[int256,int256]:int256[], testping2:[int256]:int256]
+
+    data chessboard[8][8]
+    data users[100](health, x, y, items[5])
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    def ping():
+        self.chessboard[0][0] = 1
+        self.chessboard[0][1] = 2
+        self.chessboard[3][0] = 3
+        self.users[0].health = 100
+        self.users[1].x = 15
+        self.users[1].y = 12
+        self.users[1].items[2] = 9
+        self.users[80].health = self
+        self.users[80].items[3] = self
+        self.person.head = 555
+        self.person.arms[0].elbow = 556
+        self.person.arms[0].fingers[0] = 557
+        self.person.arms[0].fingers[4] = 558
+        self.person.legs[0] = 559
+        self.person.arms[1].elbow = 656
+        self.person.arms[1].fingers[0] = 657
+        self.person.arms[1].fingers[4] = 658
+        self.person.legs[1] = 659
+        self.person.legs[1] += 1000
+
+    def query_chessboard(x, y):
+        return(self.chessboard[x][y])
+
+    def query_stats(u):
+        return([self.users[u].health, self.users[u].x, self.users[u].y]:arr)
+
+    def query_items(u, i):
+        return(self.users[u].items[i])
+
+    def query_person():
+        a = array(15)
+        a[0] = self.person.head
+        a[1] = self.person.arms[0].elbow
+        a[2] = self.person.arms[1].elbow
+        a[3] = self.person.legs[0]
+        a[4] = self.person.legs[1]
+        i = 0
+        while i < 5:
+            a[5 + i] = self.person.arms[0].fingers[i]
+            a[10 + i] = self.person.arms[1].fingers[i]
+            i += 1
+        return(a:arr)
+
+    def testping(x, y):
+        return([self.users[80].health.testping2(x), self.users[80].items[3].testping2(y)]:arr)
+
+    def testping2(x):
+        return(x*x)
+  EOF
+  def test_storage_objects
+    c = @s.abi_contract STORAGE_OBJECT_TEST_CODE
+    c.ping
+
+    assert_equal 1, c.query_chessboard(0, 0)
+    assert_equal 2, c.query_chessboard(0, 1)
+    assert_equal 3, c.query_chessboard(3, 0)
+
+    assert_equal [100,0,0], c.query_stats(0)
+    assert_equal [0,15,12], c.query_stats(1)
+
+    assert_equal 0, c.query_items(1, 3)
+    assert_equal 0, c.query_items(0, 2)
+    assert_equal 9, c.query_items(1, 2)
+
+    assert_equal [555, 556, 656, 559, 1659,
+                  557,   0,   0,   0,  558,
+                  657,   0,   0,   0,  658], c.query_person
+
+    assert_equal [361, 441], c.testping(19, 21)
+  end
+
+  INFINITE_STORAGE_OBJECT_TEST_CODE = <<-EOF
+    data chessboard[][8]
+    data users[100](health, x, y, items[])
+    data person(head, arms[](elbow, fingers[5]), legs[2])
+
+    def ping():
+        self.chessboard[0][0] = 1
+        self.chessboard[0][1] = 2
+        self.chessboard[3][0] = 3
+        self.users[0].health = 100
+        self.users[1].x = 15
+        self.users[1].y = 12
+        self.users[1].items[2] = 9
+        self.person.head = 555
+        self.person.arms[0].elbow = 556
+        self.person.arms[0].fingers[0] = 557
+        self.person.arms[0].fingers[4] = 558
+        self.person.legs[0] = 559
+        self.person.arms[1].elbow = 656
+        self.person.arms[1].fingers[0] = 657
+        self.person.arms[1].fingers[4] = 658
+        self.person.legs[1] = 659
+        self.person.legs[1] += 1000
+
+    def query_chessboard(x, y):
+        return(self.chessboard[x][y])
+
+    def query_stats(u):
+        return([self.users[u].health, self.users[u].x, self.users[u].y]:arr)
+
+    def query_items(u, i):
+        return(self.users[u].items[i])
+
+    def query_person():
+        a = array(15)
+        a[0] = self.person.head
+        a[1] = self.person.arms[0].elbow
+        a[2] = self.person.arms[1].elbow
+        a[3] = self.person.legs[0]
+        a[4] = self.person.legs[1]
+        i = 0
+        while i < 5:
+            a[5 + i] = self.person.arms[0].fingers[i]
+            a[10 + i] = self.person.arms[1].fingers[i]
+            i += 1
+        return(a:arr)
+  EOF
+  def test_infinite_storage_objects
+    c = @s.abi_contract INFINITE_STORAGE_OBJECT_TEST_CODE
+    c.ping
+
+    assert_equal 1, c.query_chessboard(0, 0)
+    assert_equal 2, c.query_chessboard(0, 1)
+    assert_equal 3, c.query_chessboard(3, 0)
+
+    assert_equal [100,0,0], c.query_stats(0)
+    assert_equal [0,15,12], c.query_stats(1)
+
+    assert_equal 0, c.query_items(1, 3)
+    assert_equal 0, c.query_items(0, 2)
+    assert_equal 9, c.query_items(1, 2)
+
+    assert_equal [555, 556, 656, 559, 1659,
+                  557,   0,   0,   0,  558,
+                  657,   0,   0,   0,  658], c.query_person
   end
 
   private

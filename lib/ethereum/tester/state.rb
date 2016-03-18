@@ -65,7 +65,7 @@ module Ethereum
       def evm(opcodes, sender: Fixture.keys[0], endowment: 0, gas: nil)
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
 
-        tx = Transaction.contract sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, endowment, opcodes
+        tx = Transaction.contract sendnonce, Fixture.gas_price, Fixture.gas_limit, endowment, opcodes
         tx.sign sender
         tx.startgas = gas if gas
 
@@ -90,7 +90,7 @@ module Ethereum
 
         t1, g1 = Time.now, @block.gas_used
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
-        tx = Transaction.new(sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, to, value, evmdata)
+        tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
         @last_tx = tx
         tx.sign(sender)
 
@@ -126,7 +126,7 @@ module Ethereum
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
         evmdata = funid ? Serpent.encode_abi(funid, *abi) : Serpent.encode_datalist(*data)
 
-        tx = Transaction.new(sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, to, value, evmdata)
+        tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
         @last_tx = tx
         tx.sign(sender)
 
@@ -137,7 +137,7 @@ module Ethereum
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
         evmdata = funid ? Serpent.encode_abi(funid, *abi) : Serpent.encode_datalist(*data)
 
-        tx = Transaction.new(sendnonce, Fixture::GAS_PRICE, Fixture::GAS_LIMIT, to, value, evmdata)
+        tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
         @last_tx = tx
         tx.sign(sender)
 
