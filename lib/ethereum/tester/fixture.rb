@@ -24,10 +24,6 @@ module Ethereum
           @gas_price ||= 1
         end
         attr_writer :gas_price
-
-        def int_to_addr(x)
-          Utils.zpad_int(x, 20)
-        end
       end
 
     end

@@ -184,7 +184,7 @@ module Ethereum
       def get_start_alloc(num_accounts)
         o = {}
         num_accounts.times {|i| o[Fixture.accounts[i]] = {wei: 10**24} }
-        (1...5).each {|i| o[Fixture.int_to_addr(i)] = {wei: 1} }
+        (1...5).each {|i| o[Utils.int_to_addr(i)] = {wei: 1} }
         o
       end
 

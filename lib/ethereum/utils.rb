@@ -114,6 +114,10 @@ module Ethereum
       zpad decode_hex(s), l
     end
 
+    def int_to_addr(x)
+      zpad_int x, 20
+    end
+
     def encode_int(n)
       raise ArgumentError, "Integer invalid or out of range: #{n}" unless n.is_a?(Integer) && n >= 0 && n <= UINT_MAX
       int_to_big_endian n

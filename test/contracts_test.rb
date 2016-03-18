@@ -444,9 +444,9 @@ class ContractsTest < Minitest::Test
     c.entry
 
     assert_equal 4040, @s.block.get_storage_data(c.address, 8080)
-    assert_equal 9, @s.block.get_balance(Utils.zpad_int(7, 20))
+    assert_equal 9, @s.block.get_balance(Utils.int_to_addr(7))
     assert_equal 0, @s.block.get_storage_data(c.address, 8081)
-    assert_equal 0, @s.block.get_balance(Utils.zpad_int(8, 20))
+    assert_equal 0, @s.block.get_balance(Utils.int_to_addr(8))
   end
 
   ADD1_CODE = <<-EOF
@@ -681,6 +681,166 @@ class ContractsTest < Minitest::Test
     assert_equal [555, 556, 656, 559, 1659,
                   557,   0,   0,   0,  558,
                   657,   0,   0,   0,  658], c.query_person
+  end
+
+  FAIL1 = <<-EOF
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    x = self.person.arms[0]
+  EOF
+  FAIL2 = <<-EOF
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    x = self.person.arms[0].fingers
+  EOF
+  FAIL3 = <<-EOF
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    x = self.person.arms[0].fingers[4][3]
+  EOF
+  FAIL4 = <<-EOF
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    x = self.person.arms.elbow[0].fingers[4]
+  EOF
+  FAIL5 = <<-EOF
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    x = self.person.arms[0].fingers[4].nail
+  EOF
+  FAIL6 = <<-EOF
+    data person(head, arms[2](elbow, fingers[5]), legs[2])
+
+    x = self.person.arms[0].elbow.skin
+  EOF
+  FAIL7 = <<-EOF
+    def return_array():
+        return([1,2,3], items=3)
+
+    def main():
+        return(self.return_array())
+  EOF
+  def test_storagevar_fails
+    @s.contract(FAIL1) rescue assert_match /Storage variable access not deep enough/, $!.to_s
+    @s.contract(FAIL2) rescue assert_match /Too few array index lookups/, $!.to_s
+    @s.contract(FAIL3) rescue assert_match /Too many array index lookups/, $!.to_s
+    @s.contract(FAIL4) rescue assert_match /Too few array index lookups/, $!.to_s
+    @s.contract(FAIL5) rescue assert_match /Invalid object member/, $!.to_s
+    @s.contract(FAIL6) rescue assert_match /Invalid object member/, $!.to_s
+  end
+
+  def test_type_system_fails
+    @s.contract(FAIL7) rescue assert_match /Please specify maximum/, $!.to_s
+  end
+
+  WORKING_RETURNARRAY_CODE = <<-EOF
+    def return_array():
+        return([1,2,3], items=3)
+
+    def less():
+        return(self.return_array(outitems=2):arr)
+
+    def more():
+        return(self.return_array(outitems=4):arr)
+
+    def main():
+        return(self.return_array(outitems=3):arr)
+  EOF
+  def test_returnarray_code
+    c = @s.abi_contract WORKING_RETURNARRAY_CODE
+    assert_equal [1,2,3], c.main
+    assert_equal [1,2,0], c.less
+    assert_equal [1,2,3], c.more
+  end
+
+  CROWDFUND_CODE = <<-EOF
+    data campaigns[2^80](recipient, goal, deadline, contrib_total, contrib_count, contribs[2^50](sender, value))
+
+    def create_campaign(id, recipient, goal, timelimit):
+        if self.campaigns[id].recipient:
+            return(0)
+        self.campaigns[id].recipient = recipient
+        self.campaigns[id].goal = goal
+        self.campaigns[id].deadline = block.timestamp + timelimit
+
+    def contribute(id):
+        # Update contribution total
+        total_contributed = self.campaigns[id].contrib_total + msg.value
+        self.campaigns[id].contrib_total = total_contributed
+
+        # Record new contribution
+        sub_index = self.campaigns[id].contrib_count
+        self.campaigns[id].contribs[sub_index].sender = msg.sender
+        self.campaigns[id].contribs[sub_index].value = msg.value
+        self.campaigns[id].contrib_count = sub_index + 1
+
+        # Enough funding?
+        if total_contributed >= self.campaigns[id].goal:
+            send(self.campaigns[id].recipient, total_contributed)
+            self.clear(id)
+            return(1)
+
+        # Expired?
+        if block.timestamp > self.campaigns[id].deadline:
+            i = 0
+            c = self.campaigns[id].contrib_count
+            while i < c:
+                send(self.campaigns[id].contribs[i].sender, self.campaigns[id].contribs[i].value)
+                i += 1
+            self.clear(id)
+            return(2)
+
+    # Progress report [2, id]
+    def progress_report(id):
+        return(self.campaigns[id].contrib_total)
+
+    # Clearing function for internal use
+    def clear(self, id):
+        if self == msg.sender:
+            self.campaigns[id].recipient = 0
+            self.campaigns[id].goal = 0
+            self.campaigns[id].deadline = 0
+            c = self.campaigns[id].contrib_count
+            self.campaigns[id].contrib_count = 0
+            self.campaigns[id].contrib_total = 0
+            i = 0
+            while i < c:
+                self.campaigns[id].contribs[i].sender = 0
+                self.campaigns[id].contribs[i].value = 0
+                i += 1
+  EOF
+  def test_crowdfund
+    c = @s.abi_contract CROWDFUND_CODE
+
+    # Create a campaign with id 100
+    c.create_campaign 100, 45, 100000, 2
+
+    # Create a campaign with id 200
+    c.create_campaign 200, 48, 100000, 2
+
+    # Make some contributions
+    c.contribute 100, value: 1, sender: Tester::Fixture.keys[1]
+    assert_equal 1, c.progress_report(100)
+
+    c.contribute 200, value: 30000, sender: Tester::Fixture.keys[2]
+    c.contribute 100, value: 59049, sender: Tester::Fixture.keys[3]
+    assert_equal 59050, c.progress_report(100)
+
+    # Expect the 100001 units to be delivered to the destination account for
+    # campaign 2.
+    c.contribute 200, value: 70001, sender: Tester::Fixture.keys[4]
+    assert_equal 100001, @s.block.get_balance(Utils.int_to_addr(48))
+
+    mida1 = @s.block.get_balance Tester::Fixture.accounts[1]
+    mida3 = @s.block.get_balance Tester::Fixture.accounts[3]
+
+    # Mine 5 blocks to expire the campaign
+    @s.mine n: 5
+
+    # Ping the campaign after expiry to trigger refunds
+    c.contribute 100, value: 1
+    assert_equal mida1+1, @s.block.get_balance(Tester::Fixture.accounts[1])
+    assert_equal mida3+59049, @s.block.get_balance(Tester::Fixture.accounts[3])
   end
 
   private
