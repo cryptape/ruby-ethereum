@@ -222,6 +222,8 @@ class ContractsTest < Minitest::Test
     assert_equal 19, c.get(500)
     assert_equal 0, c.set(500, 726, sender: Tester::Fixture.keys[1])
     assert_equal 1, c.set(500, 726)
+
+    c
   end
 
   TOKEN_SOLIDITY_CODE = <<-EOF
@@ -269,6 +271,85 @@ class ContractsTest < Minitest::Test
     assert_equal 90, c.getBalance(Tester::Fixture.accounts[3])
 
     assert_raises(TransactionFailed) { c.transfer Tester::Fixture.accounts[3], 90, sender: Tester::Fixture.keys[2] }
+  end
+
+  HEDGE_CODE = <<-EOF
+    extern datafeed: [get:[int256]:int256, set:[int256,int256]:int256]
+
+    data partyone
+    data partytwo
+    data hedgeValue
+    data datafeed
+    data index
+    data fiatValue
+    data maturity
+
+    def main(datafeed, index):
+        if !self.partyone:
+            self.partyone = msg.sender
+            self.hedgeValue = msg.value
+            self.datafeed = datafeed
+            self.index = index
+            return(1)
+        elif !self.partytwo:
+            ethvalue = self.hedgeValue
+            if msg.value >= ethvalue:
+                self.partytwo = msg.sender
+            c = self.datafeed.get(self.index)
+            othervalue = ethvalue * c
+            self.fiatValue = othervalue
+            self.maturity = block.timestamp + 500
+            return(othervalue)
+        else:
+            othervalue = self.fiatValue
+            ethvalue = othervalue / self.datafeed.get(self.index)
+            if ethvalue >= self.balance:
+                send(self.partyone, self.balance)
+                return(3)
+            elif block.timestamp > self.maturity:
+                send(self.partytwo, self.balance - ethvalue)
+                send(self.partyone, ethvalue)
+                return(4)
+            else:
+                return(5)
+  EOF
+  def test_hegde_code
+    c = test_data_feeds
+    c2 = @s.abi_contract HEDGE_CODE, sender: Tester::Fixture.keys[0]
+
+    # Have the first party register, sending 10**16 wei and asking for a hedge
+    # using currency code 500.
+    o1 = c2.main c.address, 500, value: 10**16
+    assert_equal 1, o1
+
+    # Have the second party register. It should receive the amount of units of
+    # the second currency that it is entitled to. Note that from the previous
+    # test this is set to 726.
+    o2 = c2.main 0, 0, value: 10**16, sender: Tester::Fixture.keys[2]
+    assert_equal 7260000000000000000, o2
+
+    snapshot = @s.snapshot
+
+    # Set the price of the asset down to 300 wei.
+    o3 = c.set 500, 300
+    assert_equal 1, o3
+
+    # Finalize the contract. Expect code 3, meaning a margin call
+    o4 = c2.main 0, 0
+    assert_equal 3, o4
+
+    @s.revert snapshot
+
+    # Don't change the price. Finalize, and expect code 5, meaning the time has
+    # not expired yet.
+    o5 = c2.main 0, 0
+    assert_equal 5, o5
+
+    # Mine ten blocks, and try. Expect code 4, meaning a normal execution where
+    # both get their share.
+    @s.mine n: 100, coinbase: Tester::Fixture.accounts[3]
+    o6 = c2.main 0, 0
+    assert_equal 4, o6
   end
 
   private
