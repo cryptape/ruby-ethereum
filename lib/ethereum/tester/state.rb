@@ -28,6 +28,7 @@ module Ethereum
       end
 
       def contract(code, sender: Fixture.keys[0], endowment: 0, language: :serpent, gas: nil)
+        code = Language.format_spaces code
         opcodes = Language.get(language).compile(code)
         addr = evm(opcodes, sender: sender, endowment: endowment)
         raise AssertError, "Contract code empty" if @block.get_code(addr).empty?
@@ -43,6 +44,8 @@ module Ethereum
         log_listener  = kwargs.delete(:log_listener) || nil
         listen        = kwargs.delete(:listen) || true
 
+        code = Language.format_spaces code
+
         if contract_name.true?
           raise ArgumentError, "language must be solidity when contract name is given" unless language == :solidity
           cn_args = {contract_name: contract_name}
@@ -51,7 +54,7 @@ module Ethereum
         end
 
         lang = Language.get language
-        opcodes = lang.compile(code, **cn_args)
+        opcodes = lang.compile code, **cn_args
         addr = evm(opcodes, sender: sender, endowment: endowment, gas: gas)
         raise AssertError, "Contract code empty" if @block.get_code(addr).empty?
 

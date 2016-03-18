@@ -19,6 +19,10 @@ module Ethereum
         def get(name)
           all[name]
         end
+
+        def format_spaces(code)
+          code =~ /\A(\s+)/ ? code.gsub(/^#{$1}/, '') : code
+        end
       end
 
     end
