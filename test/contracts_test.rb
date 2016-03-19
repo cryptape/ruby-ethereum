@@ -347,7 +347,7 @@ class ContractsTest < Minitest::Test
 
     # Mine ten blocks, and try. Expect code 4, meaning a normal execution where
     # both get their share.
-    @s.mine n: 100, coinbase: Tester::Fixture.accounts[3]
+    @s.mine 100, coinbase: Tester::Fixture.accounts[3]
     o6 = c2.main 0, 0
     assert_equal 4, o6
   end
@@ -835,13 +835,438 @@ class ContractsTest < Minitest::Test
     mida3 = @s.block.get_balance Tester::Fixture.accounts[3]
 
     # Mine 5 blocks to expire the campaign
-    @s.mine n: 5
+    @s.mine 5
 
     # Ping the campaign after expiry to trigger refunds
     c.contribute 100, value: 1
     assert_equal mida1+1, @s.block.get_balance(Tester::Fixture.accounts[1])
     assert_equal mida3+59049, @s.block.get_balance(Tester::Fixture.accounts[3])
   end
+
+  SAVELOAD_CODE = <<-EOF
+    data store[1000]
+
+    def kall():
+        a = text("sir bobalot to the rescue !!1!1!!1!1")
+        save(self.store[0], a, chars=60)
+        b = load(self.store[0], chars=60)
+        c = load(self.store[0], chars=33)
+        return([a[0], a[1], b[0], b[1], c[0], c[1]]:arr)
+  EOF
+  def test_safeload
+    c = @s.abi_contract SAVELOAD_CODE
+    o = c.kall
+
+    str = "sir bobalot to the rescue !!1!1!!1!1"
+    first_part_int = Utils.big_endian_to_int str[0,32]
+    last_part_int = Utils.big_endian_to_int Utils.rpad(str[32..-1], Constant::BYTE_ZERO, 32)
+    byte_33_int = Utils.big_endian_to_int(Utils.rpad(str[32,1], Constant::BYTE_ZERO, 32))
+
+    assert_equal first_part_int, o[0]
+    assert_equal last_part_int, o[1]
+    assert_equal first_part_int, o[2]
+    assert_equal last_part_int, o[3]
+    assert_equal first_part_int, o[4]
+    assert_equal byte_33_int, o[5]
+  end
+
+  SAVELOAD_CODE2 = <<-EOF
+    data buf
+    data buf2
+    data buf3
+
+    mystr = text("01ab")
+    save(self.buf, mystr:str)
+    save(self.buf2, mystr, chars=4)
+  EOF
+  def test_saveload2
+    c = @s.contract SAVELOAD_CODE2
+    @s.send_tx Tester::Fixture.keys[0], c, 0
+    assert_equal "01ab"+"\x00"*28, Utils.encode_int(@s.block.get_storage_data(c, 0))
+    assert_equal "01ab"+"\x00"*28, Utils.encode_int(@s.block.get_storage_data(c, 1))
+  end
+
+  SDIV_CODE = <<-EOF
+    def kall():
+        return([2^255 / 2^253, 2^255 % 3]:arr)
+  EOF
+  def test_sdiv
+    c = @s.abi_contract SDIV_CODE
+    assert_equal [-4, -2], c.kall
+  end
+
+  BASIC_ARGCALL_CODE = <<-EOF
+    def argcall(args:arr):
+        log(1)
+        o = (args[0] + args[1] * 10 + args[2] * 100)
+        log(4)
+        return o
+
+    def argkall(args:arr):
+        log(2)
+        o = self.argcall(args)
+        log(3)
+        return o
+  EOF
+  def test_basic_argcall
+    c = @s.abi_contract BASIC_ARGCALL_CODE
+    assert_equal 375, c.argcall([5, 7, 3])
+    assert_equal 376, c.argkall([6, 7, 3])
+  end
+
+  COMPLEX_ARGCALL_CODE = <<-EOF
+    def argcall(args:arr):
+        args[0] *= 2
+        args[1] *= 2
+        return(args:arr)
+
+    def argkall(args:arr):
+        return(self.argcall(args, outsz=2):arr)
+  EOF
+  def test_complex_argcall
+    c = @s.abi_contract COMPLEX_ARGCALL_CODE
+    assert_equal [4, 8], c.argcall([2, 4])
+    assert_equal [6, 10], c.argkall([3, 5])
+  end
+
+  SORT_CODE = <<-EOF
+    def sort(args:arr):
+        if len(args) < 2:
+            return(args:arr)
+        h = array(len(args))
+        hpos = 0
+        l = array(len(args))
+        lpos = 0
+        i = 1
+        while i < len(args):
+            if args[i] < args[0]:
+                l[lpos] = args[i]
+                lpos += 1
+            else:
+                h[hpos] = args[i]
+                hpos += 1
+            i += 1
+        x = slice(h, items=0, items=hpos)
+        h = self.sort(x, outsz=hpos)
+        l = self.sort(slice(l, items=0, items=lpos), outsz=lpos)
+        o = array(len(args))
+        i = 0
+        while i < lpos:
+            o[i] = l[i]
+            i += 1
+        o[lpos] = args[0]
+        i = 0
+        while i < hpos:
+            o[lpos + 1 + i] = h[i]
+            i += 1
+        return(o:arr)
+      EOF
+  def test_sort
+    c = @s.abi_contract SORT_CODE
+    assert_equal [9], c.sort([9])
+    assert_equal [5,9], c.sort([9,5])
+    assert_equal [3,5,9], c.sort([9,3,5])
+    assert_equal [29,80,112,112,234], c.sort([80,234,112,112,29])
+  end
+
+  INDIRECT_SORT_CODE = <<-EOF
+    extern sorter: [sort:[int256[]]:int256[]]
+    data sorter
+
+    def init():
+        self.sorter = create("%s")
+
+    def test(args:arr):
+        return(self.sorter.sort(args, outsz=len(args)):arr)
+  EOF
+  def test_indirect_sort
+    with_file("indirect_sort", SORT_CODE) do |filename|
+      c = @s.abi_contract(INDIRECT_SORT_CODE % filename)
+      assert_equal [29,80,112,112,234], c.test([80,234,112,112,29])
+    end
+  end
+
+  MULTIARG_CODE = <<-EOF
+    def kall(a:arr, b, c:arr, d:str, e):
+        x = a[0] + 10 * b + 100 * c[0] + 1000 * a[1] + 10000 * c[1] + 100000 * e
+        return([x, getch(d, 0) + getch(d, 1) + getch(d, 2), len(d)]:arr)
+  EOF
+  def test_multiarg_code
+    c = @s.abi_contract MULTIARG_CODE
+    o = c.kall [1,2,3], 4, [5,6,7], "doge", 8
+    assert_equal [862541, 'd'.ord+'o'.ord+'g'.ord, 4], o
+  end
+
+  PEANO_CODE = <<-EOF
+    macro padd($x, psuc($y)):
+        psuc(padd($x, $y))
+
+    macro padd($x, z()):
+        $x
+
+    macro dec(psuc($x)):
+        dec($x) + 1
+
+    macro dec(z()):
+        0
+
+    macro pmul($x, z()):
+        z()
+
+    macro pmul($x, psuc($y)):
+        padd(pmul($x, $y), $x)
+
+    macro pexp($x, z()):
+        one()
+
+    macro pexp($x, psuc($y)):
+        pmul($x, pexp($x, $y))
+
+    macro fac(z()):
+        one()
+
+    macro fac(psuc($x)):
+        pmul(psuc($x), fac($x))
+
+    macro one():
+        psuc(z())
+
+    macro two():
+        psuc(psuc(z()))
+
+    macro three():
+        psuc(psuc(psuc(z())))
+
+    macro five():
+        padd(three(), two())
+
+    def main():
+        return([dec(pmul(three(), pmul(three(), three()))), dec(fac(five()))]:arr)
+  EOF
+  def test_peano_macro
+    c = @s.abi_contract PEANO_CODE
+    assert_equal [27,120], c.main
+  end
+
+  TYPE_CODE = <<-EOF
+    type f: [a,b,c,d,e]
+
+    macro f($a) + f($b):
+        f(add($a, $b))
+
+    macro f($a) - f($b):
+        f(sub($a, $b))
+
+    macro f($a) * f($b):
+        f(mul($a, $b) / 10000)
+
+    macro f($a) / f($b):
+        f(sdiv($a * 10000, $b))
+
+    macro f($a) % f($b):
+        f(smod($a, $b))
+
+    macro f($v) = f($w):
+        $v = $w
+
+    macro(10) f($a):
+        $a / 10000
+
+    macro fify($a):
+        f($a * 10000)
+
+    a = fify(5)
+    b = fify(2)
+    c = a / b
+    e = c + (a / b)
+    return(e)
+  EOF
+  def test_types
+    c = @s.contract TYPE_CODE
+    assert_equal 5, Utils.big_endian_to_int(@s.send_tx(Tester::Fixture.keys[0], c, 0))
+  end
+
+  ECRECOVER_CODE = <<-EOF
+    def test_ecrecover(h, v, r, s):
+        return(ecrecover(h, v, r, s))
+  EOF
+  def test_ecrecover
+    c = @s.abi_contract ECRECOVER_CODE
+
+    priv = Utils.keccak256('somg big long brainwallet password')
+    pub = PrivateKey.new(priv).to_pubkey
+
+    msghash = Utils.keccak256('the quick brown fox jumps over the lazy dog')
+    v, r, s = Secp256k1.ecdsa_raw_sign msghash, priv
+    assert_equal true, Secp256k1.ecdsa_raw_verify(msghash, [v,r,s], pub)
+
+    addr = Utils.keccak256(PublicKey.new(pub).encode(:bin)[1..-1])[12..-1]
+    assert_equal PrivateKey.new(priv).to_address, addr
+
+    assert_equal Utils.big_endian_to_int(addr), c.test_ecrecover(Utils.big_endian_to_int(msghash), v, r, s)
+  end
+
+  SHA256_CODE = <<-EOF
+    def main():
+        return([sha256(0, chars=0), sha256(3), sha256(text("doge"), chars=3), sha256(text("dog"):str), sha256([0,0,0,0,0]:arr), sha256([0,0,0,0,0,0], items=5)]:arr)
+  EOF
+  def test_sha256
+    c = @s.abi_contract SHA256_CODE
+    assert_equal [
+        0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 - 2**256,
+        0xd9147961436944f43cd99d28b2bbddbf452ef872b30c8279e255e7daafc7f946 - 2**256,
+        0xcd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944 - 2**256,
+        0xcd6357efdd966de8c0cb2f876cc89ec74ce35f0968e11743987084bd42fb8944 - 2**256,
+        0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2e4 - 2**256,
+        0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2e4 - 2**256
+    ], c.main
+  end
+
+  SHA3_CODE = <<-EOF
+    def main():
+        return([sha3(0, chars=0), sha3(3), sha3(text("doge"), chars=3), sha3(text("dog"):str), sha3([0,0,0,0,0]:arr), sha3([0,0,0,0,0,0], items=5)]:arr)
+  EOF
+  def test_sha3
+    c = @s.abi_contract SHA3_CODE
+    assert_equal [
+        0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 - 2**256,
+        0xc2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b - 2**256,
+        0x41791102999c339c844880b23950704cc43aa840f3739e365323cda4dfa89e7a,
+        0x41791102999c339c844880b23950704cc43aa840f3739e365323cda4dfa89e7a,
+        0xdfded4ed5ac76ba7379cfe7b3b0f53e768dca8d45a34854e649cfc3c18cbd9cd - 2**256,
+        0xdfded4ed5ac76ba7379cfe7b3b0f53e768dca8d45a34854e649cfc3c18cbd9cd - 2**256
+    ], c.main
+  end
+
+  TYPES_IN_FUNCTIONS_CODE = <<-EOF
+    type fixedp: [a, b]
+
+    macro fixedp($x) * fixedp($y):
+        fixedp($x * $y / 2^64)
+
+    macro fixedp($x) / fixedp($y):
+        fixedp($x * 2^64 / $y)
+
+    macro raw_unfixedp(fixedp($x)):
+        $x / 2^64
+
+    macro set(fixedp($x), $y):
+        $x = 2^64 * $y
+
+    macro fixedp($x) = fixedp($y):
+        $x = $y
+
+    def sqrdiv(a, b):
+        return(raw_unfixedp((a / b) * (a / b)))
+  EOF
+  def test_types_in_functions
+    c = @s.abi_contract TYPES_IN_FUNCTIONS_CODE
+    assert_equal 156, c.sqrdiv(25,2)
+  end
+
+  MORE_INFINITES_CODE = <<-EOF
+    data a[](b, c)
+
+    def testVerifyTx():
+
+        self.a[0].b = 33
+
+        self.a[0].c = 55
+
+        return(self.a[0].b)
+  EOF
+  def test_more_infinites
+    c = @s.abi_contract MORE_INFINITES_CODE
+    assert_equal 33, c.testVerifyTx
+  end
+
+  PREVHASHES_CODE = <<-EOF
+    def get_prevhashes(k):
+        o = array(k)
+        i = 0
+        while i < k:
+            o[i] = block.prevhash(i)
+            i += 1
+        return(o:arr)
+  EOF
+  def test_prevhashes
+    c = @s.abi_contract PREVHASHES_CODE
+    @s.mine 7
+
+    # Hashes of last 14 blocks including existing one
+    o1 = c.get_prevhashes(14).map {|x| x % 2**256 }
+
+    # Hash of self = 0, hash of blocks back to genesis as is, hash of blocks
+    # before genesis block = 0
+    t1 = [0] + @s.blocks[0..-2].reverse.map {|b| Utils.big_endian_to_int(b.full_hash) } + [0]*6
+    assert_equal t1, o1
+
+    @s.mine 256
+
+    # Test 256 limit: only 1 <= g <= 256 generation ancestors get hashes shown
+    o2 = c.get_prevhashes(270).map {|x| x % 2**256 }
+    t2 = [0] + @s.blocks[-257..-2].reverse.map {|b| Utils.big_endian_to_int(b.full_hash) } + [0] * 13
+    assert_equal t2, o2
+  end
+
+  ABI_CONTRACT_CODE = <<-EOF
+    def mul2(a):
+        return(a * 2)
+
+    def returnten():
+        return(10)
+  EOF
+  def test_abi_contract
+    c = @s.abi_contract ABI_CONTRACT_CODE
+    assert_equal 6, c.mul2(3)
+    assert_equal 10, c.returnten
+  end
+
+  MCOPY_CODE = <<-EOF
+    def mcopy_test(foo:str, a, b, c):
+        info = string(32*3 + len(foo))
+        info[0] = a
+        info[1] = b
+        info[2] = c
+        mcopy(info+(items=3), foo, len(foo))
+        return(info:str)
+  EOF
+  def test_mcopy
+    c = @s.abi_contract MCOPY_CODE
+    assert_equal Utils.zpad_int(5)+Utils.zpad_int(6)+Utils.zpad_int(259)+'123', c.mcopy_test('123', 5, 6, 259)
+  end
+
+  MCOPY_CODE2 = <<-EOF
+    def mcopy_test():
+        myarr = array(3)
+        myarr[0] = 99
+        myarr[1] = 111
+        myarr[2] = 119
+
+        mystr = string(96)
+        mcopy(mystr, myarr, items=3)
+        return(mystr:str)
+  EOF
+  def test_mcopy2
+    c = @s.abi_contract MCOPY_CODE2
+    assert_equal Utils.zpad_int(99)+Utils.zpad_int(111)+Utils.zpad_int(119), c.mcopy_test
+  end
+
+  ARRAY_SAVELOAD_CODE = <<-EOF
+    data a[5]
+
+    def array_saveload():
+        a = [1,2,3,4,5]
+        save(self.a[0], a, items=5)
+        a = load(self.a[0], items=4)
+        log(len(a))
+        return(load(self.a[0], items=4):arr)
+  EOF
+  def test_saveload3
+    c = @s.abi_contract ARRAY_SAVELOAD_CODE
+    assert_equal [1,2,3,4], c.array_saveload
+  end
+
 
   private
 

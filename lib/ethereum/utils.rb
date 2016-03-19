@@ -98,6 +98,11 @@ module Ethereum
       symbol * (l - x.size) + x
     end
 
+    def rpad(x, symbol, l)
+      return x if x.size >= l
+      x + symbol * (l - x.size)
+    end
+
     def zpad(x, l)
       lpad x, BYTE_ZERO, l
     end

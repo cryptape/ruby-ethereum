@@ -150,7 +150,7 @@ module Ethereum
         recorder.pop_records # TODO: implement recorder
       end
 
-      def mine(n: 1, coinbase: Fixture.accounts[0])
+      def mine(n=1, coinbase: Fixture.accounts[0])
         n.times do |i|
           @block.finalize
           @block.commit_state
