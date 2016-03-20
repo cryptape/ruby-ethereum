@@ -1087,7 +1087,7 @@ class ContractsTest < Minitest::Test
   end
 
   ECRECOVER_CODE = <<-EOF
-    def test_ecrecover(h, v, r, s):
+    def test_ecrecover(h:uint256, v:uint256, r:uint256, s:uint256):
         return(ecrecover(h, v, r, s))
   EOF
   def test_ecrecover

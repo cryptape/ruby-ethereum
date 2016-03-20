@@ -95,7 +95,7 @@ module Ethereum
       case type.base
       when 'uint'
         real_size = type.sub.to_i
-        i = decode_integer arg
+        i = get_uint arg
 
         raise ValueOutOfBounds, arg unless i >= 0 && i < 2**real_size
         Utils.zpad_int i
@@ -104,7 +104,7 @@ module Ethereum
         Utils.zpad_int(arg ? 1: 0)
       when 'int'
         real_size = type.sub.to_i
-        i = decode_integer arg
+        i = get_int arg
 
         raise ValueOutOfBounds, arg unless i >= -2**(real_size-1) && i < 2**(real_size-1)
         Utils.zpad_int(i % 2**type.sub.to_i)
@@ -283,10 +283,10 @@ module Ethereum
 
     private
 
-    def decode_integer(n)
+    def get_uint(n)
       case n
       when Integer
-        raise EncodingError, "Number out of range: #{n}" if n > UINT_MAX || n < INT_MIN
+        raise EncodingError, "Number out of range: #{n}" if n > UINT_MAX || n < UINT_MIN
         n
       when String
         if n.size == 40
@@ -301,7 +301,30 @@ module Ethereum
       when false, nil
         0
       else
-        raise EncodingError, "Cannot decode integer: #{n}"
+        raise EncodingError, "Cannot decode uint: #{n}"
+      end
+    end
+
+    def get_int(n)
+      case n
+      when Integer
+        raise EncodingError, "Number out of range: #{n}" if n > INT_MAX || n < INT_MIN
+        n
+      when String
+        if n.size == 40
+          i = Utils.big_endian_to_int Utils.decode_hex(n)
+        elsif n.size <= 32
+          i = Utils.big_endian_to_int n
+        else
+          raise EncodingError, "String too long: #{n}"
+        end
+        i > INT_MAX ? (i-TT256) : i
+      when true
+        1
+      when false, nil
+        0
+      else
+        raise EncodingError, "Cannot decode int: #{n}"
       end
     end
 
