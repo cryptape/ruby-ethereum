@@ -4,7 +4,7 @@ module Ethereum
   module Tester
     class ABIContract
 
-      attr :address, :abi
+      attr :address, :abi, :translator
 
       def initialize(state, abi, address, listen: true, log_listener: nil)
         @state = state

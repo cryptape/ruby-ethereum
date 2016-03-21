@@ -1267,6 +1267,110 @@ class ContractsTest < Minitest::Test
     assert_equal [1,2,3,4], c.array_saveload
   end
 
+  STRING_MANIPULATION_CODE = <<-EOF
+    def f1(istring:str):
+        setch(istring, 0, "a")
+        setch(istring, 1, "b")
+        return(istring:str)
+
+    def t1():
+        istring = text("cd")
+        res = self.f1(istring, outchars=2)
+        return([getch(res,0), getch(res,1)]:arr)  # should return [97,98]
+  EOF
+  def test_string_manipulation
+    c = @s.abi_contract STRING_MANIPULATION_CODE
+    assert_equal [97, 98], c.t1
+  end
+
+  MORE_INFINITE_STORAGE_OBJECT_CODE = <<-EOF
+    data block[2^256](_blockHeader(_prevBlock))
+
+    data numAncestorDepths
+
+    data logs[2]
+
+    def initAncestorDepths():
+        self.numAncestorDepths = 2
+
+    def testStoreB(number, blockHash, hashPrevBlock, i):
+        self.block[blockHash]._blockHeader._prevBlock = hashPrevBlock
+
+        self.logs[i] = self.numAncestorDepths
+
+
+    def test2():
+        self.initAncestorDepths()
+        self.testStoreB(45, 45, 44, 0)
+        self.testStoreB(46, 46, 45, 1)
+        return ([self.logs[0], self.logs[1]]:arr)
+  EOF
+  def test_more_infinite_storage
+    c = @s.abi_contract MORE_INFINITE_STORAGE_OBJECT_CODE
+    assert_equal [2,2], c.test2
+  end
+
+  DOUBLE_ARRAY_CODE = <<-EOF
+    def foo(a:arr, b:arr):
+        i = 0
+        tot = 0
+        while i < len(a):
+            tot = tot * 10 + a[i]
+            i += 1
+        j = 0
+        tot2 = 0
+        while j < len(b):
+            tot2 = tot2 * 10 + b[j]
+            j += 1
+        return ([tot, tot2]:arr)
+
+    def bar(a:arr, m:str, b:arr):
+        return(self.foo(a, b, outitems=2):arr)
+  EOF
+  def test_double_array
+    c = @s.abi_contract DOUBLE_ARRAY_CODE
+    assert_equal [123,4567], c.foo([1,2,3], [4,5,6,7])
+    assert_equal [123,4567], c.bar([1,2,3], "moo", [4,5,6,7])
+  end
+
+  ABI_LOGGING_CODE = <<-EOF
+    event rabbit(x)
+    event frog(y:indexed)
+    event moose(a, b:str, c:indexed, d:arr)
+    event chicken(m:address:indexed)
+
+    def test_rabbit(eks):
+        log(type=rabbit, eks)
+
+    def test_frog(why):
+        log(type=frog, why)
+
+    def test_moose(eh, bee:str, see, dee:arr):
+        log(type=moose, eh, bee, see, dee)
+
+    def test_chicken(em:address):
+        log(type=chicken, em)
+  EOF
+  def test_abi_logging
+    c = @s.abi_contract ABI_LOGGING_CODE
+    o = []
+
+    @s.block.log_listeners.push(->(x) { o.push(c.translator.listen(x) ) })
+    c.test_rabbit(3)
+    assert_equal [{"_event_type" => "rabbit", "x" => 3}], o
+
+    o.pop
+    c.test_frog(5)
+    assert_equal [{"_event_type" => "frog", "y" => 5}], o
+
+    o.pop
+    c.test_moose(7, "nine", 11, [13, 15, 17])
+    assert_equal [{"_event_type" => "moose", "a" => 7, "b" => "nine", "c" => 11, "d" => [13, 15, 17]}], o
+
+    o.pop
+    c.test_chicken(Tester::Fixture.accounts[0])
+    assert_equal [{"_event_type" => "chicken", "m" => Utils.encode_hex(Tester::Fixture.accounts[0])}], o
+  end
 
   private
 
