@@ -68,4 +68,8 @@ class UtilsTest < Minitest::Test
     assert_raises(Ethereum::ValueError) { normalize_address(Ethereum::Address::BLANK) }
   end
 
+  def test_mk_contract_address
+    assert_equal "\xbdw\x04\x16\xa34_\x91\xe4\xb3Ev\xcb\x80JWo\xa4\x8e\xb1", mk_contract_address("\x00"*20, 0)
+  end
+
 end

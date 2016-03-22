@@ -183,5 +183,9 @@ module Ethereum
       address.to_bytes
     end
 
+    def mk_contract_address(sender, nonce)
+      keccak256_rlp([normalize_address(sender), nonce])[12..-1]
+    end
+
   end
 end

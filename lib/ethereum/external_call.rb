@@ -78,7 +78,7 @@ module Ethereum
       @block.increment_nonce msg.sender if tx_origin != msg.sender
 
       nonce = Utils.encode_int(@block.get_nonce(msg.sender) - 1)
-      msg.to = Contract.make_address sender, nonce
+      msg.to = Utils.mk_contract_address sender, nonce
 
       balance = get_balance(msg.to)
       if balance > 0

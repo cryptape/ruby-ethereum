@@ -147,7 +147,7 @@ module Ethereum
     # returns the address of a contract created by this tx
     #
     def creates
-      Contract.make_address(sender, nonce) if [Address::BLANK, Address::ZERO].include?(to)
+      Utils.mk_contract_address(sender, nonce) if [Address::BLANK, Address::ZERO].include?(to)
     end
 
     def ==(other)
