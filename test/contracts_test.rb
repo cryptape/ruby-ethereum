@@ -1355,7 +1355,7 @@ class ContractsTest < Minitest::Test
     c = @s.abi_contract ABI_LOGGING_CODE
     o = []
 
-    @s.block.log_listeners.push(->(x) { o.push(c.translator.listen(x) ) })
+    @s.block.add_listener(->(x) { o.push(c.listen(x) ) })
     c.test_rabbit(3)
     assert_equal [{"_event_type" => "rabbit", "x" => 3}], o
 
@@ -1370,6 +1370,106 @@ class ContractsTest < Minitest::Test
     o.pop
     c.test_chicken(Tester::Fixture.accounts[0])
     assert_equal [{"_event_type" => "chicken", "m" => Utils.encode_hex(Tester::Fixture.accounts[0])}], o
+  end
+
+  NEW_FORMAT_INNER_CODE = <<-EOF
+    def foo(a, b:arr, c:str):
+        return a * 10 + b[1]
+  EOF
+  NEW_FORMAT_OUTER_CODE = <<-EOF
+    extern blah: [foo:[int256,int256[],bytes]:int256]
+
+    def bar():
+        x = create("%s")
+        return x.foo(17, [3, 5, 7], text("dog"))
+  EOF
+  def test_new_format
+    with_file("new_format", NEW_FORMAT_INNER_CODE) do |filename|
+      c = @s.abi_contract(NEW_FORMAT_OUTER_CODE % filename)
+      assert_equal 175, c.bar
+    end
+  end
+
+  ABI_ADDRESS_OUTPUT_CODE = <<-EOF
+    data addrs[]
+
+    def get_address(key):
+        return(self.addrs[key]:address)
+
+    def register(key, addr:address):
+        if not self.addrs[key]:
+            self.addrs[key] = addr
+  EOF
+  def test_abi_address_output
+    c = @s.abi_contract ABI_ADDRESS_OUTPUT_CODE
+    c.register(123, '1212121212121212121212121212121212121212')
+    c.register(123, '3434343434343434343434343434343434343434')
+    c.register(125, '5656565656565656565656565656565656565656')
+    assert '1212121212121212121212121212121212121212', c.get_address(123)
+    assert '5656565656565656565656565656565656565656', c.get_address(125)
+  end
+
+  ABI_ADDRESS_CALLER_CODE = <<-EOF
+    extern foo: [get_address:[int256]:address, register:[int256,address]:_]
+    data sub
+
+    def init():
+        self.sub = create("%s")
+
+    def get_address(key):
+        return(self.sub.get_address(key):address)
+
+    def register(key, addr:address):
+        self.sub.register(key, addr)
+  EOF
+  def test_inner_abi_address_output
+    with_file('inner_abi_address', ABI_ADDRESS_OUTPUT_CODE) do |filename|
+      c = @s.abi_contract(ABI_ADDRESS_CALLER_CODE % filename)
+      c.register(123, '1212121212121212121212121212121212121212')
+      c.register(123, '3434343434343434343434343434343434343434')
+      c.register(125, '5656565656565656565656565656565656565656')
+      assert '1212121212121212121212121212121212121212', c.get_address(123)
+      assert '5656565656565656565656565656565656565656', c.get_address(125)
+    end
+  end
+
+  STRING_LOGGING_CODE = <<-EOF
+    event foo(x:string:indexed, y:bytes:indexed, z:str:indexed)
+
+    def moo():
+        log(type=foo, text("bob"), text("cow"), text("dog"))
+  EOF
+  def test_string_logging
+    c = @s.abi_contract STRING_LOGGING_CODE
+    o = []
+    @s.block.add_listener(->(x) { o.push c.listen(x) })
+    c.moo
+
+    expect = [
+      {"_event_type" => "foo",
+       "x" => "bob", "__hash_x" => Utils.keccak256("bob"),
+       "y" => "cow", "__hash_y" => Utils.keccak256("cow"),
+       "z" => "dog", "__hash_z" => Utils.keccak256("dog")}
+    ]
+    assert_equal expect, o
+  end
+
+  PARAMS_CODE = <<-EOF
+    data blah
+
+    def init():
+        self.blah = $FOO
+
+    def garble():
+        return(self.blah)
+
+    def marble():
+        return(text($BAR):str)
+  EOF
+  def test_params_contract
+    c = @s.abi_contract PARAMS_CODE, FOO: 4, BAR: 'horse'
+    assert_equal 4, c.garble
+    assert_equal 'horse', c.marble
   end
 
   private

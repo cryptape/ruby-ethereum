@@ -282,6 +282,10 @@ module Ethereum
       header.instance_variable_set :@_mutable, original_values[:header_mutable]
     end
 
+    def add_listener(l)
+      log_listeners.push l
+    end
+
     ##
     # The binary block hash. This is equivalent to `header.full_hash`.
     #

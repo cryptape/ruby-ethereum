@@ -4,7 +4,7 @@ module Ethereum
   module Tester
     class ABIContract
 
-      attr :address, :abi, :translator
+      attr :address, :abi
 
       def initialize(state, abi, address, listen: true, log_listener: nil)
         @state = state
@@ -27,6 +27,10 @@ module Ethereum
         @translator.function_data.each do |f, _|
           generate_function f
         end
+      end
+
+      def listen(x)
+        @translator.listen x
       end
 
       private
