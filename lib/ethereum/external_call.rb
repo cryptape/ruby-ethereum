@@ -92,6 +92,7 @@ module Ethereum
 
       code = msg.data.extract_all
       msg.data = VM::CallData.new [], 0, 0
+      snapshot = @block.snapshot
 
       res, gas, dat = apply_msg msg, code
 
@@ -103,12 +104,12 @@ module Ethereum
           gas -= gcost
         else
           dat = []
+          log_msg.debug "CONTRACT creation oog have=#{gas} want=#{gcost}"
 
           if @block.number >= @block.config[:homestead_fork_blknum]
+            @block.revert snapshot
             return 0, 0, Constant::BYTE_EMPTY
           end
-
-          log_msg.debug "CONTRACT creation oog have=#{gas} want=#{gcost}"
         end
 
         @block.set_code msg.to, Utils.int_array_to_bytes(dat)
