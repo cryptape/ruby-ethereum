@@ -442,8 +442,14 @@ module Ethereum
             stk.push(0)
           end
         elsif op == :CALLCODE || op == :DELEGATECALL
-          gas, to, value, memin_start, memin_sz, memout_start, memout_sz = \
-            stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
+          if op == :CALLCODE
+            gas, to, value, memin_start, memin_sz, memout_start, memout_sz = \
+              stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
+          else
+            gas, to, memin_start, memin_sz, memout_start, memout_sz = \
+              stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
+            value = 0
+          end
 
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memin_start, memin_sz)
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, memout_sz)
