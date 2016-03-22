@@ -407,13 +407,14 @@ module Ethereum
     def apply_transaction(tx)
       validate_transaction tx
 
+      intrinsic_gas = get_intrinsic_gas tx
+
       logger.debug "apply transaction", tx: tx.log_dict
       increment_nonce tx.sender
 
       # buy startgas
       delta_balance tx.sender, -tx.startgas*tx.gasprice
 
-      intrinsic_gas = tx.intrinsic_gas_used
       message_gas = tx.startgas - intrinsic_gas
       message_data = VM::CallData.new tx.data.bytes, 0, tx.data.size
       message = VM::Message.new tx.sender, tx.to, tx.value, message_gas, message_data, code_address: tx.to
@@ -476,6 +477,16 @@ module Ethereum
 
       # TODO: change success to Bool type
       return success, output
+    end
+
+    def get_intrinsic_gas(tx)
+      intrinsic_gas = tx.intrinsic_gas_used
+
+      if number >= config[:homestead_fork_blknum]
+        intrinsic_gas += Opcodes::CREATE[3] if tx.to.false? || tx.to == Address::CREATE_CONTRACT
+      end
+
+      intrinsic_gas
     end
 
     ##
@@ -1180,11 +1191,7 @@ module Ethereum
       acct_nonce = get_nonce tx.sender
       raise InvalidNonce, "#{tx}: nonce actual: #{tx.nonce} target: #{acct_nonce}" if acct_nonce != tx.nonce
 
-      min_gas = tx.intrinsic_gas_used
-      if number >= config[:homestead_fork_blknum]
-        raise ValidationError, "invalid s in transaction signature" unless tx.s*2 < Secp256k1::N
-        min_gas += Opcodes::CREATE[3] if tx.to.false? || tx.to == Address::CREATE_CONTRACT
-      end
+      min_gas = get_intrinsic_gas tx
       raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}" if tx.startgas < min_gas
 
       total_cost = tx.value + tx.gasprice * tx.startgas
@@ -1193,6 +1200,10 @@ module Ethereum
 
       accum_gas = gas_used + tx.startgas
       raise BlockGasLimitReached, "#{tx}: gaslimit actual: #{accum_gas} target: #{gas_limit}" if accum_gas > gas_limit
+
+      if number >= config[:homestead_fork_blknum]
+        raise ValidationError, "invalid s in transaction signature" unless tx.s*2 < Secp256k1::N
+      end
 
       true
     end
