@@ -103,7 +103,8 @@ module Ethereum
         if profiling > 0
           zero_bytes = tx.data.count Constant::BYTE_ZERO
           none_zero_bytes = tx.data.size - zero_bytes
-          intrinsic_gas_used = Opcodes::GTXDATAZERO * zero_bytes +
+          intrinsic_gas_used = Opcodes::GTXCOST +
+            Opcodes::GTXDATAZERO * zero_bytes +
             Opcodes::GTXDATANONZERO * none_zero_bytes
           t2, g2 = Time.now, @block.gas_used
           output[:time] = t2 - t1

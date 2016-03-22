@@ -1472,6 +1472,32 @@ class ContractsTest < Minitest::Test
     assert_equal 'horse', c.marble
   end
 
+  PREFIX_TYPES_IN_FUNCTIONS_CODE = <<-EOF
+    type fixedp: fp_
+
+    macro fixedp($x) * fixedp($y):
+        fixedp($x * $y / 2^64)
+
+    macro fixedp($x) / fixedp($y):
+        fixedp($x * 2^64 / $y)
+
+    macro raw_unfixedp(fixedp($x)):
+        $x / 2^64
+
+    macro set(fixedp($x), $y):
+        $x = 2^64 * $y
+
+    macro fixedp($x) = fixedp($y):
+        $x = $y
+
+    def sqrdiv(fp_a, fp_b):
+        return(raw_unfixedp((fp_a / fp_b) * (fp_a / fp_b)))
+  EOF
+  def test_prefix_types_in_functions
+    c = @s.abi_contract PREFIX_TYPES_IN_FUNCTIONS_CODE
+    assert_equal 156, c.sqrdiv(25,2)
+  end
+
   private
 
   def with_file(prefix, code)
