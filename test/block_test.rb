@@ -42,6 +42,19 @@ class BlockTest < Minitest::Test
     assert_equal 131072, Block.calc_difficulty(parent, 9999)
   end
 
+  def test_calc_difficulty_homestead
+    config = Env::DEFAULT_CONFIG.merge(homestead_fork_blknum: 0)
+
+    parent = Block.build_from_header @header_rlp, @env
+    parent.header.make_mutable!
+    parent.timestamp = 1451559301
+    parent.difficulty = 131200
+    parent.instance_variable_set :@config, config
+
+    timestamp = 1451559318
+    assert_equal 131200, Block.calc_difficulty(parent, timestamp)
+  end
+
   def test_calc_gaslimit
     parent = Block.build_from_header @header_rlp, @env
     assert_equal 3141592, Block.calc_gaslimit(parent)
@@ -70,12 +83,12 @@ end
 class BlockFixtureTest < Minitest::Test
   include Ethereum
 
-  run_fixtures "BlockchainTests", options: {limit: 500}, except: /TestNetwork|Homestead/
+  run_fixtures "BlockchainTests", except: /TestNetwork/
 
   EXCLUDES = %w(
-    bcWalletTest_walletReorganizeOwners
-    bl10251623GO_randomBlockTest
-    bl201507071825GO_randomBlockTest
+    BlockchainTests_bcWalletTest_walletReorganizeOwners
+    BlockchainTests_RandomTests_bl10251623GO_randomBlockTest
+    BlockchainTests_RandomTests_bl201507071825GO_randomBlockTest
   )
 
   @@env = Env.new DB::EphemDB.new
@@ -105,6 +118,14 @@ class BlockFixtureTest < Minitest::Test
 
   def on_fixture_test(name, params)
     return if EXCLUDES.include?(name)
+    config_overrides = name =~ /Homestead/ ? {homestead_fork_blknum: 0} : {}
+
+    run_block_test params, config_overrides
+  end
+
+  def run_block_test(params, config_overrides={})
+    old_config = @@env.config
+    @@env = Env.new @@env.db, config: old_config.merge(config_overrides), global_config: @@env.global_config
 
     bh = params['genesisBlockHeader']
     alloc = parse_alloc params['pre']
@@ -131,7 +152,7 @@ class BlockFixtureTest < Minitest::Test
     h = encode_hex b.state_root
     assert_equal bh['stateRoot'], h
     assert_equal Scanner.bin(bh['hash']), b.full_hash
-    assert b.header.check_pow
+    #assert b.header.check_pow
 
     blockmap = {b.full_hash => b}
     @@env.db.put b.full_hash, RLP.encode(b)
@@ -162,6 +183,8 @@ class BlockFixtureTest < Minitest::Test
         assert_equal false, success
       end
     end
+  ensure
+    @@env = Env.new @@env.db, config: old_config, global_config: @@env.global_config
   end
 
 end

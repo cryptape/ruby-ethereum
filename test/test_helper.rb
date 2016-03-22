@@ -19,7 +19,7 @@ end
 
 def load_fixture(path)
   fixture = {}
-  name = File.basename(path).sub(/#{File.extname(path)}\z/, '')
+  name = path.gsub(/(^\/)|(\.json$)/, '').tr('/', '_')
 
   json = File.open(fixture_path(path)) {|f| JSON.load f }
   json.each do |k, v|

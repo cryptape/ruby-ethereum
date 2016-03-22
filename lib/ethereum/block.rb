@@ -104,8 +104,8 @@ module Ethereum
         config = parent.config
         offset = parent.difficulty / config[:block_diff_factor]
 
-        if parent.number >= config[:homestead_fork_blknum]-1
-          sign = [1 - 2 * ((ts - parent.timestamp) / config[:homestead_diff_adjustment_cutoff]), -99].max
+        if parent.number >= (config[:homestead_fork_blknum] - 1)
+          sign = [1 - ((ts - parent.timestamp) / config[:homestead_diff_adjustment_cutoff]), -99].max
         else
           sign = (ts - parent.timestamp) < config[:diff_adjustment_cutoff] ? 1 : -1
         end
