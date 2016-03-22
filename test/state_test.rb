@@ -76,7 +76,7 @@ class StateTest < Minitest::Test
         nonce: parse_int_or_hex(exek['nonce'] || '0'),
         gasprice: parse_int_or_hex(exek['gasPrice'] || '0'),
         startgas: parse_int_or_hex(exek['gasLimit'] || '0'),
-        to: decode_hex(remove_0x_head(exek['to'])),
+        to: Utils.normalize_address(exek['to'], allow_blank: true),
         value: parse_int_or_hex(exek['value'] || '0'),
         data: decode_hex(remove_0x_head(exek['data']))
       )
@@ -117,7 +117,6 @@ class StateTest < Minitest::Test
     params2['out'] = "0x#{encode_hex(output)}"
     params2['post'] = Marshal.load Marshal.dump(blk.to_h(with_state: true)[:state])
     params2['postStateRoot'] = encode_hex blk.state.root_hash
-    assert params.has_key?('post'), "no post state found in params"
 
     case mode
     when :fill
