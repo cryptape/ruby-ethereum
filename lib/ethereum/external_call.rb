@@ -73,6 +73,8 @@ module Ethereum
     end
 
     def create(msg)
+      log_msg.debug 'CONTRACT CREATION'
+
       sender = Utils.normalize_address(msg.sender, allow_blank: true)
 
       @block.increment_nonce msg.sender if tx_origin != msg.sender
@@ -104,7 +106,7 @@ module Ethereum
           gas -= gcost
         else
           dat = []
-          log_msg.debug "CONTRACT creation oog have=#{gas} want=#{gcost}"
+          log_msg.debug "CONTRACT CREATION OOG", have: gas, want: gcost, block_number: @block.number
 
           if @block.number >= @block.config[:homestead_fork_blknum]
             @block.revert snapshot
@@ -123,16 +125,18 @@ module Ethereum
       code ||= get_code msg.code_address
 
       log_msg.debug "MSG APPLY",  sender: Utils.encode_hex(msg.sender), to: Utils.encode_hex(msg.to), gas: msg.gas, value: msg.value, data: Utils.encode_hex(msg.data.extract_all)
-      log_state.trace "MSG PRE STATE SENDER", account: msg.sender, balance: get_balance(msg.sender), state: log_storage(msg.sender)
-      log_state.trace "MSG PRE STATE RECIPIENT", account: msg.to, balance: get_balance(msg.to), state: log_storage(msg.to)
+      log_state.trace "MSG PRE STATE SENDER", account: Utils.encode_hex(msg.sender), balance: get_balance(msg.sender), state: log_storage(msg.sender)
+      log_state.trace "MSG PRE STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
 
       # snapshot before execution
       snapshot = @block.snapshot
 
       # transfer value
-      unless @block.transfer_value(msg.sender, msg.to, msg.value)
-        log_msg.debug "MSG transfer failed have=#{get_balance(msg.to)} want=#{msg.value}"
-        return [1, msg.gas, []]
+      if msg.transfers_value
+        unless @block.transfer_value(msg.sender, msg.to, msg.value)
+          log_msg.debug "MSG TRANSFER FAILED", have: get_balance(msg.to), want: msg.value
+          return [1, msg.gas, []]
+        end
       end
 
       # main loop
@@ -143,8 +147,8 @@ module Ethereum
       end
 
       log_msg.trace "MSG APPLIED", gas_remained: gas, sender: msg.sender, to: msg.to, data: dat
-      log_state.trace "MSG POST STATE SENDER", account: msg.sender, balance: get_balance(msg.sender), state: log_storage(msg.sender)
-      log_state.trace "MSG POST STATE RECIPIENT", account: msg.to, balance: get_balance(msg.to), state: log_storage(msg.to)
+      log_state.trace "MSG POST STATE SENDER", account: Utils.encode_hex(msg.sender), balance: get_balance(msg.sender), state: log_storage(msg.sender)
+      log_state.trace "MSG POST STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
 
       if res == 0
         log_msg.debug 'REVERTING'

@@ -83,7 +83,7 @@ end
 class BlockFixtureTest < Minitest::Test
   include Ethereum
 
-  run_fixtures "BlockchainTests", except: /TestNetwork/
+  run_fixtures "BlockchainTests"
 
   EXCLUDES = %w(
     BlockchainTests_bcWalletTest_walletReorganizeOwners
@@ -118,7 +118,16 @@ class BlockFixtureTest < Minitest::Test
 
   def on_fixture_test(name, params)
     return if EXCLUDES.include?(name)
-    config_overrides = name =~ /Homestead/ ? {homestead_fork_blknum: 0} : {}
+
+    filename, _, testname = name.rpartition('_')
+    config_overrides = case filename
+                       when /Homestead/
+                         {homestead_fork_blknum: 0}
+                       when /TestNetwork/
+                         {homestead_fork_blknum: 5}
+                       else
+                         {}
+                       end
 
     run_block_test params, config_overrides
   end
@@ -157,13 +166,14 @@ class BlockFixtureTest < Minitest::Test
     blockmap = {b.full_hash => b}
     @@env.db.put b.full_hash, RLP.encode(b)
 
+    b2 = nil
     params['blocks'].each do |blk|
       if blk.has_key?('blockHeader')
         rlpdata = decode_hex blk['rlp'][2..-1]
         bhdata = RLP.decode(rlpdata)[0]
         blkparent = RLP.decode(RLP.encode(bhdata), sedes: BlockHeader).prevhash
 
-        b2 = RLP.decode rlpdata, sedes: Block, parent: blockmap[blkparent], env: @@env
+        b2 = RLP.decode rlpdata, sedes: Block, parent: blockmap[blkparent], env: @@env # <- slow
         assert_equal true, b2.validate_uncles
 
         blockmap[b2.full_hash] = b2

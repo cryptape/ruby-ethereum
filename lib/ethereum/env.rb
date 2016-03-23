@@ -46,7 +46,7 @@ module Ethereum
 
       account_initial_nonce: 0,
 
-      homestead_fork_blknum: 900000,
+      homestead_fork_blknum: 1000000,
       homestead_diff_adjustment_cutoff: 10
     }.freeze
 

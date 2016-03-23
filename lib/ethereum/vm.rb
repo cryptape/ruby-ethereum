@@ -467,7 +467,7 @@ module Ethereum
             cd = CallData.new mem, memin_start, memin_sz
 
             if ext.post_homestead_hardfork && op == :DELEGATECALL
-              call_msg = Message.new(msg.sender, msg.to, msg.value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+              call_msg = Message.new(msg.sender, msg.to, msg.value, submsg_gas, cd, depth: msg.depth+1, code_address: to, transfers_value: false)
             elsif op == :DELEGATECALL
               return vm_exception('OPCODE INACTIVE')
             else
