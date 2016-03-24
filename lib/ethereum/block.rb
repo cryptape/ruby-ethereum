@@ -1201,9 +1201,7 @@ module Ethereum
       accum_gas = gas_used + tx.startgas
       raise BlockGasLimitReached, "#{tx}: gaslimit actual: #{accum_gas} target: #{gas_limit}" if accum_gas > gas_limit
 
-      if number >= config[:homestead_fork_blknum]
-        raise ValidationError, "invalid s in transaction signature" unless tx.s*2 < Secp256k1::N
-      end
+      tx.check_low_s if number >= config[:homestead_fork_blknum]
 
       true
     end

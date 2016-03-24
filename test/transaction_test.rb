@@ -37,6 +37,8 @@ class TransactionFixtureTest < Minitest::Test
     begin
       rlpdata = Utils.decode_hex data['rlp'][2..-1]
       tx = RLP.decode rlpdata, sedes: Transaction
+      blknum = data['blocknumber'].to_i
+      tx.check_low_s if blknum >= Env::DEFAULT_CONFIG[:homestead_fork_blknum]
       sender = tx.sender # tx.sender will validate signature
     rescue
       tx = nil

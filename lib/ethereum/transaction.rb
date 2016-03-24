@@ -103,6 +103,16 @@ module Ethereum
       self
     end
 
+    ##
+    # This method should be called for block numbers >=
+    # config[:homestead_fork_blknum] only. The >= operator is replaced by >
+    # because the integer division N/2 always produces the value which is by
+    # 0.5 less than the real N/2.
+    #
+    def check_low_s
+      raise InvalidTransaction, "Invalid signature S value!" if s > Secp256k1::N/2 || s == 0
+    end
+
     def full_hash
       Utils.keccak256_rlp self
     end
