@@ -33,7 +33,7 @@ export RUBY_THREAD_VM_STACK_SIZE=104857600 # 100M, 100 times default
 
 ## TODO
 
-* upgrade rlp gem dependency
+* optimize memory foot print
 * add pruning trie
 * refactor abi types
 * refactor trie node types
