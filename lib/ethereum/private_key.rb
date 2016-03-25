@@ -77,7 +77,7 @@ module Ethereum
       raise ValidationError, "Invalid private key" if value >= Secp256k1::N
 
       fmt = format.to_s.sub(/wif/, 'hex').to_sym
-      PublicKey.new(Ethereum::OpenSSL_EC.regenerate_key(encode(:bin))[1]).encode(fmt)
+      PublicKey.new(Secp256k1.priv_to_pub(encode(:bin))).encode(fmt)
     end
 
     def to_bitcoin_address

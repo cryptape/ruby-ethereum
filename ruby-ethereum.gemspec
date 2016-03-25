@@ -16,6 +16,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency('rlp', '~> 0.6')
   s.add_dependency('ethash', '~> 0.2')
+  s.add_dependency('bitcoin-secp256k1', '~> 0.3')
   s.add_dependency('lru_redux', '~> 1.1')
   s.add_dependency('ffi', '>= 1.9.10')
   s.add_dependency('digest-sha3', '~> 1.1')

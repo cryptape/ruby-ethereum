@@ -7,6 +7,7 @@ PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
+      bitcoin-secp256k1 (~> 0.3)
       digest-sha3 (~> 1.1)
       ethash (~> 0.2)
       ffi (>= 1.9.10)
@@ -17,13 +18,15 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
+    bitcoin-secp256k1 (0.3.0)
+      ffi (>= 1.9.10)
     byebug (8.2.2)
     coderay (1.1.0)
     digest-sha3 (1.1.0)
     ethash (0.2.0)
     ffi (1.9.10)
     little-plugger (1.1.4)
-    logging (2.0.0)
+    logging (2.1.0)
       little-plugger (~> 1.1)
       multi_json (~> 1.10)
     lru_redux (1.1.0)

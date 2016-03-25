@@ -18,8 +18,9 @@ module Ethereum
 
     HASH_ZERO = ("\x00"*32).freeze
 
-    PUBKEY_ZERO = [0,0].freeze
+    PUBKEY_ZERO = ("\x00"*32).freeze
     PRIVKEY_ZERO = ("\x00"*32).freeze
+    PRIVKEY_ZERO_HEX = ('0'*64).freeze
 
   end
 end

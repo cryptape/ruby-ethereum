@@ -8,10 +8,10 @@ module Ethereum
         gas_cost = Opcodes::GECRECOVER
         return 0, 0, [] if msg.gas < gas_cost
 
-        b = []
-        msg.data.extract_copy(b, 0, 0, 32)
+        message_hash_ints = [0] * 32
+        msg.data.extract_copy(message_hash_ints, 0, 0, 32)
+        message_hash = Utils.int_array_to_bytes message_hash_ints
 
-        h = Utils.int_array_to_bytes b
         v = msg.data.extract32(32)
         r = msg.data.extract32(64)
         s = msg.data.extract32(96)
@@ -20,12 +20,18 @@ module Ethereum
           return 1, msg.gas - gas_cost, []
         end
 
-        recovered_addr = Secp256k1.ecdsa_raw_recover(h, [v,r,s]) rescue nil
-        if recovered_addr.nil? || recovered_addr == [0,0]
+        signature_ints = [0] * 64
+        msg.data.extract_copy signature_ints, 0, 64, 32  # r
+        msg.data.extract_copy signature_ints, 32, 96, 32 # s
+        signature = Utils.int_array_to_bytes signature_ints
+
+        pub = nil
+        begin
+          pub = Secp256k1.recover_pubkey(message_hash, [v,r,s])
+        rescue
           return 1, msg.gas - gas_cost, []
         end
 
-        pub = PublicKey.new(recovered_addr).encode(:bin)
         pubhash = Utils.keccak256(pub[1..-1])[-20..-1]
         o = Utils.bytes_to_int_array Utils.zpad(pubhash, 32)
 

@@ -1,7 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
 require 'base64'
-require 'ethereum/ffi/bitcoin_secp256k1'
+require 'secp256k1'
 require 'ethereum/ffi/openssl'
 
 module Ethereum
@@ -19,11 +19,36 @@ module Ethereum
     class InvalidPrivateKey < StandardError; end
 
     class <<self # extensions
-      def ecdsa_raw_sign(msghash, priv, compact=false)
-        priv = PrivateKey.new(priv).encode(:bin)
-        raise ArgumentError, "private key must be 32 bytes" unless priv.size == 32
+      def priv_to_pub(priv)
+        priv = PrivateKey.new(priv)
+        privkey = ::Secp256k1::PrivateKey.new privkey: priv.encode(:bin), raw: true
+        pubkey = privkey.pubkey
+        PublicKey.new(pubkey.serialize).encode(priv.format)
+      end
 
-        sig = sign_compact Utils.zpad(msghash, 32), priv, compact
+      def recoverable_sign(msg, privkey)
+        pk = ::Secp256k1::PrivateKey.new privkey: privkey, raw: true
+        signature = pk.ecdsa_recoverable_serialize pk.ecdsa_sign_recoverable(msg, raw: true)
+
+        v = signature[1] + 27
+        r = Utils.big_endian_to_int signature[0][0,32]
+        s = Utils.big_endian_to_int signature[0][32,32]
+
+        [v,r,s]
+      end
+
+      def recover_pubkey(msg, vrs, compressed: false)
+        pk = ::Secp256k1::PublicKey.new(flags: ::Secp256k1::ALL_FLAGS)
+        sig = Utils.zpad_int(vrs[1]) + Utils.zpad_int(vrs[2])
+        recsig = pk.ecdsa_recoverable_deserialize(sig, vrs[0]-27)
+        pk.public_key = pk.ecdsa_recover msg, recsig, raw: true
+        pk.serialize compressed: compressed
+      end
+
+      def ecdsa_raw_sign(msghash, priv, compact=false)
+        pk = Secp256k1::PrivateKey.new
+
+        sig = pk.ecdsa_sign_recoverable Utils.zpad(msghash, 32)
 
         v = Utils.big_endian_to_int sig[0]
         r = Utils.big_endian_to_int sig[1,32]

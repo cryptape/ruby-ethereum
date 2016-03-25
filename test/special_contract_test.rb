@@ -42,14 +42,14 @@ class SpecialContractTest < Minitest::Test
   end
 
   def test_ecrecover
-    priv = "\x01"*32
-    pub = PrivateKey.new(priv).to_pubkey
-    #priv, pub = Secp256k1.generate_key_pair false
-    v, r, s = Secp256k1.ecdsa_raw_sign('ethereum', priv)
+    priv = PrivateKey.new("\x01"*32)
+    pub = priv.to_pubkey
+
+    msg = Utils.zpad("ethereum", 32)
+    v, r, s = Secp256k1.recoverable_sign(msg, priv.encode(:bin))
 
     sig = Utils.zpad_int(v) + Utils.zpad_int(r) + Utils.zpad_int(s)
-    hash = Utils.zpad("ethereum", 32)
-    cd = VM::CallData.new Utils.bytes_to_int_array(hash + sig)
+    cd = VM::CallData.new Utils.bytes_to_int_array(msg + sig)
 
     msg = Msg.new 0, cd
     assert_equal [0, 0, []], SpecialContract[Utils.zpad_int(1, 20)].call(nil, msg)

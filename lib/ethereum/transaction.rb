@@ -72,10 +72,15 @@ module Ethereum
           logger.debug "recovering sender"
           rlpdata = RLP.encode(self, sedes: UnsignedTransaction)
           rawhash = Utils.keccak256 rlpdata
-          pub = Secp256k1.ecdsa_raw_recover rawhash, [v,r,s]
 
-          raise InvalidTransaction, "Invalid signature values (x^3+7 is non-residue)" unless pub
-          raise InvalidTransaction, "Invalid signature (zero privkey cannot sign)" if pub == Constant::PUBKEY_ZERO
+          pub = nil
+          begin
+            pub = Secp256k1.recover_pubkey rawhash, [v,r,s]
+          rescue
+            raise InvalidTransaction, "Invalid signature values (x^3+7 is non-residue)"
+          end
+
+          raise InvalidTransaction, "Invalid signature (zero privkey cannot sign)" if pub[1..-1] == Constant::PUBKEY_ZERO
 
           @sender = PublicKey.new(pub).to_address
         end
@@ -94,10 +99,16 @@ module Ethereum
     # A potentially already existing signature would be override.
     #
     def sign(key)
-      raise InvalidTransaction, "Zero privkey cannot sign" if [0, '', Constant::PRIVKEY_ZERO].include?(key)
+      raise InvalidTransaction, "Zero privkey cannot sign" if [0, '', Constant::PRIVKEY_ZERO, Constant::PRIVKEY_ZERO_HEX].include?(key)
 
       rawhash = Utils.keccak256 RLP.encode(self, sedes: UnsignedTransaction)
-      self.v, self.r, self.s = Secp256k1.ecdsa_raw_sign rawhash, key
+      key = PrivateKey.new(key).encode(:bin)
+
+      vrs = Secp256k1.recoverable_sign rawhash, key
+      self.v = vrs[0]
+      self.r = vrs[1]
+      self.s = vrs[2]
+
       self.sender = PrivateKey.new(key).to_address
 
       self
