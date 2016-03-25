@@ -38,7 +38,6 @@ module Ethereum
         blk = RLP.decode env.db.get(hash), sedes: Block, env: env
         CachedBlock.create_cached blk
       end
-      lru_cache :find, 1024
 
       def verify(block, parent)
         block2 = RLP.decode RLP.encode(block), sedes: Block, env: parent.env, parent: parent
