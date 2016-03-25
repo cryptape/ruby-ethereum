@@ -37,6 +37,16 @@ module Ethereum
         [v,r,s]
       end
 
+      def signature_verify(msg, vrs, pubkey)
+        pk = ::Secp256k1::PublicKey.new(pubkey: pubkey)
+        raw_sig = Utils.zpad_int(vrs[1]) + Utils.zpad_int(vrs[2])
+
+        sig = ::Secp256k1::C::ECDSASignature.new
+        sig[:data].to_ptr.write_bytes(raw_sig)
+
+        pk.ecdsa_verify(msg, sig)
+      end
+
       def recover_pubkey(msg, vrs, compressed: false)
         pk = ::Secp256k1::PublicKey.new(flags: ::Secp256k1::ALL_FLAGS)
         sig = Utils.zpad_int(vrs[1]) + Utils.zpad_int(vrs[2])

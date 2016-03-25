@@ -1097,8 +1097,8 @@ class ContractsTest < Minitest::Test
     pub = PrivateKey.new(priv).to_pubkey
 
     msghash = Utils.keccak256('the quick brown fox jumps over the lazy dog')
-    v, r, s = Secp256k1.ecdsa_raw_sign msghash, priv
-    assert_equal true, Secp256k1.ecdsa_raw_verify(msghash, [v,r,s], pub)
+    v, r, s = Secp256k1.recoverable_sign msghash, priv
+    assert_equal true, Secp256k1.signature_verify(msghash, [v,r,s], pub)
 
     addr = Utils.keccak256(PublicKey.new(pub).encode(:bin)[1..-1])[12..-1]
     assert_equal PrivateKey.new(priv).to_address, addr
