@@ -21,5 +21,9 @@ module Ethereum
     PUBKEY_ZERO = [0,0].freeze
     PRIVKEY_ZERO = ("\x00"*32).freeze
 
+    MAXSHARDS = 2**16 # 65536
+    SHARD_BYTES = RLP::Sedes.big_endian_int.serialize(MAXSHARDS - 1).size
+    ADDR_BASE_BYTES = 20
+    ADDR_BYTES = SHARD_BYTES + ADDR_BASE_BYTES
   end
 end

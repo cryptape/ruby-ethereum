@@ -63,9 +63,26 @@ class UtilsTest < Minitest::Test
     assert_equal 571329460454981322332848927582483177110542410654, coerce_to_int("d\x13L\x8F\x0E\xD5*\x13\xBD\n\x00\xFF\x9F\xC6\xDBn\b2\xE3\x9E")
   end
 
+  def test_int_to_addr
+    assert_equal "\x00"*21+"\x01", int_to_addr(1)
+  end
+
   def test_normalize_address
     assert_equal Ethereum::Address::BLANK, normalize_address(Ethereum::Address::BLANK, allow_blank: true)
     assert_raises(Ethereum::ValueError) { normalize_address(Ethereum::Address::BLANK) }
   end
 
+  def test_shardify_address
+    assert_equal "\x00\x01" + "\x00"*20, shardify("\x00"*20, 1)
+    assert_equal "\xff\xff" + "\x00"*20, shardify("\x00"*20, 65535)
+  end
+
+  def test_get_shard
+    assert_equal 1, get_shard("\x00\x01" + "\x00"*20)
+    assert_equal 65535, get_shard("\xff\xff" + "\x00"*20)
+  end
+
+  def test_match_shard
+    assert_equal "\xff\xff" + "\x01"*20, match_shard("\x00\x00"+"\x01"*20, "\xff\xff"+"\x00"*20)
+  end
 end

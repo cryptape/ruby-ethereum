@@ -20,4 +20,13 @@ class AddressTest < Minitest::Test
     assert_raises(ChecksumError) { Address.new("\x00"*24) }
   end
 
+  def test_shard_address
+    assert_equal true, Address.new('').blank?
+
+    assert_equal "\x00"*22, Address.new("00"*22).to_bytes
+    assert_equal "\x00"*22, Address.new("\x00"*22).to_bytes
+
+    assert_raises(FormatError) { Address.new("00"*20).to_bytes }
+  end
+
 end

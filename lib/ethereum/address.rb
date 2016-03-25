@@ -4,7 +4,7 @@ module Ethereum
   class Address
 
     BLANK = ''.freeze
-    ZERO = ("\x00"*20).freeze
+    ZERO = ("\x00"*Constant::ADDR_BASE_BYTES).freeze
 
     CREATE_CONTRACT = BLANK
 
@@ -30,7 +30,20 @@ module Ethereum
 
     private
 
+    ##
+    # Only 0, 22, 44 bytes address are valid shard id enabled address.
+    #
     def parse(s)
+      return s if s.empty?
+
+      s = s[2..-1] if s[0,2] == '0x'
+      s = Utils.decode_hex(s) if s.size == 2 * Constant::ADDR_BYTES
+      raise FormatError, "Invalid address format! address: #{Utils.encode_hex(s)}" unless s.size == Constant::ADDR_BYTES
+
+      s
+    end
+
+    def parse_old(s)
       case s.size
       when 0
         s

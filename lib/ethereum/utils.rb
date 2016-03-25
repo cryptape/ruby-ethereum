@@ -7,6 +7,23 @@ require 'openssl'
 module Ethereum
   module Utils
 
+    class <<self
+      def rlp_cache
+        @rlp_cache ||= {}
+      end
+
+      def rlp_decode(*args)
+        rlp_cache[args] = RLP.decode(*args) unless rlp_cache.has_key?(args)
+        Marshal.load Marshal.dump(rlp_cache[args]) # deep copy
+      end
+
+      def mkid
+        @mkid ||= 4000
+        @mkid += 1
+        @mkid - 1
+      end
+    end
+
     extend self
 
     include Constant
@@ -111,6 +128,7 @@ module Ethereum
       x.sub /\A\x00+/, ''
     end
 
+    # encode_int32
     def zpad_int(n, l=32)
       zpad encode_int(n), l
     end
@@ -120,7 +138,7 @@ module Ethereum
     end
 
     def int_to_addr(x)
-      zpad_int x, 20
+      zpad_int x, ADDR_BYTES
     end
 
     def encode_int(n)
@@ -150,7 +168,7 @@ module Ethereum
     def coerce_to_int(x)
       if x.is_a?(Numeric)
         x
-      elsif x.size == 40
+      elsif x.size == ADDR_BYTES * 2
         big_endian_to_int decode_hex(x)
       else
         big_endian_to_int x
@@ -160,20 +178,30 @@ module Ethereum
     def coerce_to_bytes(x)
       if x.is_a?(Numeric)
         int_to_big_endian x
-      elsif x.size == 40
+      elsif x.size == ADDR_BYTES * 2
         decode_hex(x)
       else
         x
       end
     end
 
+    def coerce_addr_to_bin(x)
+      if x.is_a?(Numeric)
+        zpad(int_to_big_endian(x), ADDR_BYTES)
+      elsif [ADDR_BYTES*2, 0].include?(x.size)
+        decode_hex x
+      else
+        zpad(x, ADDR_BYTES)[-ADDR_BYTES..-1]
+      end
+    end
+
     def coerce_addr_to_hex(x)
       if x.is_a?(Numeric)
-        encode_hex zpad(int_to_big_endian(x), 20)
-      elsif x.size == 40 || x.size == 0
+        encode_hex zpad(int_to_big_endian(x), ADDR_BYTES)
+      elsif [ADDR_BYTES*2, 0].include?(x.size)
         x
       else
-        encode_hex zpad(x, 20)[-20..-1]
+        encode_hex zpad(x, ADDR_BYTES)[-ADDR_BYTES..-1]
       end
     end
 
@@ -183,5 +211,25 @@ module Ethereum
       address.to_bytes
     end
 
+    def shardify(address, shard)
+      raise ArgumentError, "invalid address length" unless [ADDR_BASE_BYTES, ADDR_BYTES].include?(address.size)
+
+      zpad_int(shard)[-SHARD_BYTES..-1] + address[-ADDR_BASE_BYTES..-1]
+    end
+
+    def get_shard(address)
+      raise ArgumentError, "shardified address only" unless address.size == ADDR_BYTES
+      big_endian_to_int address[0,SHARD_BYTES]
+    end
+
+    def match_shard(addr, shard_source)
+      shard_source[0, SHARD_BYTES] + addr[SHARD_BYTES..-1]
+    end
+
+    # Determines the contract address for a piece of code and a given creator
+    # address (contracts created from outside get creator "\x00"*20)
+    def mk_contract_address(sender=Address::ZERO, left_bound=0, code='')
+      shardify keccak256(sender+code)[(32-Constant::ADDR_BASE_BYTES)..-1], left_bound
+    end
   end
 end

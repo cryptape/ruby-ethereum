@@ -7,7 +7,7 @@ module Ethereum
     extend self
 
     def address
-      Binary.fixed_length(20, allow_empty: true)
+      Binary.fixed_length(Constant::ADDR_BYTES, allow_empty: true)
     end
 
     def int20
