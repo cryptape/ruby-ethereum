@@ -7,11 +7,17 @@ module Ethereum
       class ParseError < StandardError; end
 
       class <<self
+        def cache
+          @cache ||= {}
+        end
+
         ##
         # Crazy regexp to seperate out base type component (eg. uint), size (eg.
         # 256, 128x128, nil), array component (eg. [], [45], nil)
         #
         def parse(type)
+          return cache[type] if cache.has_key?(type)
+
           _, base, sub, dimension = /([a-z]*)([0-9]*x?[0-9]*)((\[[0-9]*\])*)/.match(type).to_a
 
           dims = dimension.scan(/\[[0-9]*\]/)
@@ -46,7 +52,9 @@ module Ethereum
             raise ParseError, "Unrecognized type base: #{base}"
           end
 
-          new(base, sub, dims.map {|x| x[1...-1].to_i })
+          new(base, sub, dims.map {|x| x[1...-1].to_i }).tap do |t|
+            cache[type] = t
+          end
         end
 
         def size_type
