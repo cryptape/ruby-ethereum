@@ -493,7 +493,7 @@ module Ethereum
 
             return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, outstart, outsz) # FIXME: should be [outsz, data.size].min
 
-            [data.size, outsz].times {|i| mem[outstart+i] = data[i] }
+            [data.size, outsz].min.times {|i| mem[outstart+i] = data[i] }
           end
         elsif op == :RETURN
           s0, s1 = stk.pop, stk.pop
