@@ -108,10 +108,10 @@ module Ethereum
         function_data[name.to_sym][:is_unknown_type]
       end
 
-      def listen(log, noprint=false)
-        return if log.topics.size == 0 || !event_data.has_key?(log.topics[0])
+      def listen(sender, topics, data, noprint=false)
+        return if topics.empty? || !event_data.has_key?(topics[0])
 
-        data = event_data[log.topics[0]]
+        data = event_data[topics[0]]
         types = data[:types]
         name = data[:name]
         names = data[:names]
@@ -119,13 +119,13 @@ module Ethereum
         indexed_types = types.zip(indexed).select {|(t, i)| i.true? }.map(&:first)
         unindexed_types = types.zip(indexed).select {|(t, i)| i.false? }.map(&:first)
 
-        deserialized_args = ABI.decode_abi unindexed_types, log.data
+        deserialized_args = ABI.decode_abi unindexed_types, data
 
         o = {}
         c1, c2 = 0, 0
         names.each_with_index do |n, i|
           if indexed[i].true?
-            topic_bytes = Utils.zpad_int log.topics[c1+1]
+            topic_bytes = Utils.zpad_int topics[c1+1]
             o[n] = ABI.decode_primitive_type ABI::Type.parse(indexed_types[c1]), topic_bytes
             c1 += 1
           else
