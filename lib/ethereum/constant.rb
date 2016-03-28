@@ -7,6 +7,9 @@ module Ethereum
     BYTE_ZERO = "\x00".freeze
     BYTE_ONE  = "\x01".freeze
 
+    WORD_ZERO = ("\x00"*32).freeze
+    HASH_ZERO = WORD_ZERO
+
     TT32  = 2**32
     TT256 = 2**256
     TT64M1 = 2**64 - 1
@@ -16,10 +19,8 @@ module Ethereum
     INT_MAX = 2**255 - 1
     INT_MIN = -2**255
 
-    HASH_ZERO = ("\x00"*32).freeze
-
     PUBKEY_ZERO = [0,0].freeze
-    PRIVKEY_ZERO = ("\x00"*32).freeze
+    PRIVKEY_ZERO = WORD_ZERO
 
     def self.int_to_addr(x)
       Utils.int_to_addr x

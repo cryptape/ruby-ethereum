@@ -212,10 +212,8 @@ module Ethereum
             stk.push Utils.coerce_to_int(msg.to)
           when :BALANCE
             s0 = stk.pop
-            addr = Utils.coerce_addr_to_hex(s0 % 2**160)
-            stk.push ext.get_balance(addr)
-          when :ORIGIN
-            stk.push Utils.coerce_to_int(ext.tx_origin)
+            addr = Utils.int_to_addr(s0 % 2**160)
+            stk.push ext.get_storage_data(ETHER, addr)
           when :CALLER
             stk.push Utils.coerce_to_int(msg.sender)
           when :CALLVALUE
@@ -246,16 +244,14 @@ module Ethereum
                 mem[mstart+i] = 0
               end
             end
-          when :GASPRICE
-            stk.push ext.tx_gasprice
           when :EXTCODESIZE
             addr = stk.pop
             addr = Utils.coerce_addr_to_hex(addr % 2**160)
-            stk.push (ext.get_code(addr) || Constant::BYTE_EMPTY).size
+            stk.push (ext.get_storage_at(addr, BYTE_EMPTY) || BYTE_EMPTY).size
           when :EXTCODECOPY
             addr, mstart, cstart, size = stk.pop, stk.pop, stk.pop, stk.pop
             addr = Utils.coerce_addr_to_hex(addr % 2**160)
-            extcode = ext.get_code(addr) || Constant::BYTE_EMPTY
+            extcode = ext.get_storage_at(addr, BYTE_EMPTY) || BYTE_EMPTY
             raise ValueError, "extcode must be string" unless extcode.is_a?(String)
 
             return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, size)
@@ -268,22 +264,31 @@ module Ethereum
                 mem[mstart+i] = 0
               end
             end
+          when :MCOPY
+            to, from, size = stk.pop, stk.pop, stk.pop
+
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, to, size)
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, from, size)
+            return vm_exception('OOG COPY DATA') unless data_copy(s, size)
+
+            data = mem[from, size]
+            size.times {|i| mem[to+i] = data[i] }
           end
         elsif opcode < 0x50 # Block Information
           case op
           when :BLOCKHASH
             s0 = stk.pop
-            stk.push Utils.big_endian_to_int(ext.block_hash(s0))
+            stk.push Utils.big_endian_to_int(ext.get_storage(BLOCKHASHES, s0))
           when :COINBASE
-            stk.push Utils.big_endian_to_int(ext.block_coinbase)
+            stk.push Utils.big_endian_to_int(ext.get_storage(PROPOSER, WORD_ZERO))
           when :TIMESTAMP
             stk.push ext.block_timestamp
           when :NUMBER
-            stk.push ext.block_number
+            stk.push Utils.big_endian_to_int(ext.get_storage(BLKNUMBER, WORD_ZERO))
           when :DIFFICULTY
             stk.push ext.block_difficulty
           when :GASLIMIT
-            stk.push ext.block_gas_limit
+            stk.push GASLIMIT
           end
         elsif opcode < 0x60 # Stack, Memory, Storage and Flow Operations
           case op
@@ -309,11 +314,11 @@ module Ethereum
             mem[s0] = s1 % 256
           when :SLOAD
             s0 = stk.pop
-            stk.push ext.get_storage_data(msg.to, s0)
+            stk.push Utils.big_endian_to_int(ext.get_storage(msg.to, s0)[0,32])
           when :SSTORE
             s0, s1 = stk.pop, stk.pop
 
-            if ext.get_storage_data(msg.to, s0) != 0
+            if ext.get_storage(msg.to, s0).true?
               gascost = s1 == 0 ? Opcodes::GSTORAGEKILL : Opcodes::GSTORAGEMOD
               refund = s1 == 0 ? Opcodes::GSTORAGEREFUND : 0
             else
@@ -321,11 +326,12 @@ module Ethereum
               refund = 0
             end
 
+            gascost /= 2 if msg.to == CASPER
+
             return vm_exception('OUT OF GAS') if s.gas < gascost
 
             s.gas -= gascost
-            ext.add_refund refund
-            ext.set_storage_data msg.to, s0, s1
+            ext.set_storage msg.to, s0, s1
           when :JUMP
             s0 = stk.pop
             s.pc = s0
@@ -359,33 +365,11 @@ module Ethereum
           stk[-depth - 1] = stk[-1]
           stk[-1] = temp
         elsif op[0,Opcodes::PREFIX_LOG.size] == Opcodes::PREFIX_LOG
-          # 0xa0 ... 0xa4, 32/64/96/128/160 + data.size gas
-          #
-          # a. Opcodes LOG0...LOG4 are added, takes 2-6 stake arguments:
-          #      MEMSTART MEMSZ (TOPIC1) (TOPIC2) (TOPIC3) (TOPIC4)
-          #
-          # b. Logs are kept track of during tx execution exactly the same way
-          #    as suicides (except as an ordered list, not a set).
-          #
-          #    Each log is in the form [address, [topic1, ... ], data] where:
-          #    * address is what the ADDRESS opcode would output
-          #    * data is mem[MEMSTART, MEMSZ]
-          #    * topics are as provided by the opcode
-          #
-          # c. The ordered list of logs in the transation are expreseed as
-          #    [log0, log1, ..., logN].
-          #
           depth = op[Opcodes::PREFIX_LOG.size..-1].to_i
           mstart, msz = stk.pop, stk.pop
           topics = depth.times.map {|i| stk.pop }
 
-          s.gas -= msz * Opcodes::GLOGBYTE
-
-          return vm_exception("OOG EXTENDING MEMORY") unless mem_extend(mem, s, mstart, msz)
-
-          data = mem.safe_slice(mstart, msz)
-          ext.log(msg.to, topics, Utils.int_array_to_bytes(data))
-          log_log.trace('LOG', to: msg.to, topics: topics, data: data)
+          puts "###log###", mstart, msz, topics
         elsif op == :CREATE
           value, mstart, msz = stk.pop, stk.pop, stk.pop
 
@@ -393,7 +377,7 @@ module Ethereum
 
           if ext.get_balance(msg.to) >= value && msg.depth < 1024
             cd = CallData.new mem, mstart, msz
-            create_msg = Message.new(msg.to, Constant::BYTE_EMPTY, value, s.gas, cd, depth: msg.depth+1)
+            create_msg = Message.new(msg.to, BYTE_EMPTY, value, s.gas, cd, depth: msg.depth+1)
 
             o, gas, addr = ext.create create_msg
             if o.true?
@@ -411,27 +395,31 @@ module Ethereum
             stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
 
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memin_start, memin_sz)
-          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, memout_sz)
 
           to = Utils.zpad_int(to)[12..-1] # last 20 bytes
-          extra_gas = (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT +
-            (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
+          extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
           submsg_gas = gas + Opcodes::GSTIPEND * (value > 0 ? 1 : 0)
           total_gas = gas + extra_gas
 
           return vm_exception('OUT OF GAS', needed: total_gas) if s.gas < total_gas
 
-          if ext.get_balance(msg.to) >= value && msg.depth < 1024
+          if ext.get_storage(ETHER, msg.to) >= value && msg.depth < 1024
             s.gas -= total_gas
 
             cd = CallData.new mem, memin_start, memin_sz
-            call_msg = Message.new(msg.to, to, value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+            call_msg = Message.new(msg.to, to, value, submsg_gas, cd, depth: msg.depth+1)
 
-            result, gas, data = ext.apply_msg call_msg
+            code = ext.get_storage(to, BYTE_EMPTY)
+            raise AssertError, "no valid code" unless code.instance_of?(String)
+            result, gas, data = ext.apply_msg call_msg, code
+
             if result == 0
               stk.push 0
             else
               stk.push 1
+
+              return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, [data.size, memout_sz].min)
+
               s.gas += gas
               [data.size, memout_sz].min.times do |i|
                 mem[memout_start+i] = data[i]
@@ -460,15 +448,15 @@ module Ethereum
             to = Utils.zpad_int(to)[12..-1] # last 20 bytes
             cd = CallData.new mem, memin_start, memin_sz
 
-            if ext.post_homestead_hardfork && op == :DELEGATECALL
-              call_msg = Message.new(msg.sender, msg.to, msg.value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+            if op == :DELEGATECALL
+              call_msg = Message.new(msg.sender, msg.to, msg.value, submsg_gas, cd, depth: msg.depth+1)
             elsif op == :DELEGATECALL
               return vm_exception('OPCODE INACTIVE')
             else
-              call_msg = Message.new(msg.to, msg.to, value, submsg_gas, cd, depth: msg.depth+1, code_address: to)
+              call_msg = Message.new(msg.to, msg.to, value, submsg_gas, cd, depth: msg.depth+1)
             end
 
-            result, gas, data = ext.apply_msg call_msg
+            result, gas, data = ext.apply_msg call_msg, ext.get_storage(msg.to, BYTE_EMPTY)
             if result == 0
               stk.push 0
             else
@@ -482,17 +470,64 @@ module Ethereum
             s.gas -= (total_gas - submsg_gas)
             stk.push(0)
           end
+        elsif op == :CALLSTATIC
+          submsg_gas, codestart, codesz, datastart, datasz, outstart, outsz =
+            stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop, stk.pop
+
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, codestart, codesz)
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, datastart, datasz)
+          return vm_exception('OUT OF GAS', needed: submsg_gas) if s.gas < submsg_gas
+
+          s.gas -= submsg_gas
+
+          cd = CallData.new mem, datastart, datasz
+          call_msg = Message.new msg.sender, msg.to, 0, submsg_gas, cd, depth: msg.depth+1
+
+          result, gas, data = ext.static_msg(call_msg, Utils.int_array_to_bytes(mem[codestart, codesz]))
+
+          if result == 0
+            stk.push 0
+          else
+            stk.push 1
+            s.gas += gas
+
+            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, outstart, outsz) # FIXME: should be [outsz, data.size].min
+
+            [data.size, outsz].times {|i| mem[outstart+i] = data[i] }
+          end
         elsif op == :RETURN
           s0, s1 = stk.pop, stk.pop
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, s1)
           return peaceful_exit('RETURN', s.gas, mem.safe_slice(s0, s1))
+        elsif op == :SLOADBYTES
+          s0, s1, s2 = stk.pop, stk.pop, stk.pop
+          data = ext.get_storage(msg.to, s0).map(&:ord)
+
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s1, [data.size, s2].min)
+
+          [data.size, s2].min.times {|i| mem[s1+i] = data[i] }
+        elsif op == :SSTOREBYTES
+          s0, s1, s2 = stk.pop, stk.pop, stk.pop
+
+          return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s1, s2)
+
+          data = Utils.int_array_to_bytes mem[s1, s2]
+          ext.set_storage msg.to, s0, data # FIXME: storage slot capacity is unlimited?
+        elsif op == :SSIZE
+          s0 = stk.pop
+          stk.push ext.get_storage(msg.to, s0).size
+        elsif op == :STATEROOT
+          s0 = stk.pop
+          stk.push Utils.big_endian_to_int(ext.get_storage(STATEROOTS, s0))
+        elsif op == :TXGAS
+          stk.push Utils.big_endian_to_int(ext.get_storage(TXGAS, WORD_ZERO))
         elsif op == :SUICIDE
           s0 = stk.pop
           to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
 
-          xfer = ext.get_balance(msg.to)
-          ext.set_balance(to, ext.get_balance(to)+xfer)
-          ext.set_balance(msg.to, 0)
+          xfer = Utils.big_endian_to_int ext.get_storage(ETHER, msg.to)
+          ext.set_storage ETHER, to, Utils.big_endian_to_int(ext.get_balance(to))+xfer
+          ext.set_storage ETHER, msg.to, 0
           ext.add_suicide(msg.to)
 
           return 1, s.gas, []
