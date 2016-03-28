@@ -33,6 +33,7 @@ require 'ethereum/special_contract'
 require 'ethereum/env'
 
 require 'ethereum/external_call'
+require 'ethereum/fast_vm'
 require 'ethereum/vm'
 require 'ethereum/sedes'
 require 'ethereum/log'
