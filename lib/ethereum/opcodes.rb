@@ -42,6 +42,7 @@ module Ethereum
       0x3a => [:GASPRICE, 0, 1, 2],
       0x3b => [:EXTCODESIZE, 1, 1, 20],
       0x3c => [:EXTCODECOPY, 4, 0, 20],
+      0x3d => [:MCOPY, 3, 0, 0],
       0x40 => [:BLOCKHASH, 1, 1, 20],
       0x41 => [:COINBASE, 0, 1, 2],
       0x42 => [:TIMESTAMP, 0, 1, 2],
@@ -60,16 +61,29 @@ module Ethereum
       0x59 => [:MSIZE, 0, 1, 2],
       0x5a => [:GAS, 0, 1, 2],
       0x5b => [:JUMPDEST, 0, 0, 1],
-      0xa0 => [:LOG0, 2, 0, 375],
-      0xa1 => [:LOG1, 3, 0, 750],
-      0xa2 => [:LOG2, 4, 0, 1125],
-      0xa3 => [:LOG3, 5, 0, 1500],
-      0xa4 => [:LOG4, 6, 0, 1875],
+      0x5c => [:SLOADEXT, 2, 1, 50],
+      0x5d => [:SSTOREEXT, 3, 0, 0],
+      0x5e => [:SLOADEXTBYTES, 3, 0, 50],
+      0x5f => [:SSTOREEXTBYTES, 2, 0, 2500],
+      0xa0 => [:LOG0, 2, 0, 0],
+      0xa1 => [:LOG1, 3, 0, 0],
+      0xa2 => [:LOG2, 4, 0, 0],
+      0xa3 => [:LOG3, 5, 0, 0],
+      0xa4 => [:LOG4, 6, 0, 0],
       0xf0 => [:CREATE, 3, 1, 32000],
       0xf1 => [:CALL, 7, 1, 40],
       0xf2 => [:CALLCODE, 7, 1, 40],
       0xf3 => [:RETURN, 2, 0, 0],
-      0xf4 => [:DELEGATECALL, 2, 0, 0],
+      0xf4 => [:DELEGATECALL, 6, 1, 40],
+      0xf5 => [:BREAKPOINT, 0, 0, 1],
+      0xf6 => [:RNGSEED, 1, 1, 50],
+      0xf7 => [:SSIZEEXT, 2, 1, 50],
+      0xf8 => [:SLOADBYTES, 3, 0, 50],
+      0xf9 => [:SSTOREBYTES, 2, 0, 2500],
+      0xfa => [:SSIZE, 1, 1, 50],
+      0xfb => [:STATEROOT, 1, 1, 50],
+      0xfc => [:TXGAS, 0, 1, 50],
+      0xfd => [:CALLSTATIC, 7, 1, 50],
       0xff => [:SUICIDE, 1, 0, 0],
     }
 
@@ -109,6 +123,10 @@ module Ethereum
     GCONTRACTBYTE = 200   # one byte of code in contract creation
     GCALLVALUETRANSFER = 9000   # non-zero-valued call
     GLOGBYTE = 8          # cost of a byte of logdata
+    GLOGBASE = 375        # basic log
+    GLOGTOPIC = 375       # log topic
+    GCREATE = 32000       # contract creation base cost
+    GGASDEPOSIT = 2000    # cost of using gas deposit process
 
     GTXCOST = 21000       # TX BASE GAS COST
     GTXDATAZERO = 4       # TX DATA ZERO BYTE GAS COST
@@ -121,6 +139,11 @@ module Ethereum
     GIDENTITYBASE = 15    # Base cost of indentity
     GIDENTITYWORD = 3     # Cost of identity per word
     GECRECOVER = 3000     # Cost of ecrecover op
+    GECADD = 200          # Cost of ecadd op
+    GECMUL = 1000         # Cost of ecmul op
+    GMODEXP = 200         # Cost of modexp op
+    GRLPBASE = 30         # Base cost of RLP decoding
+    GRLPWORD = 6          # Cost of RLP decoding per word
 
     GSTIPEND = 2300
 
