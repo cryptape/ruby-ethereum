@@ -149,11 +149,11 @@ module Ethereum
       when 'address'
         if arg.is_a?(Integer)
           Utils.zpad_int arg
-        elsif arg.size == 20
+        elsif arg.size == ADDR_BYTES
           Utils.zpad arg, 32
-        elsif arg.size == 40
+        elsif arg.size == ADDR_BYTES * 2
           Utils.zpad_hex arg
-        elsif arg.size == 42 && arg[0,2] == '0x'
+        elsif arg.size == (ADDR_BYTES*2 + 2) && arg[0,2] == '0x'
           Utils.zpad_hex arg[2..-1]
         else
           raise EncodingError, "Could not parse address: #{arg}"
@@ -163,10 +163,17 @@ module Ethereum
       end
     end
 
+    def decode_cache
+      @decode_cache ||= {}
+    end
+
     ##
     # Decodes multiple arguments using the head/tail mechanism.
     #
     def decode_abi(types, data)
+      cache_key = [types, data]
+      return Marshal.load(Marshal.dump(decode_cache[cache_key])) if decode_cache.has_key?(cache_key)
+
       parsed_types = types.map {|t| Type.parse(t) }
 
       outputs = [nil] * types.size
@@ -210,7 +217,9 @@ module Ethereum
         end
       end
 
-      parsed_types.zip(outputs).map {|(type, out)| decode_type(type, out) }
+      result = parsed_types.zip(outputs).map {|(type, out)| decode_type(type, out) }
+      decode_cache[cache_key] = Marshal.load Marshal.dump(result)
+      result
     end
     alias :decode :decode_abi
 
@@ -251,7 +260,7 @@ module Ethereum
     def decode_primitive_type(type, data)
       case type.base
       when 'address'
-        Utils.encode_hex data[12..-1]
+        Utils.encode_hex data[(32-ADDR_BYTES)..-1]
       when 'string', 'bytes'
         if type.sub.empty? # dynamic
           size = Utils.big_endian_to_int data[0,32]
@@ -289,7 +298,7 @@ module Ethereum
         raise EncodingError, "Number out of range: #{n}" if n > UINT_MAX || n < UINT_MIN
         n
       when String
-        if n.size == 40
+        if n.size == 2*ADDR_BYTES
           Utils.big_endian_to_int Utils.decode_hex(n)
         elsif n.size <= 32
           Utils.big_endian_to_int n
@@ -311,7 +320,7 @@ module Ethereum
         raise EncodingError, "Number out of range: #{n}" if n > INT_MAX || n < INT_MIN
         n
       when String
-        if n.size == 40
+        if n.size == 2*ADDR_BYTES
           i = Utils.big_endian_to_int Utils.decode_hex(n)
         elsif n.size <= 32
           i = Utils.big_endian_to_int n
