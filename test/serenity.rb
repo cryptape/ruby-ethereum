@@ -3,6 +3,8 @@
 $:.unshift File.expand_path('../../lib', __FILE__)
 
 require 'ethereum'
+require 'ethereum/serenity'
+
 include Ethereum
 
 MAX_NODES = 12
