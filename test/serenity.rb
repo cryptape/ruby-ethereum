@@ -2,6 +2,8 @@
 
 $:.unshift File.expand_path('../../lib', __FILE__)
 
+require 'serpent'
+
 require 'ethereum'
 require 'ethereum/serenity'
 
@@ -35,3 +37,21 @@ genesis = State.new Trie::BLANK_NODE, DB::EphemDB.new
 genesis.set_gas_limit 10**9
 gc = genesis.clone
 
+##
+# Casper Contract Setup
+#
+casper_file = File.expand_path('../../lib/ethereum/casper.se.py', __FILE__)
+casper_hash_file = File.expand_path('../../lib/ethereum/_casper.hash', __FILE__)
+casper_evm_file = File.expand_path('../../lib/ethereum/_casper.evm', __FILE__)
+
+code = nil
+begin
+  h = Utils.encode_hex Utils.keccak256(File.read(casper_file))
+  raise AssertError, "casper contract hash mismatch" unless h == File.read(casper_hash_file)
+  code = File.read(casper_evm_file)
+rescue
+  h = Utils.encode_hex Utils.keccak256(File.read(casper_file))
+  code = Serpent.compile casper_file
+  File.open(casper_evm_file, 'w') {|f| f.write code }
+  File.open(casper_hash_file, 'w') {|f| f.write h }
+end
