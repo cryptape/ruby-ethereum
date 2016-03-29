@@ -9,6 +9,9 @@ module Ethereum
   #
   class State
 
+    include Constant
+    include Config
+
     def initialize(state_root, db)
       @db = db
 
@@ -27,6 +30,10 @@ module Ethereum
       @modified = Hash.new {|h, k| h[k] = {} }
     end
 
+    def set_gas_limit(gas_limit, left_bound=0)
+      set_storage Utils.shardify(EXECUTION_STATE, left_bound), GAS_REMAINING, gas_limit
+    end
+
     def root
       commit
       @state.root_hash
@@ -34,7 +41,7 @@ module Ethereum
 
     def clone
       commit
-      self.class.new @state.root_hash, OverlayDB.new(@state.db)
+      self.class.new @state.root_hash, DB::OverlayDB.new(@state.db)
     end
 
     def get_storage(addr, k)

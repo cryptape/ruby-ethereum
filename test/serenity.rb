@@ -31,3 +31,7 @@ raise AssertError, "Negative Numbers or too many nodes with special properties" 
 
 puts "Running with #{MAX_NODES} maximum nodes: #{CLOCKWRONG} with wonky clocks, #{BRAVE} brave, #{CRAZYBET} crazy-betting, #{DBL_BLK_SUICIDE} double-block suiciding, #{DBL_BET_SUICIDE} double-bet suiciding"
 
+genesis = State.new Trie::BLANK_NODE, DB::EphemDB.new
+genesis.set_gas_limit 10**9
+gc = genesis.clone
+
