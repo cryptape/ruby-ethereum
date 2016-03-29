@@ -23,9 +23,9 @@ module Ethereum
     RNGSEEDS = int_to_addr 90
     BLOCKHASHES = int_to_addr 100
     GENESIS_TIME = int_to_addr 110
-    LOG = int_to_addr 120
+    LOG = int_to_addr 120 # transaction execution logs of current block
     BET_INCENTIVIZER = int_to_addr 150
-    EXECUTION_STATE = int_to_addr 160
+    EXECUTION_STATE = int_to_addr 160 # intermediate states of current block execution
     CREATOR = int_to_addr 170
     GAS_DEPOSIT = int_to_addr 180
     BASICSENDER = int_to_addr 190
