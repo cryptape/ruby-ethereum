@@ -37,7 +37,7 @@ module Ethereum
         c_recipient_ether = Utils.match_shard ETHER, msg.to
 
         cache_key = "#{msg.sender}#{msg.to}#{msg.value}#{msg.data.extract_all}#{code}"
-        return Call.cache[cache_key] if self == EmptyCall && Call.cache.has_key?(cache_key)
+        return Call.cache[cache_key] if self == StaticCall.instance && Call.cache.has_key?(cache_key)
 
         # Transfer value, instaquit if not enough
         snapshot = @state.snapshot
@@ -75,14 +75,19 @@ module Ethereum
       end
 
       def static_msg(msg, code)
-        EmptyCall.apply_msg msg, code
+        StaticCall.instance.apply_msg msg, code
       end
 
     end
 
     class StaticCall < Call
+
+      def self.instance
+        @instance ||= new
+      end
+
       def initialize
-        @state = State.new Trie::BLANK_NODE, DB::EphemDB.new
+        @state = ::Ethereum::State.new Trie::BLANK_NODE, DB::EphemDB.new
       end
 
       def set_storage(*args)
@@ -105,8 +110,6 @@ module Ethereum
         BYTE_EMPTY
       end
     end
-
-    EmptyCall = StaticCall.new
 
   end
 end

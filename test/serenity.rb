@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# -*- encoding : ascii-8bit -*-
 
 $:.unshift File.expand_path('../../lib', __FILE__)
 
@@ -8,6 +9,7 @@ require 'ethereum'
 require 'ethereum/serenity'
 
 include Ethereum
+VM = FastVM
 
 MAX_NODES = 12
 
@@ -46,12 +48,17 @@ casper_evm_file = File.expand_path('../../lib/ethereum/_casper.evm', __FILE__)
 
 code = nil
 begin
-  h = Utils.encode_hex Utils.keccak256(File.read(casper_file))
-  raise AssertError, "casper contract hash mismatch" unless h == File.read(casper_hash_file)
-  code = File.read(casper_evm_file)
+  h = Utils.encode_hex Utils.keccak256(File.binread(casper_file))
+  raise AssertError, "casper contract hash mismatch" unless h == File.binread(casper_hash_file)
+  code = File.binread(casper_evm_file)
 rescue
-  h = Utils.encode_hex Utils.keccak256(File.read(casper_file))
+  h = Utils.encode_hex Utils.keccak256(File.binread(casper_file))
   code = Serpent.compile casper_file
   File.open(casper_evm_file, 'w') {|f| f.write code }
   File.open(casper_hash_file, 'w') {|f| f.write h }
 end
+
+# Add Casper contract to blockchain
+gc.tx_state_transition Transaction.new(nil, 4000000, data: Constant::BYTE_EMPTY, code: code)
+genesis.put_code Config::CASPER, gc.get_code(Utils.mk_contract_address(code: code))
+puts "Casper loaded"

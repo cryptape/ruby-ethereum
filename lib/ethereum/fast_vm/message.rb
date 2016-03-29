@@ -6,7 +6,8 @@ module Ethereum
     class Message
 
       attr_accessor :sender, :to, :value, :gas, :data,
-        :left_bound, :right_bound, :depth, :logs, :code_address, :is_create
+        :left_bound, :right_bound, :depth, :logs, :code_address,
+        :is_create, :transfers_value
 
       def initialize(sender, to, value, gas, data,
                      left_bound: 0, right_bound: Constant::MAXSHARDS,
