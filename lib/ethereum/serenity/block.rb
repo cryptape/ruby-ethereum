@@ -3,6 +3,11 @@
 require 'forwardable'
 
 module Ethereum
+  ##
+  # Note that the concept of extra data no longer exists. If a proposer wants
+  # extra data they should just make the first transaction a dummy containing
+  # that data.
+  #
   class Block
 
     extend Forwardable

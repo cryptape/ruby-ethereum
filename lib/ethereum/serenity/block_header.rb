@@ -1,6 +1,9 @@
 # -*- encoding : ascii-8bit -*-
 
 module Ethereum
+  ##
+  # Around 150 bytes.
+  #
   class BlockHeader
 
     include RLP::Sedes::Serializable
