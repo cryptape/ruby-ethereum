@@ -114,9 +114,17 @@ module Ethereum
       self.class.new @state.root_hash, DB::OverlayDB.new(@state.db)
     end
 
+    def unhash(hash)
+      @db.get(UNHASH_MAGIC_BYTES + hash)
+    end
+
+    def puthashdata(data)
+      @db.put(UNHASH_MAGIC_BYTES + Utils.keccak256(data), data)
+    end
+
     def get_code(address)
       codehash = get_storage address, BYTE_EMPTY
-      codehash.true? ? @db.get(UNHASH_MAGIC_BYTES + codehash) : BYTE_EMPTY
+      codehash.true? ? unhash(codehash) : BYTE_EMPTY
     end
 
     def put_code(address, code)
