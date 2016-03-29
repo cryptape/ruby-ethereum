@@ -18,6 +18,7 @@ module Ethereum
     end
 
     include Constant
+    include Config
 
     def execute(ext, msg, code)
       s = State.new gas: msg.gas

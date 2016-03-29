@@ -22,32 +22,6 @@ module Ethereum
     PUBKEY_ZERO = [0,0].freeze
     PRIVKEY_ZERO = WORD_ZERO
 
-    def self.int_to_addr(x)
-      Utils.int_to_addr x
-    end
-
-    ##
-    # System Addresses
-    #
-
-    STATEROOTS = int_to_addr 20
-    BLKNUMBER = int_to_addr 30
-    ETHER = int_to_addr 50
-    CASPER = int_to_addr 60
-    ECRECOVERACCT = int_to_addr 70
-    PROPOSER = int_to_addr 80
-    RNGSEEDS = int_to_addr 90
-    BLOCKHASHES = int_to_addr 100
-    GENESIS_TIME = int_to_addr 110
-    LOG = int_to_addr 120
-    BET_INCENTIVIZER = int_to_addr 150
-    EXECUTION_STATE = int_to_addr 160
-    CREATOR = int_to_addr 170
-    GAS_DEPOSIT = int_to_addr 180
-    BASICSENDER = int_to_addr 190
-    SYS = int_to_addr 200
-    TX_ENTRY_POINT = int_to_addr(2**160 - 1)
-
     ##
     # Global Parameters
     #
@@ -59,14 +33,11 @@ module Ethereum
     BLOOM = 2**32
     GASLIMIT = 4712388 # Pau million
 
-    NULL_SENDER = int_to_addr 0
-    CONST_CALL_SENDER = int_to_addr 31415
-
     ENTRY_EXIT_DELAY = 110 # must be set in Casper contract as well
     VALIDATOR_ROUNDS = 5 # must be set in Casper contract as well
 
     MAXSHARDS = 65536
-    SHARD_BYTES = Utils.int_to_big_endian(MAXSHARDS-1).size
+    SHARD_BYTES = RLP::Sedes.big_endian_int.serialize(MAXSHARDS-1).size
     ADDR_BASE_BYTES = 20
     ADDR_BYTES = ADDR_BASE_BYTES + SHARD_BYTES
 

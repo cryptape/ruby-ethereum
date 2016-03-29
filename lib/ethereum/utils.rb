@@ -229,7 +229,7 @@ module Ethereum
     # Determines the contract address for a piece of code and a given creator
     # address (contracts created from outside get creator "\x00"*20)
     def mk_contract_address(sender=Address::ZERO, left_bound=0, code='')
-      shardify keccak256(sender+code)[(32-Constant::ADDR_BASE_BYTES)..-1], left_bound
+      shardify keccak256(sender+code)[(32-ADDR_BASE_BYTES)..-1], left_bound
     end
   end
 end

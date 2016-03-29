@@ -13,6 +13,7 @@ module Ethereum
     END_BREAKPOINTS = %i(JUMP JUMPI CALL CALLCODE CALLSTATIC CREATE SUICIDE STOP RETURN INVALID GAS PC BREAKPOINT)
 
     include Constant
+    include Config
 
     OP_INVALID = -1
     Opcodes::TABLE.each do |code, defn|
