@@ -88,7 +88,7 @@ module Ethereum
       # Process VM execution
       cd = VM::CallData.new Utils.bytes_to_int_array(tx.data), 0, tx.data.size
       message = VM::Message.new NULL_SENDER, tx.addr, 0, execution_start_gas, cd
-      raise AssertError, "log is not empty" unless get_storage(c_log, txindex) == RLPEMPTYLIST
+      raise AssertError, "log is not empty" unless get_storage(c_log, txindex) == RLP::EMPTYLIST
 
       result, msg_gas_remained, data = call.apply_msg message, get_code(tx.addr), breaking: breaking
       raise AssertError, "inconsistent gas" unless msg_gas_remained >= 0 && execution_start_gas >= msg_gas_remained && tx.exec_gas >= execution_start_gas

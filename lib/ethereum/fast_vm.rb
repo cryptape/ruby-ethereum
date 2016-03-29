@@ -51,7 +51,7 @@ module Ethereum
 
       timestamp = Time.now
       loop do
-        return vm_exception('INVALID START POINT') if processed_code.has_key?(s.pc)
+        return vm_exception('INVALID START POINT') unless processed_code.has_key?(s.pc)
 
         cc = processed_code[s.pc]
         gas, min_stack, max_stack, s.pc = cc[0,4]
@@ -757,6 +757,10 @@ module Ethereum
       end
 
       true
+    end
+
+    def mem_fee(sz)
+      sz * Opcodes::GMEMORY + sz**2 / Opcodes::GQUADRATICMEMDENOM
     end
 
     def validate_and_get_address(addr_int, msg)

@@ -66,7 +66,7 @@ module Ethereum
           puts "REVERTING #{msg.gas} gas from account 0x#{Utils.encode_hex(msg.sender)} to account 0x#{Utils.encode_hex(msg.to)} with data 0x#{Utils.encode_hex(msg.data.extract_all)}"
           @state.revert(snapshot)
         else
-          puts "MSG APPLY SUCCESSFUL"
+          #puts "MSG APPLY SUCCESSFUL"
         end
 
         result = [res, (res.true? ? gas : 0), dat]
