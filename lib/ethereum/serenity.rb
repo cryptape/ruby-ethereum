@@ -5,3 +5,5 @@ require 'ethereum/serenity/block_header'
 require 'ethereum/serenity/block'
 
 require 'ethereum/serenity/state'
+
+require 'ethereum/serenity/ecdsa_accounts'

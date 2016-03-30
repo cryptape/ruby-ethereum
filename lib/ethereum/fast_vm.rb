@@ -593,7 +593,7 @@ module Ethereum
             if ext.get_storage(toaddr, BYTE_EMPTY).false?
               ext.set_storage toaddr, ext.get_storage(msg.to)
             end
-          elsif op == :SSTOREBYTES || op == OP_SSTOREEXTBYTES
+          elsif op == OP_SSTOREBYTES || op == OP_SSTOREEXTBYTES
             if op == OP_SSTOREEXTBYTES
               shard = stk.pop
               return vm_exception('OUT OF RANGE') unless validate_and_get_address(shard << (ADDR_BYTES*8))
@@ -614,13 +614,13 @@ module Ethereum
                 ext.set_storage toaddr, ext.get_storage(msg.to)
               end
             end
-          elsif op == :SSIZE
+          elsif op == OP_SSIZE
             s0 = stk.pop
             stk.push ext.get_storage(msg.to, s0).size
-          elsif op == :STATEROOT
+          elsif op == OP_STATEROOT
             s0 = stk.pop
             stk.push Utils.big_endian_to_int(ext.get_storage(STATEROOTS, s0))
-          elsif op == :TXGAS
+          elsif op == OP_TXGAS
             stk.push Utils.big_endian_to_int(ext.get_storage(c_exstate, TXGAS))
           elsif op == OP_SUICIDE
             s0 = stk.pop
