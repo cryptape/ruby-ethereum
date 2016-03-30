@@ -12,6 +12,8 @@ module Ethereum
     include Constant
     include Config
 
+    attr :db
+
     def initialize(state_root, db)
       @db = db
 
@@ -47,6 +49,10 @@ module Ethereum
 
       output = Utils.int_array_to_bytes data
       ct.decode(fun, output)[0]
+    end
+
+    def call_casper(fun, args, gas: 1000000)
+      call_method CASPER, Casper.contract, fun, args, gas: gas
     end
 
     def tx_state_transition(tx, left_bound: 0, right_bound: MAXSHARDS, listeners: [], breaking: false, override_gas: 2**255)

@@ -237,5 +237,8 @@ module Ethereum
       keccak256(pub[1..-1])[12..-1]
     end
 
+    def debug(msg, *args, **kwargs)
+      puts "#{msg}  #{kwargs.map {|k,v| "#{k}=#{v}" }.join(", ")}"
+    end
   end
 end
