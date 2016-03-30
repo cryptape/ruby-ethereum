@@ -34,6 +34,21 @@ module Ethereum
       set_storage Utils.shardify(EXECUTION_STATE, left_bound), GAS_REMAINING, gas_limit
     end
 
+    ##
+    # Call a method of a function with no effect.
+    #
+    def call_method(addr, ct, fun, args, gas: 1000000)
+      data = ct.encode fun, args
+      cd = VM::CallData.new Utils.bytes_to_int_array(data), 0, data.size
+      message = VM::Message.new CONST_CALL_SENDER, addr, 0, gas, cd
+
+      call = VM::Call.new clone
+      result, gas_remained, data = call.apply_msg message, get_code(addr)
+
+      output = Utils.int_array_to_bytes data
+      ct.decode(fun, output)[0]
+    end
+
     def tx_state_transition(tx, left_bound: 0, right_bound: MAXSHARDS, listeners: [], breaking: false, override_gas: 2**255)
       c_exstate = Utils.shardify EXECUTION_STATE, left_bound
       c_log = Utils.shardify LOG, left_bound

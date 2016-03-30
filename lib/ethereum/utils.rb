@@ -231,5 +231,11 @@ module Ethereum
     def mk_contract_address(sender: Address::ZERO, left_bound: 0, code: '')
       shardify keccak256(sender+code)[(32-ADDR_BASE_BYTES)..-1], left_bound
     end
+
+    def priv_to_pubhash(x)
+      pub = PrivateKey.new(x).to_pubkey
+      keccak256(pub[1..-1])[12..-1]
+    end
+
   end
 end

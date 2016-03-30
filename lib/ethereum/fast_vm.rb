@@ -567,7 +567,7 @@ module Ethereum
             end
 
             s0, s1, s2 = stk.pop, stk.pop, stk.pop
-            data = ext.get_storage(toaddr, s0).map(&:ord)
+            data = Utils.bytes_to_int_array ext.get_storage(toaddr, s0)
 
             return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s1, [data.size, s2].min)
 

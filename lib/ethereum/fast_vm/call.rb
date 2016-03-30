@@ -19,6 +19,8 @@ module Ethereum
         end
       end
 
+      attr :listeners
+
       def initialize(state, listeners: [])
         @state = state
         @listeners = listeners
@@ -26,10 +28,6 @@ module Ethereum
 
       def log_storage(account)
         @state.account_to_h(account)
-      end
-
-      def unhash(x)
-        @state
       end
 
       def apply_msg(msg, code, breaking: false)
