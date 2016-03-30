@@ -1,3 +1,5 @@
+require 'ethereum/serenity/jacobian'
+
 require 'ethereum/serenity/transaction'
 require 'ethereum/serenity/transaction_group_summary'
 
