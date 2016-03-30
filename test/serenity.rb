@@ -126,13 +126,12 @@ end
 
 #Logger.set_trace 'eth.vm.exit'
 
-# Setup keys
+# Setup validators
 keys = (0...(MAX_NODES-2)).map {|i| Utils.zpad_int(i+1) }
-second_keys = ((MAX_NODES-2)...MAX_NODES).map {|i| Utils.zpad_int(i+1) }
 keys.each_with_index do |k, i|
   # Generate the address
   addr = ECDSAAccount.privtoaddr k
-  raise AssertError, "aleady initialized" unless Utils.big_endian_to_int(genesis.get_storage(addr, TT256M1)) == 0
+  raise AssertError, "already initialized" unless Utils.big_endian_to_int(genesis.get_storage(addr, TT256M1)) == 0
 
   # Give them 1600 ether
   genesis.set_storage Config::ETHER, addr, 1600.ether
@@ -159,3 +158,20 @@ keys.each_with_index do |k, i|
   vcode2 = genesis.call_method Config::CASPER, casper_ct, 'getGuardianValidationCode', [index]
   raise AssertError, "incorrect casper validation code" unless vcode2 == vcode
 end
+
+# Give secondary keys some ether
+second_keys = ((MAX_NODES-2)...MAX_NODES).map {|i| Utils.zpad_int(i+1) }
+second_keys.each_with_index do |k, i|
+  addr = ECDSAAccount.privtoaddr k
+  raise AssertError, "already initialized" unless Utils.big_endian_to_int(genesis.get_storage(addr, TT256M1)) == 0
+
+  genesis.set_storage Config::ETHER, addr, 1600.ether
+end
+
+# Set the staring RNG seed to equal to number of casper guardians
+genesis.set_storage Config::RNGSEEDS, Utils.zpad_int(TT256M1), genesis.get_storage(Config::CASPER, 0)
+t = NetworkSimulator::START_TIME + 5
+genesis.set_storage Config::GENESIS_TIME, Utils.zpad_int(0), t
+puts "\n\n\n**************************************"
+puts "genesis time #{t}"
+puts "**************************************\n\n\n"

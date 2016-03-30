@@ -20,6 +20,8 @@ Gem::Specification.new do |s|
   s.add_dependency('ffi', '>= 1.9.10')
   s.add_dependency('digest-sha3', '~> 1.1')
   s.add_dependency('logging', '~> 2.0')
+  s.add_dependency('gsl', '~> 2.1')
+  s.add_dependency('distribution', '~> 0.7')
 
   s.add_development_dependency('rake', '~> 10.5')
   s.add_development_dependency('minitest', '5.8.3')
