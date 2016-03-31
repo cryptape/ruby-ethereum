@@ -1,5 +1,6 @@
 # -*- encoding : ascii-8bit -*-
 
+require_relative 'guardian/opinion'
 require_relative 'guardian/default_bet_strategy'
 
 module Ethereum

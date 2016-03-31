@@ -157,6 +157,12 @@ puts "**************************************\n\n\n"
 
 # Create betting strategy objects for every guardian
 mk_bet_strategy = lambda do |state, index, key|
-
+  Guardian::DefaultBetStrategy.new(state.clone, key,
+                                  clockwrong: index >= 1 && index < CLOCKWRONG_CUMUL,
+                                  bravery: index >= CLOCKWRONG_CUMUL && index < BRAVE_CUMUL ? 0.997 : 0.92,
+                                  crazy_bet: index >= BRAVE_CUMUL && index < CRAZYBET_CUMUL,
+                                  double_block_suicide: index >= CRAZYBET_CUMUL && index < DBL_BLK_SUICIDE_CUMUL ? 5 : 2**80,
+                                  double_bet_suicide: index >= DBL_BLK_SUICIDE_CUMUL && index < DBL_BET_SUICIDE_CUMUL ? 1 : 2**80)
 end
-Guardian::DefaultBetStrategy.new(genesis, "\x01"*32)
+
+bets = keys.each_with_index.map {|k,i| mk_bet_strategy.call genesis, i, k }

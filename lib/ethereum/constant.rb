@@ -33,7 +33,7 @@ module Ethereum
     BLOOM = 2**32
     GASLIMIT = 4712388 # Pau million
 
-    ENTRY_EXIT_DELAY = 110 # must be set in Casper contract as well
+    ENTER_EXIT_DELAY = 110 # must be set in Casper contract as well
     VALIDATOR_ROUNDS = 5 # must be set in Casper contract as well
 
     MAXSHARDS = 65536

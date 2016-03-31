@@ -108,7 +108,7 @@ module Ethereum
         @min_gas_price = min_gas_price # minimum gas price I accept
 
         # Create my guardian set
-        #update_guardian_set genesis_state
+        update_guardian_set genesis_state
         Utils.debug "Found #{@opinions.size} guardians in genesis"
 
         # The height at which this guardian is added
@@ -131,6 +131,58 @@ module Ethereum
 
         # Am I byzantine?
         @byzantine = @crazy_bet || @double_block_suicide < 2**80 || @double_bet_suicide < 2**80
+      end
+
+      private
+
+      def update_guardian_set(check_state)
+        check_state.call_casper('getNextGuardianIndex', []).times do |i|
+          ctr = check_state.call_casper('getGuardianCounter', [i])
+          if @counters[ctr].nil? # found new guardian!
+            @counters[ctr] = 1
+
+            ih = check_state.call_casper 'getGuardianInductionHeight', [i]
+            valaddr = check_state.call_casper 'getGuardianAddress', [i]
+            valcode = check_state.call_casper 'getGuardianValidationCode', [i]
+
+            @opinions[i] = Opinion.new valcode, i, WORD_ZERO, 0, ih
+            @opinions[i].deposit_size = check_state.call_casper 'getGuardianDeposit', [i]
+            Utils.debug "Guardian inducted", index: i, address: valaddr, my_index: @index
+
+            @bets[i] = {}
+            @highest_bet_processed[i] = -1
+
+            if valaddr == Utils.encode_hex(@addr) # it's me!
+              @index = i
+              add_proposers
+              @induction_height = ih
+              Utils.debug "I have been inducted!", index: @index
+            end
+          end
+        end
+
+        Utils.debug "Tracking #{@opinions.size} opinions"
+      end
+
+      def add_proposers
+        h = @finalized_hashes.size - 1
+        while h >= 0 && [nil, WORD_ZERO].include?(@stateroots[h])
+          h -= 1
+        end
+
+        hs = h >= 0 ? @stateroots[h] : @genesis_state_root
+        state = State.new hs, @db
+
+        maxh = h + ENTER_EXIT_DELAY - 1
+        (@proposers.size...maxh).each do |h|
+          @proposers.push Casper.get_guardian_index(state, h)
+          if @proposers.last == @index
+            @next_block_to_produce = h
+            return
+          end
+        end
+
+        @next_block_to_produce = nil
       end
 
     end

@@ -4,6 +4,20 @@ module Ethereum
   class Casper
 
     class <<self
+      def gvi_cache
+        @gvi_cache ||= {}
+      end
+
+      def get_guardian_index(state, blknum)
+        unless gvi_cache.has_key?(blknum)
+          n = blknum >= Constant::ENTER_EXIT_DELAY ? blknum - Constant::ENTER_EXIT_DELAY : 2**256-1
+          preseed = state.get_storage Config::RNGSEEDS, n
+          gvi_cache[blknum] = state.call_casper 'sampleGuardian', [preseed, blknum], gas: 3000000
+        end
+
+        gvi_cache[blknum]
+      end
+
       def file
         @file ||= File.expand_path('../casper.se.py', __FILE__)
       end
