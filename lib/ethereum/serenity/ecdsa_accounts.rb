@@ -126,6 +126,21 @@ module Ethereum
         "#{Utils.zpad_int(v)}#{Utils.zpad_int(r)}#{Utils.zpad_int(s)}#{data}"
       end
 
+      def sign_block(block, key)
+        sigdata = Utils.keccak256(Utils.zpad_int(block.number) + block.txroot)
+        v, r, s = Secp256k1.ecdsa_raw_sign sigdata, key
+        block.sig = [v,r,s].map{|i| Utils.zpad_int(i) }.join
+        block
+      end
+
+      def sign_bet(bet, key)
+        bet.sig = Constant::BYTE_EMPTY
+        sigdata = Utils.keccak256 bet.serialize[0..-32]
+        v, r, s = Secp256k1.ecdsa_raw_sign sigdata, key
+        bet.sig = [v,r,s].map{|i| Utils.zpad_int(i) }.join
+        bet
+      end
+
     end
 
   end

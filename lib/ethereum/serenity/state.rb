@@ -14,6 +14,8 @@ module Ethereum
 
     attr :db
 
+    @@transition_cache_map = {}
+
     def initialize(state_root, db)
       @db = db
 
@@ -53,6 +55,95 @@ module Ethereum
 
     def call_casper(fun, args, gas: 1000000)
       call_method CASPER, Casper.contract, fun, args, gas: gas
+    end
+
+    # Accepts any state less thatn ENTER_EXIT_DELAY blocks old
+    def block_valid?(block)
+      guardian_index = Casper.get_guardian_index self, block.number
+      guardian_address = call_casper, 'getGuardianAddress', [guardian_index]
+      guardian_code = call_casper, 'getGuardianValidationCode', [guardian_index]
+      raise AssertError, "guardian code must be bytes" unless guardian_code.instance_of?(String)
+
+      # Check block proposer correctness
+      if block.proposer != Utils.normalize_address(guardian_address)
+        Utils.debug "Block proposer check for #{block.number} failed: actual #{Utils.encode_hex(block.proposer)} desired #{guardian_address}"
+        return false
+      end
+
+      # Check signature correctness
+      cd = VM::CallData.new Utils.bytes_to_int_array(Utils.keccak256(Utils.zpad_int(block.number) + block.txroot) + block.sig), 0, 32+block.sig.size
+      message = VM::Message.new NULL_SENDER, Address::ZERO, 0, 1000000, cd
+      _, _, signature_check_result = VM::StaticCall.instance.apply_msg message, guardian_code
+      if signature_check_result != [0]*31 + [1]
+        Utils.debug "Block signature check failed. Actual result: #{signature_check_result}"
+        return false
+      end
+
+      true
+    end
+
+    ##
+    # Processes a block on top of a state to reach a new state
+    #
+    def block_state_transition(block, listeners: [])
+      pre = root
+
+      # Determine the current block number, block proposer and block hash
+      blknumber = Utils.big_endian_to_int get_storage(BLKNUMBER, 0)
+      blkproposer = block ? block.proposer : "\x00"*ADDR_BYTES
+      blkhash = block ? block.full_hash : WORD_ZERO
+
+      if blknumber.true?
+        set_storage STATEROOTS, Utils.zpad_int(blknumber-1), pre
+      end
+
+      set_storage PROPOSER, 0, blkproposer
+
+      if block
+        raise AssertError, 'invalid block number' unless block.number == blknumer
+
+        # Initialize the GAS_CONSUMED variable to **just** the sum of intrinsic
+        # gas of each transaction (ie. tx data consumption only, not computation)
+        block.summaries.zip(block.transaction_groups).each do |s, g|
+          c_exstate = Utils.shardify EXECUTION_STATE, s.left_bound
+          c_log = Utils.shardify LOG, s.left_bound
+
+          # Set the txindex to 0 to start off
+          set_storage c_exstate, TXINDEX, 0
+
+          # Initialize the gas remaining variable
+          set_gas_limit s.gas_limit - s.intrinsic_gas, s.left_bound
+
+          tx_sum = block.transaction_groups.map(&:size).reduce(0, &:+)
+          gas_sum = block.summaries.map(&:intrinsic_gas).reduce(0, &:+)
+          puts "Block #{blknumer} contains #{tx_sum} transactions and #{gas_sum} intrinsic gas"
+          g.each do |tx|
+            tx_state_transition tx, left_bound: s.left_bound, right_bound: s.right_bound, listeners: listeners
+          end
+          raise AssertError, 'txindex mismatch' unless Utils.big_endian_to_int(get_storage(c_exstate, TXINDEX)) == g.size
+
+          g.size.times {|i| raise AssertError, 'missing log' unless get_storage(c_log, i).true? }
+        end
+      end
+
+      set_storage BLOCKHASHES, Utils.zpad_int(blknumer), blkhash
+      set_storage BLKNUMBER, 0, Utils.zpad_int(blknumer + 1) # put next block number in storage
+
+      # Update the RNG seed (the lower 64 bits contains the number of
+      # validators, the upper 192 bits are pseudorandom)
+      seed_index = blknumber.true? ? Utils.zpad_int(blknumer-1) : WORD_ZERO
+      prevseed = get_storage RNGSEEDS, seed_index
+      newseed = Utils.big_endian_to_int Utils.keccak256(prevseed + blkproposer)
+      newseed = newseed - (newseed % 2**64) + Utils.big_endian_to_int(get_storage(CASPER, 0))
+      set_storage RNGSEEDS, Utils.zpad_int(blknumer), newseed
+
+      # Consistency checking
+      check_key = pre + (block ? block.full_hash : nil)
+      if @@transition_cache_map.has_key?(check_key)
+        raise AssertError, 'inconsistent block transition' unless @@transition_cache_map[check_key] == root
+      else
+        @@transition_cache_map[check_key] = root
+      end
     end
 
     def tx_state_transition(tx, left_bound: 0, right_bound: MAXSHARDS, listeners: [], breaking: false, override_gas: 2**255)

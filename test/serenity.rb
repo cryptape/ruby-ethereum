@@ -197,3 +197,22 @@ tx4 = ECDSAAccount.mk_transaction 2, 25.shannon, 2000000, Config::CREATOR, 0, ri
 bets[0].add_transaction tx4
 check_txs.push tx4
 puts "Ringsig account address #{Utils.encode_hex(ringsig_account_addr)}"
+
+# Status verifier
+check_correctness = lambda do |bets|
+  min_mfh += 1
+end
+
+# Keep running until the min finalized height reaches 20
+loop do
+  n.run 25, sleep: 0.25
+  check_correctness.call bets
+
+  if min_mfh >= 36
+    puts 'Reached breakpoint'
+    break
+  end
+
+  puts "Min mfh: #{min_mfh}"
+  puts "Peer lists: #{bets.map {|b| n.peers[b.id].map(&:id) }}"
+end
