@@ -166,3 +166,34 @@ mk_bet_strategy = lambda do |state, index, key|
 end
 
 bets = keys.each_with_index.map {|k,i| mk_bet_strategy.call genesis, i, k }
+
+min_mfh = -1 # Minimum max finalized height
+check_txs = [] # Transactions to status report on
+
+# Simulate a network
+n = NetworkSimulator.new latency: 4, agents: bets, broadcast_success_rate: 0.9
+n.generate_peers 5
+bets.each {|b| b.network = n }
+
+# Submitting ring sig contract as a transaction
+puts "submitting ring sig contract\n\n"
+ringsig_addr = Utils.mk_contract_address sender: bets[0].addr, code: ringsig_code
+puts "Ringsig address #{Utils.encode_hex(ringsig_addr)}"
+
+tx3 = ECDSAAccount.mk_transaction 1, 25.shannon, 2000000, Config::CREATOR, 0, ringsig_code, bets[0].key
+bets[0].add_transaction tx3
+check_txs.push tx3
+
+ringsig_account_source = <<EOF
+def init():
+    sstore(0, #{Utils.big_endian_to_int(ringsig_addr)})
+    sstore(1, #{Utils.big_endian_to_int(ringsig_addr)})
+#{ECDSAAccount.mandatory_account_source}
+EOF
+ringsig_account_code = Serpent.compile(ringsig_account_source)
+ringsig_account_addr = Utils.mk_contract_address sender: bets[0].addr, code: ringsig_account_code
+
+tx4 = ECDSAAccount.mk_transaction 2, 25.shannon, 2000000, Config::CREATOR, 0, ringsig_account_code, bets[0].key
+bets[0].add_transaction tx4
+check_txs.push tx4
+puts "Ringsig account address #{Utils.encode_hex(ringsig_account_addr)}"

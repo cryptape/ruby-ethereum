@@ -8,6 +8,10 @@ module Ethereum
       include Constant
       include Config
 
+      attr :id, :key, :addr
+
+      attr_accessor :network
+
       def initialize(genesis_state, key,
                      clockwrong: false, bravery: 0.92, crazy_bet: false,
                      double_block_suicide: 2**200, double_bet_suicide: 2**200,
@@ -131,6 +135,26 @@ module Ethereum
 
         # Am I byzantine?
         @byzantine = @crazy_bet || @double_block_suicide < 2**80 || @double_bet_suicide < 2**80
+      end
+
+      def add_transaction(tx, track: false)
+        if !@objects.has_key?(tx.full_hash) || (@time_received.fetch(tx.full_hash, 0) < now - 15)
+          Utils.debug "Received transaction", hash: Utils.encode_hex(tx.full_hash)[0,16]
+
+          @objects[tx.full_hash] = tx
+          @time_received[tx.full_hash] = now
+          @txpool[tx.full_hash] = tx
+          if track
+            @tracked_tx_hashes.push tx.full_hash
+          end
+
+          nm = NetworkMessage.new :transaction, [RLP.encode(tx)]
+          @network.broadcast(self, RLP.encode(nm))
+        end
+      end
+
+      def now
+        @network.now
       end
 
       private

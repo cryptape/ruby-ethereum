@@ -17,7 +17,7 @@ module Ethereum
 
     set_serializable_fields(
       header: BlockHeader,
-      summaries: RLP::Sedes::CountableList.new(sedes: TransactionGroupSummary),
+      summaries: RLP::Sedes::CountableList.new(TransactionGroupSummary),
       transaction_groups: RLP::Sedes::CountableList.new(
         RLP::Sedes::CountableList.new(Transaction))
     )
