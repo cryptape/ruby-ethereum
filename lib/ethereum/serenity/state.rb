@@ -138,7 +138,7 @@ module Ethereum
       set_storage RNGSEEDS, Utils.zpad_int(blknumber), newseed
 
       # Consistency checking
-      check_key = pre + (block ? block.full_hash : nil)
+      check_key = pre + (block ? block.full_hash : 'NONE')
       if @@transition_cache_map.has_key?(check_key)
         raise AssertError, 'inconsistent block transition' unless @@transition_cache_map[check_key] == root
       else

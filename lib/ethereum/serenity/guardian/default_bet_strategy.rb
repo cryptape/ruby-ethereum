@@ -13,7 +13,11 @@ module Ethereum
 
       BRAVERY = 0.9375
 
-      attr :id, :key, :addr
+      attr :db, :id, :key, :addr, :calc_state_roots_from, :byzantine, :objects,
+        :seq, :prevhash, :last_bet_made, :max_finalized_height, :stateroots,
+        :opinions, :bets, :probs, :withdrawn, :index, :blocks, :finalized_hashes,
+        :last_block_produced, :next_block_to_produce, :former_index, :proposers,
+        :induction_height, :unconfirmed_txindex, :finalized_txindex, :tx_exceptions
 
       attr_accessor :network
 
@@ -389,6 +393,29 @@ module Ethereum
         network.now
       end
 
+      # Make a bet that signifies that we do not want to make any more bets
+      def withdraw
+        o = ECDSAAccount.sign_bet Bet.new(@index, 2**256-1, [], [], [], [], @prevhash, @seq, ''), @key
+
+        payload = RLP.encode NetworkMessage.new(:bet, [o.serialize])
+        @prevhash = o.full_hash
+        @seq += 1
+        network.broadcast self, payload
+
+        receive_bet o
+        @former_index = @index
+        @index = -1
+        @withdrawn = true
+      end
+
+      # Take one's ether out
+      def finalizeWithdrawal
+        txdata = Casper.contract.encode 'withdraw', [@former_index]
+        tx = ECDSAAccount.mk_transaction 0, 1, 1000000, Casper, 0, txdata, k, create: true
+        v = genesis.tx_state_transition tx
+        # TODO: not finished
+      end
+
       private
 
       # Compute as many state roots as possible
@@ -594,7 +621,7 @@ module Ethereum
           )
 
           # Do we need to ask for a block from the network?
-          if ask && !@last_asked_for_block.has_key?(new_block_hash) && (@last_asked_for_block[new_block_hash] < now + 12)
+          if ask && (!@last_asked_for_block.has_key?(new_block_hash) || (@last_asked_for_block[new_block_hash] < now + 12))
             Utils.debug "Suspiciously missing a block, asking for it explicitly.", number: h, hash: Utils.encode_hex(new_block_hash)[0,16]
             network.broadcast self, RLP.encode(NetworkMessage.new(:getblock, [new_block_hash]))
             @last_asked_for_block[new_block_hash] = now

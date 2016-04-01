@@ -200,14 +200,137 @@ puts "Ringsig account address #{Utils.encode_hex(ringsig_account_addr)}"
 
 # Status verifier
 check_correctness = lambda do |bets|
-  min_mfh += 1
+  puts "*"*100
+
+  # Max finalized heights for each bettor strategy
+  mfhs = bets.select {|b| !b.byzantine }.map {|b| b.max_finalized_height }
+  mchs = bets.select {|b| !b.byzantine }.map {|b| b.calc_state_roots_from }
+  mfchs = bets.select {|b| !b.byzantine }.map {|b| [b.max_finalized_height, b.calc_state_roots_from].min }
+  new_min_mfh = mfchs.min
+
+  puts "Max finalized heights: #{bets.map {|b| b.max_finalized_height }}"
+  puts "Max calculated stateroots: #{bets.map {|b| b.calc_state_roots_from }}"
+  puts "Max height received: #{bets.map {|b| b.blocks.size }.max}"
+
+  puts "Registered induction heights: #{bets.map {|b| b.opinions.values.map {|op| op.induction_height } }}"
+  puts "Withdrawn?: #{bets.map {|b| [b.withdrawn, b.seq] }}"
+
+  # Data about bets from each guardian according to every other guardian
+  puts "Now: %.2f" % n.now
+  puts "According to each guardian ..."
+  bets.each do |bet|
+    bets_received = bet.opinions.values.map {|op| op.withdrawn ? "#{op.seq} (withdrawn)" : op.seq.to_s }
+    blocks_received = bet.blocks.map {|b| b.true? ? '1' : '0' }.join
+    puts "(#{bet.index}) Bets received: #{bets_received}, blocks received: #{blocks_received}. Last bet made: %.2f." % bet.last_bet_made
+    puts "Probs (in 0-255 repr, from #{new_min_mfh+1}): #{bet.probs[(new_min_mfh+1)..-1].map {|x| Guardian.encode_prob(x).ord }}"
+  end
+
+  puts "Indices: #{bets.map {|b| b.index }}"
+  puts "Blocks received: #{bets.map {|b| b.blocks.size }}"
+  puts "Blocks missing: #{bets.map {|b| b.blocks.select {|blk| blk.false? } }}"
+
+  # Make sure all block hashes for all heights up to the minimum finalized
+  # height are the same
+  puts "Verifying finalized block hash equivalence"
+  (1...bets.size).each do |j|
+    if !bets[j].byzantine && !bets[j-1].byzantine
+      j_hashes = bets[j].finalized_hashes[0, new_min_mfh+1]
+      jm1_hashes = bets[j-1].finalized_hashes[0, new_min_mfh+1]
+      raise AssertError, 'finalized block hash mismatch' unless j_hashes == jm1_hashes
+    end
+  end
+
+  # Checks state roots for finalized heights and makes sure that they are
+  # consistent
+  puts "Verifying finalized state root correctness"
+  root = min_mfh < 0 ? genesis.root : bets[0].stateroots[min_mfh]
+  state = State.new root, DB::OverlayDB.new(bets[0].db)
+  bets.each do |b|
+    unless b.byzantine
+      new_min_mfh.times do |i|
+        raise AssertError, 'missing finalized state root' if [Constant::WORD_ZERO, nil].include?(b.stateroots[i])
+      end
+    end
+  end
+
+  puts "Executing blocks #{min_mfh+1} to #{[min_mfh, new_min_mfh].max + 1}"
+  ((min_mfh+1)...([min_mfh, new_min_mfh].max+1)).each do |i|
+    raise AssertError, 'state root mismatch' unless (i > 0 ? state.root == bets[0].stateroots[i-1] : genesis.root)
+
+    j = bets.size - 1
+    fh = bets[0].finalized_hashes[i]
+    block = fh != Constant::WORD_ZERO ? bets[j].objects[fh] : nil
+    block0 = fh != Constant::WORD_ZERO ? bets[0].objects[fh] : nil
+    raise AssertError, "block mistmatch" unless block == block0
+
+    state.block_state_transition block, listeners: [my_listen]
+    if state.root != bets[0].stateroots[i] && i != [min_mfh, new_min_mfh].max
+      puts bets[0].calc_state_roots_from, bets[j].calc_state_roots_from
+      puts bets[0].max_finalized_height, bets[j].max_finalized_height
+      puts "my state #{state.to_h}"
+      puts "given state #{State.new(bets[0].stateroots[i], bets[0].db).to_h}"
+      puts "block #{RLP.encode(block)}"
+
+      puts "State root mismatch at block #{i}!"
+      puts "state.root: #{Utils.encode_hex(state.root)}\n"
+      puts "bet: #{Utils.encode_hex(bets[0].stateroots[i])}"
+
+      raise AssertError, "inconsistent block state transition"
+    end
+  end
+
+  min_mfh = new_min_mfh
+  puts "Min common finalized height: #{new_min_mfh}, integrity checks passed"
+
+  # Last and next blocks to propose by each guardian
+  puts "Last block created: #{bets.map {|b| b.last_block_produced }}"
+  puts "Next blocks to create: #{bets.map {|b| b.next_block_to_produce }}"
+
+  # Assert equivalence of proposer lists
+  min_proposer_length = bets.map {|b| b.proposers.size }.min
+  bets.each do |bet|
+    raise AssertError, 'inconsistent proposers lits' unless bet.proposers[0, min_proposer_length] == bets[0].proposers[0, min_proposer_length]
+  end
+
+  # Guardian sequence numbers as seen by themselves
+  puts "Guardian seqs online: #{bets.map {|b| b.seq }}"
+  # Guardian sequence numbers as recorded in the chain
+  seqs = bets.map {|b| state.call_method Config::CASPER, Casper.contract, 'getGuardianSeq', [b.index >= 0 ? b.index : b.former_index] }
+  puts "Guardian seqs on finalized chain (#{new_min_mfh}): #{seqs}"
+
+  h = 0
+  while h < bets[3].stateroots.size && ![nil, Constant::WORD_ZERO].include?(bets[3].stateroots[h])
+    h += 1
+  end
+
+  root = h.true? ? bets[3].stateroots[h-1] : genesis.root
+  speculative_state = State.new root, DB::OverlayDB.new(bets[3].db)
+  seqs = bets.map {|b| speculative_state.call_method Config::CASPER, Casper.contract, 'getGuardianSeq', [b.index >= 0 ? b.index : b.former_index] }
+  puts "Guardian seqs on speculative chain (#{h-1}): #{seqs}"
+
+  # Guardian deposit sizes (over 1500.ether means profit)
+  deposits = bets.select {|b| b.index >= 0 }.map {|b| state.call_method Config::CASPER, Casper.contract, 'getGuardianDeposit', [b.index] }
+  puts "Guardian deposit sizes: #{deposits}"
+  gains = bets.select {|b| b.index >= 0 }.map {|b| state.call_method(Config::CASPER, Casper.contract, 'getGuardianDeposit', [b.index]) - 1500.ether + 47/10**9 * 1500.ether * min_mfh }
+  puts "Estimated guardian excess gains: #{gains}"
+
+  bets.each do |bet|
+    if bet.index >= 0 && Utils.big_endian_to_int(state.get_storage(Config::BLKNUMBER, Constant::WORD_ZERO)) >= bet.induction_height
+      raise AssertError, '' unless state.call_method(Config::CASPER, Casper.contract, 'getGuardianDeposit', [bet.index]) >= 1499.ether || bet.byzantine
+    end
+
+    puts "Account signing nonces: #{bets.map {|b| Utils.big_endian_to_int(state.get_storage(b.addr, Utils.zpad_int(2**256-1))) }}"
+    puts "Transaction status in unconfirmed_txindex: #{check_txs.map {|tx| bets[0].unconfirmed_txindex.fetch(tx.full_hash, nil) ? '1' : '0' }.join}"
+    puts "Transaction status in finalized_txindex: #{check_txs.map {|tx| bets[0].finalized_txindex.fetch(tx.full_hash, nil) ? '1' : '0' }.join}"
+    puts "Transaction exceptions: #{check_txs.map {|tx| bets[0].tx_exceptions.fetch(tx.full_hash, 0).to_s }.join}"
+  end
 end
 
 # Keep running until the min finalized height reaches 20
 loop do
   n.run 25, sleep: 0.25
-  raise "hoooooooo yeahhhhhhhhhhhhhhhhh !!!!!!!!!!!!!!!!!!"
   check_correctness.call bets
+  raise "hoooooooo yeahhhhhhhhhhhhhhhhh !!!!!!!!!!!!!!!!!!"
 
   if min_mfh >= 36
     puts 'Reached breakpoint'
