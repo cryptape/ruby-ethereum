@@ -17,7 +17,15 @@ module Ethereum
 
     include Constant
 
-    def initialize(addr, gas, left_bound: 0, right_bound: MAXSHARDS, data: BYTE_EMPTY, code: BYTE_EMPTY)
+    # (addr, gas, left_bound: 0, right_bound: MAXSHARDS, data: BYTE_EMPTY, code: BYTE_EMPTY)
+    def initialize(params)
+      addr = params.delete(:addr)
+      gas = params.delete(:gas)
+      left_bound = params.delete(:left_bound) || 0
+      right_bound = params.delete(:right_bound) || MAXSHARDS
+      data = params.delete(:data) || BYTE_EMPTY
+      code = params.delete(:code) || BYTE_EMPTY
+
       addr = addr || Utils.shardify(generate_address(code), left_bound)
 
       super(addr: addr, gas: gas,

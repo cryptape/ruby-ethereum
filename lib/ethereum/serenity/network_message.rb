@@ -12,8 +12,12 @@ module Ethereum
 
     TYPES = %i(list block bet bet_request transaction getblock getblocks blocks).each_with_index.map {|t, i| [t, i] }.to_h.freeze
 
-    def initialize(type, args)
-      super(TYPES[type], args)
+    def initialize(*args)
+      if args.first.instance_of?(Symbol)
+        super(TYPES[args[0]], args[1])
+      else
+        super(*args)
+      end
     end
 
   end

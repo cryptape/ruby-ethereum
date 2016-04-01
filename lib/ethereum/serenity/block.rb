@@ -10,6 +10,9 @@ module Ethereum
   #
   class Block
 
+    include Constant
+    include Config
+
     extend Forwardable
     def_delegators :header, :full_hash, :number, :number=, :sig, :sig=, :proposer, :proposer=, :txroot
 

@@ -48,7 +48,7 @@ gc = genesis.clone
 casper_ct = Casper.contract
 
 # Deploy Casper contract
-gc.tx_state_transition Transaction.new(nil, 4000000, data: Constant::BYTE_EMPTY, code: Casper.code)
+gc.tx_state_transition Transaction.new(addr: nil, gas: 4000000, data: Constant::BYTE_EMPTY, code: Casper.code)
 genesis.put_code Config::CASPER, gc.get_code(Utils.mk_contract_address(code: Casper.code))
 puts "Casper loaded"
 
@@ -59,13 +59,13 @@ ringsig_ct = ABI::ContractTranslator.new Serpent.mk_full_signature(ringsig_file)
 
 # Deploy ecrecover account code
 code = ECDSAAccount.constructor_code
-gc.tx_state_transition Transaction.new(nil, 1000000, data: Constant::BYTE_EMPTY, code: code)
+gc.tx_state_transition Transaction.new(addr: nil, gas: 1000000, data: Constant::BYTE_EMPTY, code: code)
 genesis.put_code Config::ECRECOVERACCT, gc.get_code(Utils.mk_contract_address(code: code))
 puts "ECRECOVERACCT loaded"
 
 # Deploy EC sender code
 code = ECDSAAccount.runner_code
-gc.tx_state_transition Transaction.new(nil, 1000000, data: Constant::BYTE_EMPTY, code: code)
+gc.tx_state_transition Transaction.new(addr: nil, gas: 1000000, data: Constant::BYTE_EMPTY, code: code)
 genesis.put_code Config::BASICSENDER, gc.get_code(Utils.mk_contract_address(code: code))
 puts "BASICSENDER loaded"
 
@@ -206,6 +206,7 @@ end
 # Keep running until the min finalized height reaches 20
 loop do
   n.run 25, sleep: 0.25
+  raise "hoooooooo yeahhhhhhhhhhhhhhhhh !!!!!!!!!!!!!!!!!!"
   check_correctness.call bets
 
   if min_mfh >= 36

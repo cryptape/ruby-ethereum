@@ -9,6 +9,8 @@ module Ethereum
     #
     class Opinion
 
+      attr :index, :seq, :prevhash, :blockhashes, :stateroots, :probs, :stateroot_probs, :induction_height, :withdrawal_height, :withdrawn
+
       attr_accessor :deposit_size
 
       def initialize(validation_code, index, prevhash, seq, induction_height)

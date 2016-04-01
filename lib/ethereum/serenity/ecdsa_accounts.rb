@@ -98,7 +98,7 @@ module Ethereum
 
         s = State.new Trie::BLANK_NODE, DB::EphemDB.new
         s.set_gas_limit 10**9
-        s.tx_state_transition Transaction.new(nil, 1000000, data: Constant::BYTE_EMPTY, code: code)
+        s.tx_state_transition Transaction.new(addr: nil, gas: 1000000, data: Constant::BYTE_EMPTY, code: code)
 
         s.get_code Utils.mk_contract_address(code: code)
       end
@@ -113,7 +113,7 @@ module Ethereum
         addr = Utils.mk_contract_address code: code
         data = sign_txdata mk_txdata(seq, gasprice, to, value, data), gas, key
 
-        Transaction.new(addr, gas, data: data, code: code)
+        Transaction.new(addr: addr, gas: gas, data: data, code: code)
       end
 
       def mk_txdata(seq, gasprice, to, value, data)

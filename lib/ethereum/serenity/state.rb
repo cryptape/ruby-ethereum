@@ -60,8 +60,8 @@ module Ethereum
     # Accepts any state less thatn ENTER_EXIT_DELAY blocks old
     def block_valid?(block)
       guardian_index = Casper.get_guardian_index self, block.number
-      guardian_address = call_casper, 'getGuardianAddress', [guardian_index]
-      guardian_code = call_casper, 'getGuardianValidationCode', [guardian_index]
+      guardian_address = call_casper 'getGuardianAddress', [guardian_index]
+      guardian_code = call_casper 'getGuardianValidationCode', [guardian_index]
       raise AssertError, "guardian code must be bytes" unless guardian_code.instance_of?(String)
 
       # Check block proposer correctness
@@ -100,7 +100,7 @@ module Ethereum
       set_storage PROPOSER, 0, blkproposer
 
       if block
-        raise AssertError, 'invalid block number' unless block.number == blknumer
+        raise AssertError, 'invalid block number' unless block.number == blknumber
 
         # Initialize the GAS_CONSUMED variable to **just** the sum of intrinsic
         # gas of each transaction (ie. tx data consumption only, not computation)
@@ -116,7 +116,7 @@ module Ethereum
 
           tx_sum = block.transaction_groups.map(&:size).reduce(0, &:+)
           gas_sum = block.summaries.map(&:intrinsic_gas).reduce(0, &:+)
-          puts "Block #{blknumer} contains #{tx_sum} transactions and #{gas_sum} intrinsic gas"
+          puts "Block #{blknumber} contains #{tx_sum} transactions and #{gas_sum} intrinsic gas"
           g.each do |tx|
             tx_state_transition tx, left_bound: s.left_bound, right_bound: s.right_bound, listeners: listeners
           end
@@ -126,16 +126,16 @@ module Ethereum
         end
       end
 
-      set_storage BLOCKHASHES, Utils.zpad_int(blknumer), blkhash
-      set_storage BLKNUMBER, 0, Utils.zpad_int(blknumer + 1) # put next block number in storage
+      set_storage BLOCKHASHES, Utils.zpad_int(blknumber), blkhash
+      set_storage BLKNUMBER, 0, Utils.zpad_int(blknumber + 1) # put next block number in storage
 
       # Update the RNG seed (the lower 64 bits contains the number of
       # validators, the upper 192 bits are pseudorandom)
-      seed_index = blknumber.true? ? Utils.zpad_int(blknumer-1) : WORD_ZERO
+      seed_index = blknumber.true? ? Utils.zpad_int(blknumber-1) : WORD_ZERO
       prevseed = get_storage RNGSEEDS, seed_index
       newseed = Utils.big_endian_to_int Utils.keccak256(prevseed + blkproposer)
       newseed = newseed - (newseed % 2**64) + Utils.big_endian_to_int(get_storage(CASPER, 0))
-      set_storage RNGSEEDS, Utils.zpad_int(blknumer), newseed
+      set_storage RNGSEEDS, Utils.zpad_int(blknumber), newseed
 
       # Consistency checking
       check_key = pre + (block ? block.full_hash : nil)

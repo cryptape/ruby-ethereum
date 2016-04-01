@@ -29,7 +29,7 @@ module Ethereum
           end
 
           mantissa = (q*4 - 3.9999).to_i
-          [[255, exp*4 + 128 + mantissa].min, 0].max.chr
+          return [[255, exp*4 + 128 + mantissa].min, 0].max.chr
         end
       end
 

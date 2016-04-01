@@ -11,6 +11,8 @@ module Ethereum
       MAX_RECALC = 9
       MAX_LONG_RECALC = 14
 
+      BRAVERY = 0.9375
+
       attr :id, :key, :addr
 
       attr_accessor :network
@@ -65,7 +67,8 @@ module Ethereum
         @txpool = {} # Pool of transactions worth including
 
         # Map of hash -> (tx, [(blknum, index), ...]) for transactions that are
-        # in blocks that are not fully confirmed
+        # in blocks that are not-fully/fully confirmed
+        @unconfirmed_txindex = {}
         @finalized_txindex = {}
 
         # Counter for number of times a transaction entered an exceptional
@@ -269,7 +272,7 @@ module Ethereum
           bytes1 = RLP.encode @blocks[block.number].header
           bytes2 = RLP.encode block.header
 
-          new_tx = Transaction.new(CASPER, 500000+1000*bytes1.size+1000*bytes2.size, data: Casper.contract.encode('slashBlocks', [bytes1, bytes2]))
+          new_tx = Transaction.new(addr: CASPER, gas: 500000+1000*bytes1.size+1000*bytes2.size, data: Casper.contract.encode('slashBlocks', [bytes1, bytes2]))
           add_transaction new_tx, track: true
         end
 
@@ -320,7 +323,7 @@ module Ethereum
           bytes1 = @bets[bet.index][bet.seq].serialize
           bytes2 = bet.serialize
 
-          new_tx = Transaction.new(CASPER, 500000 + 1000*bytes1.size + 1000*bytes2.size,
+          new_tx = Transaction.new(addr: CASPER, gas: 500000 + 1000*bytes1.size + 1000*bytes2.size,
                                    data: Casper.contract.encode('slashBets', [bytes1, bytes2]))
 
           add_transaction new_tx, track: true
@@ -337,7 +340,7 @@ module Ethereum
 
         proc = 0
         while @bets[bet.index].include?((@highest_bet_processed[bet.index] + 1))
-          result = @opinions[bet.index].process_bet(@bets[bet.index][@highest_bet_processed[@bet.index]+1])
+          result = @opinions[bet.index].process_bet(@bets[bet.index][@highest_bet_processed[bet.index]+1])
           raise AssertError, 'failed to process bet' unless result.true?
 
           @highest_bet_processed[bet.index] += 1
@@ -395,7 +398,7 @@ module Ethereum
         Utils.debug "recalculating", limit: recalc_limit, want: @blocks.size - from
 
         run_state = get_state_at_height from-1
-        (from...@blocks.size)[0,recalc_limit].each do |h|
+        (from...@blocks.size).to_a.safe_slice(0,recalc_limit).each do |h|
           prevblknum = Utils.big_endian_to_int run_state.get_storage(BLKNUMBER, WORD_ZERO)
           raise AssertError, "block number mismatch" unless h == prevblknum
 
@@ -442,7 +445,7 @@ module Ethereum
           h += 1
         end
 
-        latest_state_root = h > 0 ? @stateroots[h-1] : genesis_state_root
+        latest_state_root = h > 0 ? @stateroots[h-1] : @genesis_state_root
         raise AssertError, 'invalid state root' if [nil, WORD_ZERO].include?(latest_state_root)
 
         latest_state = State.new latest_state_root, @db
@@ -457,7 +460,7 @@ module Ethereum
             Utils.debug "inserting bet", seq: latest_bet, index: i
 
             bet = @bets[i][bet_height]
-            new_tx = Transaction.new CASPER, 200000 + 6600*bet.probs.size + 10000*(bet.blockhashes.size + bet.stateroots.size), data: bet.serialize
+            new_tx = Transaction.new addr: CASPER, gas: 200000 + 6600*bet.probs.size + 10000*(bet.blockhashes.size + bet.stateroots.size), data: bet.serialize
 
             if bet.max_height == 2**256-1
               @tracked_tx_hashes.push new_tx.full_hash
@@ -559,7 +562,7 @@ module Ethereum
         add_proposers
 
         # Log it
-        td = now - (genesis_time + BLKTIME * b.number)
+        td = now - (@genesis_time + BLKTIME * b.number)
         Utils.debug "Making block", my_index: @index, number: b.number, hash: Utils.encode_hex(b.full_hash)[0,16], time_delay: td
 
         b
@@ -655,7 +658,7 @@ module Ethereum
         # determin its opinion on what the correct chain is)
         if @index >= 0 && @blocks.size > @induction_height && !@withdrawn && !@recently_discovered_blocks.empty?
           # Create and sign the bet
-          blockstart = [@recently_discovered_blocks.keys.min, @induction_height].max
+          blockstart = [@recently_discovered_blocks.min, @induction_height].max
           probstart = [[sign_from, @induction_height].max, blockstart, rootstart].min
           srprobstart = [sign_from, @induction_height].max - sign_from
 
@@ -672,7 +675,7 @@ module Ethereum
             @seq,
             BYTE_EMPTY
           )
-          o = sign_bet bet, @key
+          o = ECDSAAccount.sign_bet bet, @key
 
           @recently_discovered_blocks = []
           @prevhash = o.full_hash
@@ -687,7 +690,7 @@ module Ethereum
           if @seq > @double_bet_suicide && !o.probs.empty?
             Utils.debug "wahhhhhh DOUBLE BETTING!!!!!!!!!!!!"
             o.probs[0] *= 0.9
-            o = sign_bet o, @key
+            o = ECDSAAccount.sign_bet o, @key
             payload = RLP.encode NetworkMessage.new(:bet, [o.serialize])
             network.broadcast self, payload
           end
@@ -808,6 +811,133 @@ module Ethereum
         @finality_high ||= Guardian.decode_prob("\xff")
       end
 
+      ##
+      # Takes as input: 1) a list of other validators' opinions, 2) a block
+      # height, 3) a list of known blocks at that height, 4) a hash -> time
+      # received map, 5) the genesis time, 6) the current time
+      #
+      # Outputs a (block hash, probability, ask) combination where `ask`
+      # represents whether or not to send a network message asking for the block
+      #
+      def bet_at_height(opinions, h, known, time_received, genesis_time, now)
+        # Determine candidate blocks
+        candidates = opinions.values
+          .select {|o| ![nil, WORD_ZERO].include?(o.blockhashes[h]) }
+          .map {|o| o.blockhashes[h] }
+
+        known.each {|block| candidates.push block.full_hash }
+        candidates.push(WORD_ZERO) if candidates.empty?
+
+        # Locate highest probability
+        probs = candidates.map {|c| [bet_on_block(opinions, h, c, time_received, genesis_time, now), c] }
+        prob, new_block_hash = probs.sort.last
+
+        if probs.size >= 2
+          Utils.debug "Voting on multiple candidates", height: h, options: probs.map {|a,b| [a, Utils.encode_hex(b[0,8])] }, winner: [prob, Utils.encode_hex(new_block_hash[0,8])]
+        end
+
+        # If we don't have a block, then confidently ask
+        if prob > 0.7 && !time_received.has_key?(new_block_hash)
+          return 0.7, new_block_hash, true
+        else
+          return prob, new_block_hash, false
+        end
+      end
+
+      def bet_on_block(opinions, blk_number, blk_hash, tr, genesis_time, now)
+        # Do we have the block?
+        have_block = blk_hash.true? && tr.has_key?(blk_hash)
+
+        probs = [] # The list of bet probabilities to use when producing one's own bet
+        weights = [] # Weights for each validator
+
+        # My default opinion based on 1) whether or not I have the block, 2)
+        # when I saw it first if I do, and 3) the current time
+        default_bet = mk_initial_bet blk_number, blk_hash, tr, genesis_time, now
+
+        # Go through others' opinions, check if they 1) are eligible to bet,
+        # and 2) have bet; if they have, add their bet to the list of bets;
+        # otherwise, add the default bet in their place
+        opinion_count = 0
+
+        opinions.each do |i, o|
+          if o.induction_height <= blk_number && blk_number < o.withdrawal_height && !o.withdrawn
+            p = o.get_prob blk_number
+
+            if p.nil?
+              # if the validator has not yet bet, add our default bet
+              probs.push default_bet
+            elsif blk_hash && o.blockhashes[blk_number] != blk_hash
+              # If they bet toward a different block as the block hash currently
+              # being processed, then:
+              #
+              # * if their probability is low, that means they are betting for
+              # the null case, so take their bet as is
+              # * if their probability is high, that means that they are betting
+              # for a different block, so for this block hash flip the bet as
+              # it's a bet against this particular block hash
+              probs.push [p, [1-p, 0.25].max].min
+            else
+              # If they bet for the same block as is currently being processed,
+              # then take their bet as is
+              probs.push p
+            end
+
+            weights.push o.deposit_size
+            opinion_count += (p ? 1 : 0)
+          end
+        end
+
+        # The algorithm for producing your own bet based on others' bets; the
+        # intention is to converge toward 0 or 1
+        p33 = weighted_percentile probs, weights, 1/3.0
+        p50 = weighted_percentile probs, weights, 1/2.0
+        p67 = weighted_percentile probs, weights, 2/3.0
+        if p33 > 0.8
+          o = BRAVERY + p33 * (1 - BRAVERY)
+        elsif p67 < 0.2
+          o = p67 * (1 - BRAVERY)
+        else
+          o = [0.85, [0.15, p50 * 3 - (have_block ? 0.8 : 1.2)].max].min
+        end
+
+        o
+      end
+
+      ##
+      # Takes an an argument a list of values and their associated weights and a
+      # fraction returns, returns the value such that the desired fraction of
+      # other values in the list, weighted by the given weights, is less than
+      # that value
+      #
+      def weighted_percentile(values, weights, frac)
+        zipvals = values.zip(weights).sort
+        target = weights.reduce(0,&:+) * frac
+
+        while target > zipvals[0][1]
+          target -= zipvals[0][1]
+          zipvals.shift
+        end
+
+        zipvals[0][0]
+      end
+
+      def mk_initial_bet(blk_number, blk_hash, tr, genesis_time, now)
+        scheduled_time = BLKTIME * blk_number + genesis_time
+        received_time = tr.fetch blk_hash, nil
+
+        if received_time # If we already received a block
+          td = (received_time * 0.96 + now * 0.04 - scheduled_time).abs
+          prob = td < BLKTIME * 2 ? 1 : 3.0 / (3.0 + td/BLKTIME)
+          Utils.debug "Betting, block received", time_delta: td, prob: prob
+          rand < prob ? 0.7 : 0.3
+        else # if we have not yet received a block
+          td = now - scheduled_time
+          prob = td < BLKTIME * 2 ? 1 : 3.0 / (3.0 + td/BLKTIME)
+          Utils.debug "Betting, block not received", time_delta: td, prob: prob
+          rand < prob ? 0.5 : 0.3
+        end
+      end
     end
 
   end

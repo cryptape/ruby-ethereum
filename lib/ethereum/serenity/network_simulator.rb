@@ -66,7 +66,7 @@ module Ethereum
         if sleep > td
           tsleep = sleep - td
           sleepdebt_repayment = [@sleepdebt, tsleep*0.5].min
-          sleep(tsleep - sleepdebt_repayment)
+          Kernel.sleep(tsleep - sleepdebt_repayment)
 
           @time_sleeping += tsleep - sleepdebt_repayment
           @sleepdebt -= sleepdebt_repayment
@@ -95,9 +95,11 @@ module Ethereum
         end
 
         @objqueue.delete @time
-        @agents.each {|a| a.tick }
-        @time += 1
       end
+
+      @agents.each {|a| a.tick }
+
+      @time += 1
     end
 
     def send_to_one(sender, obj)

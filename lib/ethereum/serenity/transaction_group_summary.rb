@@ -22,6 +22,7 @@ module Ethereum
         right_bound: right_bound || (1 << (Constant::ADDR_BASE_BYTES*8)),
         transaction_hash: transaction_hash || Utils.keccak256_rlp(txgroup)
       }
+      super(args)
     end
 
   end
