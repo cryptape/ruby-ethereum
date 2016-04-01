@@ -615,7 +615,7 @@ module Ethereum
           # If the probability of a block flips to the other side of 0.5, that
           # means that we should recalculate the state root at least from that
           # point (and possibly earlier)
-          if ((prob - 0.5) * (@probs[h] - 0.5) <= 0  || (@probs[h] >= 0.5 && @recently_discovered_blocks.has_key?(h))) && h < @calc_state_roots_from
+          if ((prob - 0.5) * (@probs[h] - 0.5) <= 0  || (@probs[h] >= 0.5 && @recently_discovered_blocks.include?(h))) && h < @calc_state_roots_from
             Utils.debug "Rewinding", num_blocks: @calc_state_roots_from-h
             @calc_state_roots_from = h
           end
