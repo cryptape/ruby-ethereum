@@ -430,6 +430,42 @@ module Ethereum
         # TODO: not finished
       end
 
+      def should_include_transaction?(tx)
+        check_state = get_optimistic_state
+
+        hash = Utils.encode_hex(tx.full_hash)[0,16]
+        o = check_state.tx_state_transition tx, override_gas: 250000+tx.intrinsic_gas, breaking: true
+        if o.false?
+          Utils.debug "No output from running transaction", hash: hash
+          return false
+        end
+
+        output = Utils.int_array_to_bytes o
+        # make sure that the account code matches
+        account_code = check_state.get_code(tx.addr).sub(%r!#{"\x00"}+\z!, '')
+        if account_code != ECDSAAccount.mandatory_account_code
+          Utils.debug "Account code mismatch", hash: hash, shouldbe: ECDSAAccount.mandatory_account_code, reallyis: account_code
+          return false
+        end
+
+        # make sure that the right gas price is in memory (and implicitly that
+        # the tx succeeded)
+        if output.size < 32
+          Utils.debug "Min gas price not found in output, not including transaction", hash: hash
+          return false
+        end
+
+        # make sure that the gas price is sufficient
+        gas_price = Utils.big_endian_to_int(output[0,32])
+        if gas_price < @min_gas_price
+          Utils.debug "Gas price too low", shouldbe: @min_gas_price, reallyis: gas_price, hash: hash
+          return false
+        end
+
+        Utils.debug "Transaction passes, should be included", hash: hash
+        true
+      end
+
       private
 
       # Compute as many state roots as possible
@@ -736,42 +772,6 @@ module Ethereum
             network.broadcast self, payload
           end
         end
-      end
-
-      def should_include_transaction?(tx)
-        check_state = get_optimistic_state
-
-        hash = Utils.encode_hex(tx.full_hash)[0,16]
-        o = check_state.tx_state_transition tx, override_gas: 250000+tx.intrinsic_gas, breaking: true
-        if o.false?
-          Utils.debug "No output from running transaction", hash: hash
-          return false
-        end
-
-        output = Utils.int_array_to_bytes o
-        # make sure that the account code matches
-        account_code = check_state.get_code(tx.addr).sub(%r!#{"\x00"}+\z!)
-        if account_code != ECDSAAccount.mandatory_account_code
-          Utils.debug "Account code mismatch", hash: hash, shouldbe: ECDSAAccount.mandatory_account_code, reallyis: account_code
-          return false
-        end
-
-        # make sure that the right gas price is in memory (and implicitly that
-        # the tx succeeded)
-        if output.size < 32
-          Utils.debug "Min gas price not found in output, not including transaction", hash: hash
-          return false
-        end
-
-        # make sure that the gas price is sufficient
-        gas_price = Utils.big_endian_to_int(output[0,32])
-        if gas_price < @min_gas_price
-          Utils.debug "Gas price too low", shouldbe: @min_gas_price, reallyis: gas_price, hash: hash
-          return false
-        end
-
-        Utils.debug "Transaction passes, should be included", hash: hash
-        true
       end
 
       ##

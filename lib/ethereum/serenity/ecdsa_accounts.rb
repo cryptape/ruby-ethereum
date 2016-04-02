@@ -108,12 +108,11 @@ module Ethereum
       # data).sign(key)` in 1.0
       #
       def mk_transaction(seq, gasprice, gas, to, value, data, key, create: false)
-        code = create ? mk_account_code(Utils.priv_to_pubhash(key)) : Constant::BYTE_EMPTY
-
+        code = mk_account_code Utils.priv_to_pubhash(key)
         addr = Utils.mk_contract_address code: code
         data = sign_txdata mk_txdata(seq, gasprice, to, value, data), gas, key
 
-        Transaction.new(addr: addr, gas: gas, data: data, code: code)
+        Transaction.new(addr: addr, gas: gas, data: data, code: (create ? code : Constant::BYTE_EMPTY))
       end
 
       def mk_txdata(seq, gasprice, to, value, data)

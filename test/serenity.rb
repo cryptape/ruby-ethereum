@@ -53,7 +53,7 @@ genesis.put_code Config::CASPER, gc.get_code(Utils.mk_contract_address(code: Cas
 puts "Casper loaded"
 
 # Deploy Ringsig contract
-ringsig_file = File.expand_path('../../lib/ethereum/ringsig.se.py', __FILE__)
+ringsig_file = File.expand_path('../../lib/ethereum/serenity/ringsig.se.py', __FILE__)
 ringsig_code = Serpent.compile ringsig_file
 ringsig_ct = ABI::ContractTranslator.new Serpent.mk_full_signature(ringsig_file)
 
@@ -340,3 +340,68 @@ loop do
   puts "Min mfh: #{min_mfh}"
   puts "Peer lists: #{bets.map {|b| n.peers[b.id].map(&:id) }}"
 end
+
+recent_state = State.new bets[0].stateroots[min_mfh], bets[0].db
+raise AssertError, 'failed to deploy ringsig' unless recent_state.get_code(ringsig_addr).true?
+raise AssertError, 'failed to deploy ringsig account' unless recent_state.get_code(ringsig_account_addr).true?
+puts "Length of ringsig contract: #{recent_state.get_code(ringsig_addr).size}"
+
+# Create transactions for a few new guardians to join
+puts "*"*100
+puts "*"*100
+puts "Generating transactions to include new guardians"
+second_keys.each_with_index do |k, i|
+  index = keys.size + i
+  # Make their validation code
+  vcode = ECDSAAccount.mk_validation_code k
+  # Make the transaction to join as a Casper guardian
+  txdata = Casper.contract.encode 'join', [vcode]
+
+  tx = ECDSAAccount.mk_transaction 0, 25.shannon, 1000000, Config::CASPER, 1500.ether, txdata, k, create: true
+  puts "Making transaction: #{Utils.encode_hex tx.full_hash}"
+
+  bets[0].add_transaction tx
+  check_txs.push tx
+end
+
+THRESHOLD1 = 115 + 10 * (CLOCKWRONG + CRAZYBET + BRAVE)
+THRESHOLD2 = THRESHOLD1 + Constant::ENTER_EXIT_DELAY
+
+orig_ring_pubs = []
+#Publish submits to ringsig contract
+puts "Sending to ringsig contract"
+bets[1...6].each do |bet|
+  pub = PublicKey.new(PrivateKey.new(bet.key).to_pubkey).decode(:bin)
+  orig_ring_pubs.push pub
+  data = ringsig_ct.encode 'submit', pub
+  tx = ECDSAAccount.mk_transaction 1, 25.shannon, 750000, ringsig_account_addr, 10**17, data, bet.key
+  raise AssertError, 'failed to include ringsig transaction' unless bet.should_include_transaction?(tx)
+  bet.add_transaction tx, track: true
+  check_txs.push tx
+end
+
+# Keep running until the min finalized height reaches 75. We expect that by
+# this time all transactions from the previous phase have been included
+loop do
+  n.run 25, sleep: 0.25
+  check_correctness bets
+  if min_mfh > THRESHOLD1
+    puts 'Reached breakpoint'
+    break
+  end
+  puts "Min mfh: #{min_mfh}"
+end
+
+recent_state = State.new bets[0].stateroots[min_mfh], bets[0].db
+next_index = recent_state.call_method ringsig_account_addr, ringsig_ct, 'getNextIndex', []
+raise AssertError, "Next index: #{next_index}, should be 5" unless next_index == 5
+ring_pub_data = recent_state.call_method ringsig_account_addr, ringsig_ct, 'getPubs', [0]
+ring_pubs = ((ring_pub_data.size+1)/2).times.map do |j|
+  i = j*2
+  [ring_pub_data[i] % 2**256, ring_pub_data[i+1] % 2**256]
+end
+puts ring_pubs.sort
+puts orig_ring_pubs.sort
+raise AssertError, "ring pubs mismatch" unless ring_pubs.sort == orig_ring_pubs.sort
+puts "Submitted public keys: #{ring_pubs}"
+

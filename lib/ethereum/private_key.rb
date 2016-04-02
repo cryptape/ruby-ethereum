@@ -73,11 +73,14 @@ module Ethereum
       raise FormatError, "WIF does not represent privkey"
     end
 
-    def to_pubkey
+    def to_public_key
       raise ValidationError, "Invalid private key" if value >= Secp256k1::N
+      PublicKey.new(Ethereum::OpenSSL_EC.regenerate_key(encode(:bin))[1])
+    end
 
+    def to_pubkey
       fmt = format.to_s.sub(/wif/, 'hex').to_sym
-      PublicKey.new(Ethereum::OpenSSL_EC.regenerate_key(encode(:bin))[1]).encode(fmt)
+      to_public_key.encode(fmt)
     end
 
     def to_bitcoin_address

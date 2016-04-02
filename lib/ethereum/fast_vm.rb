@@ -409,7 +409,7 @@ module Ethereum
             return vm_exception("OOG EXTENDING MEMORY") unless mem_extend(mem, s, mstart, msz)
 
             topics = 4.times.map {|i| i < depth ? stk.pop : 0 }
-            log_data = topics.map {|t| Utils.zpad_int(t) }.join.map(&:ord) + mem[mstart, msz]
+            log_data = Utils.bytes_to_int_array(topics.map {|t| Utils.zpad_int(t) }.join) + mem[mstart, msz]
 
             log_data = CallData.new log_data, 0, log_data.size
             log_gas = Opcodes::GLOGBASE +
