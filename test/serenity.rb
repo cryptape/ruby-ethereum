@@ -330,8 +330,8 @@ end
 loop do
   n.run 25, sleep: 0.25
   check_correctness.call bets
-  raise "hoooooooo yeahhhhhhhhhhhhhhhhh !!!!!!!!!!!!!!!!!!"
 
+  p "*************************************************** #{min_mfh}"
   if min_mfh >= 36
     puts 'Reached breakpoint'
     break

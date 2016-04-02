@@ -345,7 +345,21 @@ module Ethereum
         proc = 0
         while @bets[bet.index].include?((@highest_bet_processed[bet.index] + 1))
           result = @opinions[bet.index].process_bet(@bets[bet.index][@highest_bet_processed[bet.index]+1])
-          raise AssertError, 'failed to process bet' unless result.true?
+          if result.false?
+            p @highest_bet_processed[bet.index]
+            debug_range = ([0,(@highest_bet_processed[bet.index]-5)].max)..(@highest_bet_processed[bet.index]+6)
+            debug_range.each do |i|
+              if @bets[bet.index][i]
+                curhash = Utils.encode_hex @bets[bet.index][i].full_hash
+                prevhash = Utils.encode_hex @bets[bet.index][i].prevhash
+              else
+                curhash = nil
+                prevhash = nil
+              end
+              puts("#{i} --- #{curhash} => #{prevhash}")
+            end
+            raise AssertError, 'failed to process bet'
+          end
 
           @highest_bet_processed[bet.index] += 1
           proc += 1
@@ -536,9 +550,9 @@ module Ethereum
                 @finalized_txindex[h] = [tx, []] unless @finalized_txindex.include?(h)
 
                 @finalized_txindex[h][1].push [blknum, blkhash, groupindex, txindex, RLP.decode(logdata)]
-                positions.delete(i)
+                positions.delete_at i
               elsif p > 0.95 && logresult == 1
-                positions.delete i
+                positions.delete_at i
 
                 @tx_exceptions[h] = @tx_exceptions.fetch(h, 0) + 1
                 Utils.debug "Transaction inclusion finalized but transaction failed for the #{@tx_exceptions[h]}th time", hash: Utils.encode_hex(tx.full_hash)[0,16]
@@ -550,7 +564,7 @@ module Ethereum
                 # gaslimit), remove it from the unconfirmed index, but not the
                 # txpool, so that we can try to add it again
                 Utils.debug "Transaction finalization attempt failed", hash: Utils.encode_hex(tx.full_hash)[0,16]
-                positions.delete i
+                positions.delete_at i
               else
                 i += 1
               end
@@ -559,7 +573,7 @@ module Ethereum
               # remove it from the unconfirmed index, but not the txpool, so
               # that we can try to add it again
               Utils.debug "Transaction finalization attempt failed", hash: Utils.encode_hex(tx.full_hash)[0,16]
-              positions.delete i
+              positions.delete_at i
             else
               # Otherwise keep the transaction in the unconfirmed index
               i += 1
@@ -666,7 +680,7 @@ module Ethereum
               @max_finalized_height = h
               Utils.debug "increasing max finalized height", new_height: h
               if h%10 != 0
-                @opinions..keys.each do |i|
+                @opinions.keys.each do |i|
                   @opinions[i].deposit_size = get_optimistic_state.call_casper 'getGuardianDeposit', [i]
                 end
               end

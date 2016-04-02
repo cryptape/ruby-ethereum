@@ -138,6 +138,7 @@ module Ethereum
         sigdata = Utils.keccak256 bet.serialize[0..-32]
         v, r, s = Secp256k1.ecdsa_raw_sign sigdata, key
         bet.sig = [v,r,s].map{|i| Utils.zpad_int(i) }.join
+        bet.full_hash recompute: true
         bet
       end
 

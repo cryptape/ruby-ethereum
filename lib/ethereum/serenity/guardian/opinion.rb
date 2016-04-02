@@ -38,6 +38,7 @@ module Ethereum
 
         if bet.prevhash != @prevhash
           Utils.debug "Bet hash does not match prevhash: actual #{Utils.encode_hex(bet.prevhash)} desired #{Utils.encode_hex(@prevhash)} seq: #{bet.seq}"
+          return false
         end
 
         raise AssertError, "Bet made after withdrawal! Slashing condition triggered!" if @withdrawn
