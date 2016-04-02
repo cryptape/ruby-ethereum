@@ -3,6 +3,9 @@
 
 $:.unshift File.expand_path('../../lib', __FILE__)
 
+require 'pry'
+require 'pry-byebug'
+
 require 'json'
 require 'serpent'
 
@@ -384,7 +387,7 @@ end
 # this time all transactions from the previous phase have been included
 loop do
   n.run 25, sleep: 0.25
-  check_correctness bets
+  check_correctness.call bets
   if min_mfh > THRESHOLD1
     puts 'Reached breakpoint'
     break

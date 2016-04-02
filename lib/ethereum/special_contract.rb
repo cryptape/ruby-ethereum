@@ -155,7 +155,7 @@ module Ethereum
         c_exstate = Utils.shardify Config::EXECUTION_STATE, msg.left_bound
 
         data = msg.data.extract_all
-        topics = 4.times {|i| data[i*32, 32] }
+        topics = 4.times.map {|i| data[i*32, 32] }
         non_empty_topics = topics.select {|t| t }
 
         gas_cost = Opcodes::GLOGBYTE * [data.size - 128, 0].max +

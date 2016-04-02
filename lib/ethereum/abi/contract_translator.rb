@@ -111,11 +111,11 @@ module Ethereum
       def listen(sender, topics, data, noprint=false)
         return if topics.empty? || !event_data.has_key?(topics[0])
 
-        data = event_data[topics[0]]
-        types = data[:types]
-        name = data[:name]
-        names = data[:names]
-        indexed = data[:indexed]
+        ed = event_data[topics[0]]
+        types = ed[:types]
+        name = ed[:name]
+        names = ed[:names]
+        indexed = ed[:indexed]
         indexed_types = types.zip(indexed).select {|(t, i)| i.true? }.map(&:first)
         unindexed_types = types.zip(indexed).select {|(t, i)| i.false? }.map(&:first)
 
