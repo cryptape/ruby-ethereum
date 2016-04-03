@@ -209,7 +209,7 @@ module Ethereum
           blknum = Utils.big_endian_to_int obj.args[0]
           messages = []
 
-          (blknum...@blocks.size)[0,30].each do |h|
+          (blknum...@blocks.size).to_a.safe_slice(0,30).each do |h|
             if @blocks[h]
               messages.push RLP.encode(NetworkMessage.new(:block, [RLP.encode(@blocks[h])]))
             end
@@ -464,6 +464,26 @@ module Ethereum
 
         Utils.debug "Transaction passes, should be included", hash: hash
         true
+      end
+
+      ##
+      # Get a state object that we run functions or process blocks against
+      #
+
+      # finalized version (safer)
+      def get_finalized_state
+        get_state_at_height [@calc_state_roots_from - 1, @max_finalized_height].min
+      end
+
+      # optimistic version (more up-to-date)
+      def get_optimistic_state
+        get_state_at_height(@calc_state_roots_from - 1)
+      end
+
+      # Get a state object at a given height
+      def get_state_at_height(h)
+        root = h >= 0 ? @stateroots[h] : @genesis_state_root
+        State.new root, @db
       end
 
       private
@@ -772,26 +792,6 @@ module Ethereum
             network.broadcast self, payload
           end
         end
-      end
-
-      ##
-      # Get a state object that we run functions or process blocks against
-      #
-
-      # finalized version (safer)
-      def get_finalized_state
-        get_state_at_height [@calc_state_roots_from - 1, @max_finalized_height].min
-      end
-
-      # optimistic version (more up-to-date)
-      def get_optimistic_state
-        get_state_at_height(@calc_state_roots_from - 1)
-      end
-
-      # Get a state object at a given height
-      def get_state_at_height(h)
-        root = h >= 0 ? @stateroots[h] : @genesis_state_root
-        State.new root, @db
       end
 
       def update_guardian_set(check_state)

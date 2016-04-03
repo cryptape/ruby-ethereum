@@ -408,3 +408,90 @@ puts orig_ring_pubs.sort
 raise AssertError, "ring pubs mismatch" unless ring_pubs.sort == orig_ring_pubs.sort
 puts "Submitted public keys: #{ring_pubs}"
 
+# Create ringsig withdrawal transactions
+bets[1...6].each_with_index do |bet, i|
+  pub = PublicKey.new(PrivateKey.new(bet.key).to_pubkey).decode(:bin)
+  target_addr = 2000 + i
+  #x0, s, ix, iy = ringsig_tester.ringsig_sign_substitute Utils.zpad_int(target_addr), PrivateKey.new(bet.key).decode, ring_pubs
+  #puts "Verifying ring signature using python code"
+  #raise AssertError, '' unless ringsig_tester.ringsig_verify_substitute(Utils.zpad_int(target_addr), x0, s, ix, iy, ring_pubs)
+
+  #data = ringsig_ct.encode 'withdraw', [Utils.int_to_addr(target_addr), x0, s, ix, iy, 0]
+  #tx = Transaction.new ringsig_account_addr, 1000000, data: data, code: Constant::BYTE_EMPTY
+  #puts "Verifying tx includability"
+  #raise AssertError, 'ringsig tx can not be included' unless bet.should_include_transaction?(tx)
+
+  #bet.add_transaction tx
+  #check_txs.push tx
+end
+
+# Create bet objects for the new guardians
+state = State.new genesis.root, bets[0].db
+second_bets = second_keys.each_with_index.map {|k, i| mk_bet_strategy.call state, bets.size+i, k }
+second_bets.each {|b| b.network = n }
+
+n.agents.concat second_bets
+n.generate_peers 5
+puts "Increasing number of peers in the network to #{MAX_NODES}!"
+recent_state = State.new bets[0].stateroots[min_mfh], bets[0].db
+
+# Check that all signups are successful
+signups = recent_state.call_method Config::CASPER, Casper.contract, 'getGuardianSignups', []
+puts "Guardians signed up: #{signups}"
+raise AssertError, 'some guardian failed to signup' unless signups == MAX_NODES
+puts "All new guardians inducted"
+
+ihs = (keys.size + second_keys.size).times.map {|i| recent_state.call_method Config::CASPER, Casper.contract, 'getGuardianInductionHeight', [i] }
+puts "Induction heights: #{}"
+
+# Keep running until the min finalized height reaches ~175. We expect that by
+# this time all guardians will be actively betting off of each other's bets
+loop do
+  n.run(25, sleep: 0.25)
+  check_correctness.call bets
+
+  puts "Min mfh: #{min_mfh}"
+  ihs = (keys.size + second_keys.size).times.map {|i| recent_state.call_method Config::CASPER, Casper.contract, 'getGuardianInductionHeight', [i] }
+  puts "Induction heights: #{}"
+
+  if min_mfh > THRESHOLD2
+    puts "Reached breakpoint"
+    break
+  end
+end
+
+# Create transactions for old guardians to leave
+puts "*"*100
+puts "*"*100
+puts "Generating transactions to withdraw some guardians"
+bets[0,3].each do |bet|
+  bet.withdraw
+end
+
+BLK_DISTANCE = bets[2].blocks.size - min_mfh
+
+# keep running until ~290
+loop do
+  n.run(25, sleep: 0.25)
+  check_correctness.call bets
+  puts "Min mfh: #{min_mfh}"
+  whs = (keys.size+second_keys.size).times.map {|i| recent_state.call_method Config::CASPER, Casper.contract, 'getGuardianWithdrawalHeight', [i] }
+  puts "Withdrawal heights: #{whs}"
+
+  if min_mfh > 200 + BLK_DISTANCE + Constant::ENTER_EXIT_DELAY
+    puts 'Reached breakpoint'
+    break
+  end
+
+  # Exit early if the withdrawal step already completed
+  recent_state = bets[0].get_finalized_state
+  active_guardians = 50.times.select {|i| recent_state.call_method(Config::CASPER, Casper.contract, 'getGuardianStatus', [i]) == 2}
+  break if active_guardians.size == (MAX_NODES - 3)
+end
+
+recent_state = bets[0].get_optimistic_state
+# Check that the only remaining active guardians are the ones that have not yet
+# signed out
+status = MAX_NODES.times.map {|i| recent_state.call_method(Config::CASPER, Casper.contract, 'getGuardianStatus', [i]) }
+puts "Guardian status: #{status}"
+raise AssertError, 'active guardians mismatch' unless status.select {|s| s == 2 }.size == (MAX_NODES - 3)

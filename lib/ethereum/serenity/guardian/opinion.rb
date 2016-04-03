@@ -49,7 +49,7 @@ module Ethereum
         # A bet with max height 2**256-1 signals withdrawal
         if bet.max_height == 2**256-1
           @withdrawn = true
-          @withdrawal_height = @max_height
+          @withdrawal_height = max_height
           Utils.debug "Guardian leaving!", index: bet.index
           return true
         end
