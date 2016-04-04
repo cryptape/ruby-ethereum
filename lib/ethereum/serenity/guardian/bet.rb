@@ -33,27 +33,20 @@ module Ethereum
         @prevhash = prevhash
         @seq = seq
         @sig = sig
-
-        @hash = nil
       end
 
       def serialize
-        o = Casper.contract.encode('submitBet', [
+        Casper.contract.encode('submitBet', [
           @index, @max_height,
           @probs.map {|p| Guardian.encode_prob(p) }.join,
           @blockhashes, @stateroots,
           @stateroot_probs.map {|p| Guardian.encode_prob(p) }.join,
           @prevhash, @seq, @sig
         ])
-        @hash = Utils.keccak256 o
-        o
       end
 
-      def full_hash(recompute: false)
-        if !@hash || recompute
-          serialize
-        end
-        @hash
+      def full_hash
+        Utils.keccak256 serialize
       end
 
     end
