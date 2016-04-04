@@ -173,6 +173,13 @@ bets = keys.each_with_index.map {|k,i| mk_bet_strategy.call genesis, i, k }
 min_mfh = -1 # Minimum max finalized height
 check_txs = [] # Transactions to status report on
 
+liveness_check = lambda do
+  maxh = bets.map {|b| b.blocks.size }.max
+  if maxh - min_mfh > 200
+    binding.pry
+  end
+end
+
 # Simulate a network
 n = NetworkSimulator.new latency: 4, agents: bets, broadcast_success_rate: 0.9
 n.generate_peers 5
@@ -260,16 +267,16 @@ check_correctness = lambda do |bets|
   ((min_mfh+1)...([min_mfh, new_min_mfh].max+1)).each do |i|
     raise AssertError, 'state root mismatch' unless (i > 0 ? state.root == bets[0].stateroots[i-1] : genesis.root)
 
-    j = bets.size - 1
+    bet = bets.last
     fh = bets[0].finalized_hashes[i]
-    block = fh != Constant::WORD_ZERO ? bets[j].objects[fh] : nil
+    block = fh != Constant::WORD_ZERO ? bet.objects[fh] : nil
     block0 = fh != Constant::WORD_ZERO ? bets[0].objects[fh] : nil
     raise AssertError, "block mistmatch" unless block == block0
 
     state.block_state_transition block, listeners: [my_listen]
     if state.root != bets[0].stateroots[i] && i != [min_mfh, new_min_mfh].max
-      puts bets[0].calc_state_roots_from, bets[j].calc_state_roots_from
-      puts bets[0].max_finalized_height, bets[j].max_finalized_height
+      puts bets[0].calc_state_roots_from, bet.calc_state_roots_from
+      puts bets[0].max_finalized_height, bet.max_finalized_height
       puts "my state #{state.to_h}"
       puts "given state #{State.new(bets[0].stateroots[i], bets[0].db).to_h}"
       puts "block #{RLP.encode(block)}"
@@ -331,6 +338,7 @@ end
 
 # Keep running until the min finalized height reaches 20
 loop do
+  liveness_check
   n.run 25, sleep: 0.25
   check_correctness.call bets
 
@@ -386,6 +394,7 @@ end
 # Keep running until the min finalized height reaches 75. We expect that by
 # this time all transactions from the previous phase have been included
 loop do
+  liveness_check
   n.run 25, sleep: 0.25
   check_correctness.call bets
   if min_mfh > THRESHOLD1
@@ -447,6 +456,7 @@ puts "Induction heights: #{}"
 # Keep running until the min finalized height reaches ~175. We expect that by
 # this time all guardians will be actively betting off of each other's bets
 loop do
+  liveness_check
   n.run(25, sleep: 0.25)
   check_correctness.call bets
 
@@ -470,8 +480,13 @@ end
 
 BLK_DISTANCE = bets[2].blocks.size - min_mfh
 
+puts "bets[2].blocks.size: #{bets[2].blocks.size}"
+puts "minimum breakpoint: #{200 + BLK_DISTANCE + Constant::ENTER_EXIT_DELAY}"
+#binding.pry
+
 # keep running until ~290
 loop do
+  liveness_check
   n.run(25, sleep: 0.25)
   check_correctness.call bets
   puts "Min mfh: #{min_mfh}"

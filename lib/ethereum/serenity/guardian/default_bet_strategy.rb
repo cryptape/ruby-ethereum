@@ -697,7 +697,7 @@ module Ethereum
             @last_asked_for_block[new_block_hash] = now
           end
 
-          # Dig our preferred block hash change?
+          # Did our preferred block hash change?
           if @blocks[h].true? && new_block_hash != @blocks[h].full_hash
             unless [nil, WORD_ZERO].include?(new_block_hash)
               Utils.debug "Changing block selection", height: h,
@@ -863,11 +863,12 @@ module Ethereum
       def bet_at_height(opinions, h, known, time_received, genesis_time, now)
         # Determine candidate blocks
         candidates = opinions.values
-          .select {|o| ![nil, WORD_ZERO].include?(o.blockhashes[h]) }
+          .select {|o| o.blockhashes.size > h && ![nil, WORD_ZERO].include?(o.blockhashes[h]) }
           .map {|o| o.blockhashes[h] }
 
         known.each {|block| candidates.push block.full_hash }
         candidates.push(WORD_ZERO) if candidates.empty?
+        candidates.uniq!
 
         # Locate highest probability
         probs = candidates.map {|c| [bet_on_block(opinions, h, c, time_received, genesis_time, now), c] }
@@ -896,11 +897,6 @@ module Ethereum
         # when I saw it first if I do, and 3) the current time
         default_bet = mk_initial_bet blk_number, blk_hash, tr, genesis_time, now
 
-        # Go through others' opinions, check if they 1) are eligible to bet,
-        # and 2) have bet; if they have, add their bet to the list of bets;
-        # otherwise, add the default bet in their place
-        opinion_count = 0
-
         opinions.each do |i, o|
           if o.induction_height <= blk_number && blk_number < o.withdrawal_height && !o.withdrawn
             p = o.get_prob blk_number
@@ -925,7 +921,6 @@ module Ethereum
             end
 
             weights.push o.deposit_size
-            opinion_count += (p ? 1 : 0)
           end
         end
 
@@ -935,11 +930,11 @@ module Ethereum
         p50 = weighted_percentile probs, weights, 1/2.0
         p67 = weighted_percentile probs, weights, 2/3.0
         if p33 > 0.8
-          o = BRAVERY + p33 * (1 - BRAVERY)
+          o = BRAVERY + p33 * (1.0 - BRAVERY)
         elsif p67 < 0.2
-          o = p67 * (1 - BRAVERY)
+          o = p67 * (1.0 - BRAVERY)
         else
-          o = [0.85, [0.15, p50 * 3 - (have_block ? 0.8 : 1.2)].max].min
+          o = [0.85, [0.15, p50 * 3.0 - (have_block ? 0.8 : 1.2)].max].min
         end
 
         o
