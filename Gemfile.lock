@@ -1,17 +1,12 @@
 PATH
-  remote: ../ruby-rlp
-  specs:
-    rlp (0.6.1)
-
-PATH
   remote: .
   specs:
     ruby-ethereum (0.0.1)
       bitcoin-secp256k1 (~> 0.3)
+      block_logger (~> 0.1)
       digest-sha3 (~> 1.1)
       ethash (~> 0.2)
       ffi (>= 1.9.10)
-      logging (~> 2.0)
       lru_redux (~> 1.1)
       rlp (~> 0.6)
 
@@ -20,6 +15,8 @@ GEM
   specs:
     bitcoin-secp256k1 (0.3.0)
       ffi (>= 1.9.10)
+    block_logger (0.1.0)
+      logging (~> 2.0)
     byebug (8.2.2)
     coderay (1.1.0)
     digest-sha3 (1.1.0)
@@ -41,6 +38,7 @@ GEM
       byebug (~> 8.0)
       pry (~> 0.10)
     rake (10.5.0)
+    rlp (0.7.0)
     serpent (0.3.0)
     slop (3.6.0)
     yard (0.8.7.6)
@@ -53,7 +51,6 @@ DEPENDENCIES
   pry
   pry-byebug (>= 2.0.0)
   rake (~> 10.5)
-  rlp!
   ruby-ethereum!
   serpent (>= 0.3.0)
   yard (= 0.8.7.6)

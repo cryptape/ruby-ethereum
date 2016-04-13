@@ -1,13 +1,17 @@
 # -*- encoding : ascii-8bit -*-
 
 require 'rlp'
+require 'block_logger'
+
+module Ethereum
+  Logger = BlockLogger
+end
 
 Dir[File.expand_path('../ethereum/core_ext/**/*.rb', __FILE__)].each {|path| require path }
 
 require 'ethereum/constant'
 require 'ethereum/exceptions'
 require 'ethereum/utils'
-require 'ethereum/logger'
 
 require 'ethereum/base_convert'
 require 'ethereum/private_key'
@@ -47,6 +51,3 @@ require 'ethereum/index'
 require 'ethereum/chain'
 
 require 'ethereum/tester'
-
-module Ethereum
-end
