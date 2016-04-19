@@ -1,5 +1,7 @@
 # ruby-ethereum
 
+[![Join the chat at https://gitter.im/janx/ruby-ethereum](https://badges.gitter.im/janx/ruby-ethereum.svg)](https://gitter.im/janx/ruby-ethereum?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 A Ruby implementation of [Ethereum](https://ethereum.org).
 
 ## Install Secp256k1
