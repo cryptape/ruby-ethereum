@@ -6,7 +6,7 @@ PATH
       block_logger (~> 0.1)
       digest-sha3 (~> 1.1)
       ethash (~> 0.2)
-      ffi (>= 1.9.10)
+      ffi (~> 1.9.10)
       lru_redux (~> 1.1)
       rlp (~> 0.6)
 
