@@ -107,8 +107,8 @@ module Ethereum
             Opcodes::GTXDATAZERO * zero_bytes +
             Opcodes::GTXDATANONZERO * none_zero_bytes
           t2, g2 = Time.now, @block.gas_used
-          output[:time] = t2 - t1
-          output[:gas] = g2 - g1 - intrinsic_gas_used
+          out[:time] = t2 - t1
+          out[:gas] = g2 - g1 - intrinsic_gas_used
         end
 
         if profiling > 1
