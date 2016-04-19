@@ -6,7 +6,7 @@ PATH
       block_logger (~> 0.1)
       digest-sha3 (~> 1.1)
       ethash (~> 0.2)
-      ffi (~> 1.9.10)
+      ffi (~> 1.9)
       lru_redux (~> 1.1)
       rlp (~> 0.6)
 
@@ -17,8 +17,13 @@ GEM
       ffi (>= 1.9.10)
     block_logger (0.1.0)
       logging (~> 2.0)
-    byebug (8.2.2)
+    byebug (3.5.1)
+      columnize (~> 0.8)
+      debugger-linecache (~> 1.2)
+      slop (~> 3.6)
     coderay (1.1.0)
+    columnize (0.9.0)
+    debugger-linecache (1.2.0)
     digest-sha3 (1.1.0)
     ethash (0.2.0)
     ffi (1.9.10)
@@ -34,8 +39,8 @@ GEM
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
       slop (~> 3.4)
-    pry-byebug (3.3.0)
-      byebug (~> 8.0)
+    pry-byebug (2.0.0)
+      byebug (~> 3.4)
       pry (~> 0.10)
     rake (10.5.0)
     rlp (0.7.1)
@@ -49,10 +54,10 @@ PLATFORMS
 DEPENDENCIES
   minitest (= 5.8.3)
   pry
-  pry-byebug (>= 2.0.0)
+  pry-byebug (~> 2.0)
   rake (~> 10.5)
   ruby-ethereum!
-  serpent (>= 0.3.0)
+  serpent (~> 0.3)
   yard (= 0.8.7.6)
 
 BUNDLED WITH
