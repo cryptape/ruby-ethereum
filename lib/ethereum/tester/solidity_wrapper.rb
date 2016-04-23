@@ -38,10 +38,10 @@ module Ethereum
           names
         end
 
-        def combined(code)
+        def combined(code, format='bin')
           out = Tempfile.new 'solc_output_'
 
-          pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', 'abi,bin,devdoc,userdoc'], 'w', [:out, :err] => out)
+          pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', "abi,#{format},devdoc,userdoc"], 'w', [:out, :err] => out)
           pipe.write code
           pipe.close_write
           raise CompileError, 'compilation failed' unless $?.success?
@@ -66,15 +66,25 @@ module Ethereum
         ##
         # Returns binary of last contract in code.
         #
-        def compile(code, contract_name='')
-          sorted_contracts = combined code
+        def compile(code, contract_name='', format='bin')
+          sorted_contracts = combined code, format
           if contract_name.true?
             idx = sorted_contracts.map(&:first).index(contract_name)
           else
             idx = -1
           end
 
-          Utils.decode_hex sorted_contracts[idx][1]['bin']
+          output = sorted_contracts[idx][1][format]
+          case format
+          when 'bin'
+            Utils.decode_hex output
+          when 'asm'
+            output['.code']
+          when 'opcodes'
+            output
+          else
+            raise ArgumentError
+          end
         end
 
         ##
