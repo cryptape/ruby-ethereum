@@ -4,10 +4,38 @@ $:.unshift File.expand_path('../../lib', __FILE__)
 
 require 'ethereum/app/full'
 
-Ethereum::App::Config.setup
-config = Ethereum::App::Config.load
-p config
+class Reth
+  include Ethereum::App
 
-#app = Ethereum::App::Full.new
-#p app
-#p app.default_config[:client_version_string]
+  Services = [].freeze
+
+  def initialize
+    load_config
+
+    @app = Ethereum::App::Full.new
+  end
+
+  def load_config
+    Config.setup
+    @config = Config.load
+
+    puts_header 'CONFIGURATION'
+    puts @config.to_hash
+  end
+
+  def run
+  end
+
+  def start
+    run
+  end
+
+  private
+
+  def puts_header(text)
+    puts "\n>>>>> #{text}"
+  end
+end
+
+Reth.new.start
+
