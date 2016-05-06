@@ -23,6 +23,7 @@ Gem::Specification.new do |s|
   s.add_dependency('block_logger', '~> 0.1')
   s.add_dependency('devp2p', '~> 0.3')
   s.add_dependency('slop', '~> 4.3')
+  s.add_dependency('leveldb', '0.1.9')
 
   s.add_development_dependency('rake', '~> 10.5')
   s.add_development_dependency('minitest', '5.8.3')
