@@ -4,5 +4,10 @@ $:.unshift File.expand_path('../../lib', __FILE__)
 
 require 'ethereum/app/full'
 
-app = Ethereum::App::Full.new
-p app
+Ethereum::App::Config.setup
+config = Ethereum::App::Config.load
+p config
+
+#app = Ethereum::App::Full.new
+#p app
+#p app.default_config[:client_version_string]
