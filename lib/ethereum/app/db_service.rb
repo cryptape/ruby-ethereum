@@ -21,6 +21,12 @@ module Ethereum
         @db = klass.new File.join(app.config[:data_dir], 'leveldb')
       end
 
+      def _run
+        loop do
+          sleep 3600
+        end
+      end
+
       def get(k)
         @db.get(k)
       end

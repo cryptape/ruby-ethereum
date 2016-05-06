@@ -1,5 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
+require 'leveldb'
+
 module Ethereum
   module DB
     class LevelDB < BaseDB
@@ -15,7 +17,7 @@ module Ethereum
       end
 
       def reopen
-        @db = LevelDB::DB.new @dbfile
+        @db = ::LevelDB::DB.new @dbfile
       end
 
       def get(k)

@@ -7,12 +7,13 @@ require 'ethereum/app/full'
 class Reth
   include Ethereum::App
 
-  Services = [].freeze
+  Services = [DBService].freeze
 
   def initialize
     load_config
 
-    @app = Ethereum::App::Full.new
+    Celluloid.boot
+    @app = Ethereum::App::Full.new(@config)
   end
 
   def load_config
@@ -23,11 +24,26 @@ class Reth
     puts @config.to_hash
   end
 
-  def run
+  def register_services
+    Services.each do |service|
+      raise ArgumentError, 'service must be BaseService' unless service.instance_of?(Class) && service < DEVp2p::BaseService
+      if !@app.config[:deactivated_services].include?(service.name) # TODO: + [AccountService.name]
+        service.register_with_app @app
+      end
+    end
   end
 
   def start
-    run
+    register_services
+
+    puts_header "starting"
+    @app.start
+
+    #trap("INT")  { @app.stop }
+    #trap("TERM") { @app.stop }
+    #trap("QUIT") { @app.stop }
+
+    @app.join
   end
 
   private
