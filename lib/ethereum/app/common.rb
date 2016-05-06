@@ -6,6 +6,8 @@ require 'ethereum'
 require 'ethereum/app/utils'
 require 'ethereum/app/config'
 
+require 'ethereum/app/db_service'
+
 module Ethereum
   module App
 

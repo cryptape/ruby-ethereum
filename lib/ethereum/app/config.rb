@@ -24,7 +24,7 @@ module Ethereum
           listen_host: '0.0.0.0',
           listen_port: 13333,
           bootstrap_nodes: [
-            'enode://a255fad01ada3d61bbd07dba21fbb165eb073f8f7ae7ec6381ed6b9a382833278333335b5934f3282b28eb9d44e39c5244a2aec75c9b48ea0e4b57219cf36d85@192.168.1.4:30303'
+            'enode://a255fad01ada3d61bbd07dba21fbb165eb073f8f7ae7ec6381ed6b9a382833278333335b5934f3282b28eb9d44e39c5244a2aec75c9b48ea0e4b57219cf36d85@127.0.0.1:30303'
           ]
         }
       }).freeze
@@ -61,7 +61,9 @@ module Ethereum
 
         def load(data_dir=DEFAULT_DATA_DIR)
           path = get_path data_dir
-          File.exist?(path) ? Defaults.deep_merge(YAML.load_file(path)) : {}
+          config = File.exist?(path) ? YAML.load_file(path) : {}
+          config[:data_dir] = data_dir
+          Defaults.deep_merge(config)
         end
 
         def get_path(data_dir=DEFAULT_DATA_DIR)
