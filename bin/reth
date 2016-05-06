@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+
+$:.unshift File.expand_path('../../lib', __FILE__)
+
+require 'ethereum/app/full'
+
+app = Ethereum::App::Full.new
+p app

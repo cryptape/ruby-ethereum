@@ -9,6 +9,8 @@ end
 
 Dir[File.expand_path('../ethereum/core_ext/**/*.rb', __FILE__)].each {|path| require path }
 
+require 'ethereum/version'
+
 require 'ethereum/constant'
 require 'ethereum/exceptions'
 require 'ethereum/utils'
