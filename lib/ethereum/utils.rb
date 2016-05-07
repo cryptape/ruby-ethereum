@@ -187,5 +187,9 @@ module Ethereum
       keccak256_rlp([normalize_address(sender), nonce])[12..-1]
     end
 
+    def remove_0x_head(s)
+      s[0,2] == '0x' ? s[2..-1] : s
+    end
+
   end
 end

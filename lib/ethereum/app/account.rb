@@ -39,6 +39,8 @@ module Ethereum
         end
       end
 
+      attr_accessor :path, :address, :keystore
+
       def initialize(keystore, password=nil, path=nil)
         @keystore = Hashie.symbolize_keys keystore
         @address = keystore[:address] ? Utils.decode_hex(keystore[:address]) : nil
@@ -156,6 +158,10 @@ module Ethereum
         else
           raise ValueError, "Locked account cannot sign tx"
         end
+      end
+
+      def locked?
+        @locked
       end
 
       def to_s

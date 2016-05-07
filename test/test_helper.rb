@@ -48,10 +48,6 @@ def to_bytes(obj)
   end
 end
 
-def remove_0x_head(s)
-  s[0,2] == '0x' ? s[2..-1] : s
-end
-
 def encode_hex(s)
   RLP::Utils.encode_hex s
 end
