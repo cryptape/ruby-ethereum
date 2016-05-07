@@ -5,6 +5,7 @@ require 'ethereum'
 
 require 'ethereum/app/utils'
 require 'ethereum/app/config'
+require 'ethereum/app/keystore'
 
 require 'ethereum/app/db_service'
 
