@@ -5,6 +5,7 @@ $:.unshift File.expand_path('../../lib', __FILE__)
 require 'pry-byebug'
 require 'minitest/autorun'
 require 'ethereum'
+require 'ethereum/app/common'
 require 'json'
 
 Logging.logger.root.level = :error

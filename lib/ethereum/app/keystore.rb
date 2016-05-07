@@ -8,14 +8,11 @@ module Ethereum
     class Keystore
 
       class PBKDF2
-        attr :params
+        attr :name, :params
 
-        def initialize
-          @params = mkparam
-        end
-
-        def name
-          'pbkdf2'
+        def initialize(params=nil)
+          @name = 'pbkdf2'
+          @params = params || mkparams
         end
 
         def eval(pw)
@@ -37,14 +34,11 @@ module Ethereum
       end
 
       class AES128CTR
-        attr :params
+        attr :name, :params
 
-        def initialize
-          @params = mkparams
-        end
-
-        def name
-          'aes-128-ctr'
+        def initialize(params=nil)
+          @name = 'aes-128-ctr'
+          @params = params || mkparams
         end
 
         def encrypt(text, key)
@@ -68,7 +62,16 @@ module Ethereum
         end
       end
 
+      KDF = {
+        'pbkdf2' => PBKDF2
+      }.freeze
+
+      CIPHER = {
+        'aes-128-ctr' => AES128CTR
+      }.freeze
+
       class <<self
+
         def make_json(priv, pw, kdf=PBKDF2.new, cipher=AES128CTR.new)
           derivedkey = kdf.eval pw
 
@@ -91,6 +94,32 @@ module Ethereum
             id: uuid,
             version: 3
           }
+        end
+
+        def decode_json(jsondata, pw)
+          jsondata = Hashie::Mash.new jsondata
+
+          cryptdata = jsondata.crypto || jsondata.Crypto
+          raise ArgumentError, "JSON data must contain 'crypto' object" unless cryptdata
+
+          kdfparams = cryptdata.kdfparams
+          kdf = KDF[cryptdata.kdf].new kdfparams
+
+          cipherparams = cryptdata.cipherparams
+          cipher = CIPHER[cryptdata.cipher].new cipherparams
+
+          derivedkey = kdf.eval pw
+          raise AssertError, "Derived key must be at least 32 bytes long" unless derivedkey.size >= 32
+
+          enckey = derivedkey[0,16]
+          ct = Utils.decode_hex cryptdata.ciphertext
+          o = cipher.decrypt ct, enckey
+
+          mac1 = Utils.keccak256 "#{derivedkey[16,16]}#{ct}"
+          mac2 = Utils.decode_hex cryptdata.mac
+          raise AssertError, "MAC mismatch. Password incorrect?" unless mac1 == mac2
+
+          o
         end
       end
 
