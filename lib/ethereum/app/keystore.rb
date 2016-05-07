@@ -109,7 +109,7 @@ module Ethereum
           cipher = CIPHER[cryptdata.cipher].new cipherparams
 
           derivedkey = kdf.eval pw
-          raise AssertError, "Derived key must be at least 32 bytes long" unless derivedkey.size >= 32
+          raise ValueError, "Derived key must be at least 32 bytes long" unless derivedkey.size >= 32
 
           enckey = derivedkey[0,16]
           ct = Utils.decode_hex cryptdata.ciphertext
@@ -117,9 +117,32 @@ module Ethereum
 
           mac1 = Utils.keccak256 "#{derivedkey[16,16]}#{ct}"
           mac2 = Utils.decode_hex cryptdata.mac
-          raise AssertError, "MAC mismatch. Password incorrect?" unless mac1 == mac2
+          raise ValueError, "MAC mismatch. Password incorrect?" unless mac1 == mac2
 
           o
+        end
+
+        ##
+        # Check if json has the structure of a keystore file version 3.
+        #
+        # Note that this test is not complete, e.g. it doesn't check key
+        # derivation or cipher parameters.
+        #
+        # @param json [Hash] data load from json file
+        # @return [Bool] `true` if the data appears to be valid, otherwise
+        #   `false`
+        #
+        def validate(json)
+          return false unless json.has_key?('crypto') || json.has_key?('Crypto')
+          return false unless json['version'] == 3
+
+          crypto = json['crypto'] || json['Crypto']
+          return false unless crypto.has_key?('cipher')
+          return false unless crypto.has_key?('ciphertext')
+          return false unless crypto.has_key?('kdf')
+          return false unless crypto.has_key?('mac')
+
+          true
         end
       end
 
