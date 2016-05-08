@@ -8,6 +8,7 @@ require 'ethereum/app/config'
 
 require 'ethereum/app/keystore'
 require 'ethereum/app/account'
+require 'ethereum/app/duplicates_filter'
 
 require 'ethereum/app/account_service'
 require 'ethereum/app/db_service'
