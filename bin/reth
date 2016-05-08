@@ -4,10 +4,17 @@ $:.unshift File.expand_path('../../lib', __FILE__)
 
 require 'ethereum/app/full'
 
-class Reth
-  include Ethereum::App
+#Ethereum::Logger.level = :debug
 
-  Services = [DBService, AccountService].freeze
+class Reth
+  include Ethereum
+
+  Services = [
+    App::DBService,
+    App::AccountService,
+    DEVp2p::Discovery::Service,
+    DEVp2p::PeerManager
+  ].freeze
 
   attr :app, :config
 
@@ -15,20 +22,20 @@ class Reth
     load_config
 
     Celluloid.boot
-    @app = Full.new(@config)
+    @app = App::Full.new(@config)
   end
 
   def load_config
-    Config.setup
-    @config = Config.load
+    App::Config.setup
+    @config = App::Config.load
 
     puts_header 'CONFIGURATION'
     puts @config.to_hash
   end
 
   def register_services
-    if Services.include?(AccountService)
-      AccountService.register_with_app app
+    if Services.include?(App::AccountService)
+      App::AccountService.register_with_app app
       # TODO: unlock_accounts
       begin
         app.services.accounts.coinbase
@@ -38,7 +45,7 @@ class Reth
       end
     end
 
-    exclude_services = @app.config[:deactivated_services] + [AccountService.name]
+    exclude_services = @app.config[:deactivated_services] + [App::AccountService.name]
     Services.each do |service|
       raise ArgumentError, 'service must be BaseService' unless service.instance_of?(Class) && service < DEVp2p::BaseService
 
