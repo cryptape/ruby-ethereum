@@ -7,13 +7,15 @@ require 'ethereum/app/full'
 class Reth
   include Ethereum::App
 
-  Services = [DBService].freeze
+  Services = [DBService, AccountService].freeze
+
+  attr :app, :config
 
   def initialize
     load_config
 
     Celluloid.boot
-    @app = Ethereum::App::Full.new(@config)
+    @app = Full.new(@config)
   end
 
   def load_config
@@ -25,11 +27,23 @@ class Reth
   end
 
   def register_services
+    if Services.include?(AccountService)
+      AccountService.register_with_app app
+      # TODO: unlock_accounts
+      begin
+        app.services.accounts.coinbase
+      rescue Ethereum::ValueError => e
+        logger.fatal 'invalid coinbase', coinbase: (config.pow || {})[:coinbase_hex]
+        exit 1
+      end
+    end
+
+    exclude_services = @app.config[:deactivated_services] + [AccountService.name]
     Services.each do |service|
       raise ArgumentError, 'service must be BaseService' unless service.instance_of?(Class) && service < DEVp2p::BaseService
-      if !@app.config[:deactivated_services].include?(service.name) # TODO: + [AccountService.name]
-        service.register_with_app @app
-      end
+
+      next if exclude_services.include?(service.name)
+      service.register_with_app @app
     end
   end
 
@@ -42,6 +56,12 @@ class Reth
     #trap("INT")  { @app.stop }
     #trap("TERM") { @app.stop }
     #trap("QUIT") { @app.stop }
+
+    #10000.times do |i|
+    #  sleep 2
+    #  @app.services.db.put i.to_s, Time.now.to_s
+    #  @app.services.db.commit
+    #end
 
     @app.join
   end

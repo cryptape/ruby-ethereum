@@ -1,4 +1,16 @@
 PATH
+  remote: ../ruby-devp2p
+  specs:
+    devp2p (0.1.1)
+      bitcoin-secp256k1 (= 0.3.1)
+      block_logger (= 0.1.2)
+      celluloid (~> 0.17)
+      celluloid-io (~> 0.17.3)
+      digest-sha3 (~> 1.1)
+      hashie (~> 3.4)
+      rlp (>= 0.7.1)
+
+PATH
   remote: .
   specs:
     ruby-ethereum (0.9.1)
@@ -47,14 +59,6 @@ GEM
     coderay (1.1.0)
     columnize (0.9.0)
     debugger-linecache (1.2.0)
-    devp2p (0.1.1)
-      bitcoin-secp256k1 (= 0.3.1)
-      block_logger (= 0.1.2)
-      celluloid (~> 0.17)
-      celluloid-io (~> 0.17.3)
-      digest-sha3 (~> 1.1)
-      hashie (~> 3.4)
-      rlp (>= 0.7.1)
     digest-sha3 (1.1.0)
     ethash (0.2.0)
     ffi (1.9.10)
@@ -91,6 +95,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  devp2p!
   minitest (= 5.8.3)
   pry
   pry-byebug (~> 2.0)
