@@ -18,10 +18,17 @@ module Ethereum
 
       attr :accounts
 
+      DEFAULT_COINBASE = Utils.decode_hex('de0b295669a9fd93d5f28d9ec85e40f4cb697bae')
+
       def initialize(app)
         super(app)
 
-        @keystore_dir = File.join app.config[:data_dir], app.config[:accounts][:keystore_dir]
+        if app.config[:accounts][:keystore_dir][0] == '/'
+          @keystore_dir = app.config[:accounts][:keystore_dir]
+        else # relative path
+          @keystore_dir = File.join app.config[:data_dir], app.config[:accounts][:keystore_dir]
+        end
+
         @accounts = []
 
         if !File.exist?(@keystore_dir)
@@ -31,7 +38,10 @@ module Ethereum
         else
           logger.info "searching for key files", directory: @keystore_dir
 
+          ignore = %w(. ..)
           Dir.foreach(@keystore_dir) do |filename|
+            next if ignore.include?(filename)
+
             begin
               @accounts.push Account.load(File.join(@keystore_dir, filename))
             rescue ValueError
@@ -39,12 +49,18 @@ module Ethereum
             end
           end
         end
-        @accounts.sort_by(&:path)
+        @accounts.sort_by! {|acct| acct.path.to_s }
 
         if @accounts.empty?
           logger.warn "no accounts found"
         else
           logger.info "found account(s)", accounts: @accounts
+        end
+      end
+
+      def _run
+        loop do
+          sleep 3600
         end
       end
 
@@ -64,7 +80,11 @@ module Ethereum
         cb_hex = (app.config[:pow] || {})[:coinbase_hex]
         if cb_hex
           raise ValueError, 'coinbase must be String' unless cb_hex.is_a?(String)
-          cb = Utils.decode_hex Utils.remove_0x_head(cb_hex)
+          begin
+            cb = Utils.decode_hex Utils.remove_0x_head(cb_hex)
+          rescue TypeError
+            raise ValueError, 'invalid coinbase'
+          end
         else
           accts = accounts_with_address
           return DEFAULT_COINBASE if accts.empty?
@@ -105,7 +125,7 @@ module Ethereum
           raise ValueError, 'Cannot store account without path' if account.path.nil?
           if File.exist?(account.path)
             logger.error 'File does already exist', path: account.path
-            raise IOError('File does already exist')
+            raise IOError, 'File does already exist'
           end
 
           raise AssertError if @accounts.any? {|acct| acct.path == account.path }
@@ -124,7 +144,7 @@ module Ethereum
         end
 
         @accounts.push account
-        @accounts.sort_by(&:path)
+        @accounts.sort_by! {|acct| acct.path.to_s }
       end
 
       ##
@@ -183,7 +203,7 @@ module Ethereum
           FileUtils.mv backup_path, new_account.path
           account.path = new_account.path
           @accounts.push account
-          @accounts.sort_by(&:path)
+          @accounts.sort_by! {|acct| acct.path.to_s }
           raise $!
         end
         raise AssertError unless File.exist?(new_account.path)
@@ -200,8 +220,8 @@ module Ethereum
         account.path = new_account.path
 
         @accounts.push account
-        @accounts.remove new_account
-        @accounts.sort_by(&:path)
+        @accounts.delete new_account
+        @accounts.sort_by! {|acct| acct.path.to_s }
 
         logger.debug "account update successful"
       end
@@ -327,6 +347,13 @@ module Ethereum
 
       def size
         @accounts.size
+      end
+
+      def test(method, *args)
+        send method, *args
+        return nil
+      rescue
+        return $!
       end
 
       private

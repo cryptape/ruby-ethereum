@@ -72,4 +72,9 @@ class UtilsTest < Minitest::Test
     assert_equal "\xbdw\x04\x16\xa34_\x91\xe4\xb3Ev\xcb\x80JWo\xa4\x8e\xb1", mk_contract_address("\x00"*20, 0)
   end
 
+  def test_decode_hex
+    assert_raises(TypeError) { decode_hex('xxxx') }
+    assert_raises(TypeError) { decode_hex('\x00\x00') }
+  end
+
 end
