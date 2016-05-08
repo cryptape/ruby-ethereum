@@ -2,6 +2,15 @@
 
 require 'test_helper'
 
+class Ethereum::App::AccountService
+  def test(method, *args)
+    send method, *args
+    return nil
+  rescue
+    return $!
+  end
+end
+
 class AppAccountServiceTest < Minitest::Test
   include Ethereum
 

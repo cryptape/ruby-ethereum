@@ -349,13 +349,6 @@ module Ethereum
         @accounts.size
       end
 
-      def test(method, *args)
-        send method, *args
-        return nil
-      rescue
-        return $!
-      end
-
       private
 
       def logger
