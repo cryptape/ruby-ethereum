@@ -9,12 +9,15 @@ module Ethereum
       ZERO_ENCODED = Utils.encode_int(0)
       ONE_ENCODED = Utils.encode_int(1)
 
+      attr_accessor :ttl
+
       def initialize(db)
         @db = db
         @journal = []
         @death_row = []
         @kv = @db.respond_to?(:kv) ? @db.kv : nil
-        @ttl = 500
+
+        self.ttl = 500
       end
 
       ##
@@ -100,14 +103,14 @@ module Ethereum
         logger.debug "#{pruned} nodes successfully pruned"
 
         @db.delete "deathrow:#{epoch}" rescue nil
-        @db.delete "journal:#{epoch-@ttl}" rescue nil
+        @db.delete "journal:#{epoch - ttl}" rescue nil
       end
 
       ##
       # Commit changes to the journal and death row to the database.
       #
       def commit_refcount_changes(epoch)
-        timeout_epoch = epoch + @ttl
+        timeout_epoch = epoch + ttl
         death_row_nodes = RLP.decode(@db.get("deathrow:#{timeout_epoch}")) rescue []
 
         @death_row.each do |node_key|
@@ -136,7 +139,7 @@ module Ethereum
       # Revert changes made during an epoch
       #
       def revert_refcount_changes(epoch)
-        timeout_epoch = epoch + @ttl
+        timeout_epoch = epoch + ttl
 
         @db.delete("deathrow:#{timeout_epoch}") rescue nil
 

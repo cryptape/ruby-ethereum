@@ -49,6 +49,10 @@ module Ethereum
         @synctask = nil
       end
 
+      def syncing?
+        !!@synctask
+      end
+
       def synctask_exited(success=false)
         @force_sync = nil if success
         @synctask = nil
@@ -143,7 +147,7 @@ module Ethereum
 
         known = @protocols.include?(proto)
         if !known || newblockhashes.empty? || @synctask
-          logger.debug 'discarding', known: known, synctask: !!@synctask, num: newblockhashes.size
+          logger.debug 'discarding', known: known, synctask: syncing?, num: newblockhashes.size
           return
         end
 
