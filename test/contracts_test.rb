@@ -1498,6 +1498,23 @@ class ContractsTest < Minitest::Test
     assert_equal 156, c.sqrdiv(25,2)
   end
 
+  RIPEMD160_CODE = <<-EOF
+  def main():
+      return([ripemd160(0, chars=0), ripemd160(3), ripemd160(text("doge"), chars=3), ripemd160(text("dog"):str), ripemd160([0,0,0,0,0]:arr), ripemd160([0,0,0,0,0,0], items=5)]:arr)
+  EOF
+
+  def test_ripemd160
+    c = @s.abi_contract RIPEMD160_CODE
+    assert_equal [
+      0x9c1185a5c5e9fc54612808977ee8f548b2258d31,
+      0x44d90e2d3714c8663b632fcf0f9d5f22192cc4c8,
+      0x2a5756a3da3bc6e4c66a65028f43d31a1290bb75,
+      0x2a5756a3da3bc6e4c66a65028f43d31a1290bb75,
+      0x9164cab7f680fd7a790080f2e76e049811074349,
+      0x9164cab7f680fd7a790080f2e76e049811074349
+    ], c.main
+  end
+
   private
 
   def with_file(prefix, code)
