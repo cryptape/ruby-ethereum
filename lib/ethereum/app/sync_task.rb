@@ -18,7 +18,7 @@ module Ethereum
       BLOCKS_REQUEST_TIMEOUT = 32
       BLOCKHASHES_REQUEST_TIMEOUT = 32
 
-      def initialize(synchronizer, proto, blockhash, chain_difficulty: 0, originator_only: false)
+      def initialize(synchronizer, proto, blockhash, chain_difficulty=0, originator_only=false)
         @synchronizer = synchronizer
         @chain = synchronizer.chain
         @chainservice = synchronizer.chainservice
