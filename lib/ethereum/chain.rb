@@ -9,7 +9,7 @@ module Ethereum
 
     HEAD_KEY = 'HEAD'.freeze
 
-    attr :env, :index, :head_candidate
+    attr :env, :index, :head_candidate, :genesis
 
     ##
     # @param env [Ethereum::Env] configuration of the chain
