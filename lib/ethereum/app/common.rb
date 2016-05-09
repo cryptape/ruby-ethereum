@@ -13,6 +13,8 @@ require 'ethereum/app/duplicates_filter'
 require 'ethereum/app/sync_task'
 require 'ethereum/app/synchronizer'
 
+require 'ethereum/app/transient_block'
+
 require 'ethereum/app/account_service'
 require 'ethereum/app/db_service'
 require 'ethereum/app/chain_service'
