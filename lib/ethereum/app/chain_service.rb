@@ -15,6 +15,9 @@ module Ethereum
         block: Ethereum::Env::DEFAULT_CONFIG
       )
 
+      BLOCK_QUEUE_SIZE = 1024
+      TRANSACTION_QUEUE_SIZE = 1024
+
       MAX_NEWBLOCK_PROCESSING_TIME_STATS = 1000
 
       def initialize(app)
@@ -34,8 +37,8 @@ module Ethereum
 
         @synchronizer = App::Synchronizer.new(self, nil)
 
-        @block_queue = SyncQueue.new # TODO: maxsize = block_queue_size
-        @transaction_queue = SyncQueue.new # TODO: maxsize = transaction_queue_size
+        @block_queue = SyncQueue.new BLOCK_QUEUE_SIZE
+        @transaction_queue = SyncQueue.new TRANSACTION_QUEUE_SIZE
         @add_blocks_lock = false
         @add_transaction_lock = Semaphore.new # TODO
 
