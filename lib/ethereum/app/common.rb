@@ -14,6 +14,7 @@ require 'ethereum/app/sync_task'
 require 'ethereum/app/synchronizer'
 
 require 'ethereum/app/transient_block'
+require 'ethereum/app/eth_protocol'
 
 require 'ethereum/app/account_service'
 require 'ethereum/app/db_service'
