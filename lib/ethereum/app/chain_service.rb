@@ -1,5 +1,7 @@
 # -*- encoding : ascii-8bit -*-
 
+require 'thread'
+
 module Ethereum
   module App
 
@@ -40,7 +42,7 @@ module Ethereum
         @block_queue = SyncQueue.new BLOCK_QUEUE_SIZE
         @transaction_queue = SyncQueue.new TRANSACTION_QUEUE_SIZE
         @add_blocks_lock = false
-        @add_transaction_lock = Semaphore.new # TODO
+        @add_transaction_lock = Mutex.new # TODO: should be semaphore
 
         @broadcast_filter = App::DuplicatesFilter.new
         @on_new_head_cbs = []
@@ -97,9 +99,9 @@ module Ethereum
           end
         end
 
-        @add_transaction_lock.acquire
+        @add_transaction_lock.lock
         success = @chain.add_transaction tx
-        @add_transaction_lock.release
+        @add_transaction_lock.unlock
 
         on_new_head_candidate if success
         success
@@ -334,7 +336,7 @@ module Ethereum
       def add_blocks
         logger.debug 'add_blocks', qsize: @block_queue.size, add_tx_lock: @add_transaction_lock.locked?
         raise AssertError unless @add_blocks_lock
-        @add_transaction_lock.acquire
+        @add_transaction_lock.lock
 
         while !@block_queue.empty?
           t_block, proto = @block_queue.peek
@@ -421,7 +423,7 @@ module Ethereum
         end
       ensure
         @add_blocks_lock = false
-        @add_transaction_lock.release
+        @add_transaction_lock.unlock
       end
 
       def gpsec(gas_spent=0, elapsed=0)
