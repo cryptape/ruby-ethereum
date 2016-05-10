@@ -22,14 +22,15 @@ module Ethereum
 
       MAX_NEWBLOCK_PROCESSING_TIME_STATS = 1000
 
-      def initialize(app)
-        setup_db app.config
+      attr :chain
 
+      def initialize(app)
+        setup_db(app)
         super(app)
 
         logger.info 'initializing chain'
         coinbase = app.services.accounts.coinbase
-        env = Ethereum::Env.new @db, config[:eth][:block]
+        env = Ethereum::Env.new @db, config: config[:eth][:block]
         @chain = Chain.new env, new_head_cb: method(:on_new_head), coinbase: coinbase
 
         logger.info 'chain at', number: @chain.head.number
@@ -53,6 +54,10 @@ module Ethereum
         @processed_elapsed = 0
 
         @wire_protocol = App::ETHProtocol
+      end
+
+      def _run
+        # do nothing
       end
 
       def syncing?
@@ -215,7 +220,7 @@ module Ethereum
         end
       end
 
-      def on_newblockhashes(proto, newblockhashes)
+      def on_receive_newblockhashes(proto, newblockhashes)
         logger.debug 'recv newblockhashes', num: newblockhashes.size, remote_id: proto
         raise AssertError, 'cannot handle more than 32 block hashes at one time' unless newblockhashes.size <= 32
 
@@ -439,14 +444,15 @@ module Ethereum
         # TODO: send to badblocks.ethereum.org
       end
 
-      def setup_db(config)
-        eth_config = config[:eth] || {}
+      def setup_db(app)
+        data_dir = app.config[:data_dir]
+        eth_config = app.config[:eth] || {}
 
         if eth_config[:pruning].to_i >= 0
           @db = DB::RefcountDB.new app.services.db
 
           if @db.db.include?("I am not pruning")
-            raise "The database in '#{config[:data_dir]}' was initialized as non-pruning. Can not enable pruning now."
+            raise "The database in '#{data_dir}' was initialized as non-pruning. Can not enable pruning now."
           end
 
           @db.ttl = eth_config[:pruning].to_i
@@ -456,7 +462,7 @@ module Ethereum
           @db = app.services.db
 
           if @db.include?("I am pruning")
-            raise "The database in '#{config[:data_dir]}' was initialized as pruning. Can not disable pruning now."
+            raise "The database in '#{data_dir}' was initialized as pruning. Can not disable pruning now."
           end
 
           @db.put "I am not pruning", "1"
@@ -467,7 +473,7 @@ module Ethereum
           db_network_id = @db.get 'network_id'
 
           if db_network_id != eth_config[:network_id].to_s
-            raise "The database in '#{config[:data_dir]}' was initialized with network id #{db_network_id} and can not be used when connecting to network id #{eth_config[:network_id]}. Please choose a different data directory."
+            raise "The database in '#{data_dir}' was initialized with network id #{db_network_id} and can not be used when connecting to network id #{eth_config[:network_id]}. Please choose a different data directory."
           end
         else
           @db.put 'network_id', eth_config[:network_id].to_s

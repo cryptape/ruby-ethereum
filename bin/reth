@@ -13,7 +13,8 @@ class Reth
     App::DBService,
     App::AccountService,
     DEVp2p::Discovery::Service,
-    DEVp2p::PeerManager
+    DEVp2p::PeerManager,
+    App::ChainService
   ].freeze
 
   attr :app, :config

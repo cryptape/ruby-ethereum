@@ -29,6 +29,8 @@ module Ethereum
 
       def get(k)
         @db.get(k)
+      rescue KeyError
+        nil
       end
 
       def put(k, v)
