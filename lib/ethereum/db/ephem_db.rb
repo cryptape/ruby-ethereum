@@ -9,7 +9,11 @@ module Ethereum
       end
 
       def get(k)
-        @db[k] or raise KeyError, k.inspect
+        if has_key?
+          @db[k]
+        else
+          raise KeyError, k.inspect
+        end
       end
 
       def put(k, v)

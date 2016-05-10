@@ -24,13 +24,14 @@ module Ethereum
         logger.trace 'getting entry', key: Utils.encode_hex(k)[0,8]
 
         if @uncommited.has_key?(k)
-          raise KeyError, 'key not in db' unless @uncommited[key]
+          raise KeyError, 'key not in db' unless @uncommited[k]
           logger.trace "from uncommited"
           return @uncommited[k]
         end
 
         logger.trace "from db"
-        v = @db.get(k) or raise KeyError, k.inspect
+        raise KeyError, k.inspect unless @db.exists?(k)
+        v = @db.get(k)
         o = decompress v
         @uncommited[k] = o
 
