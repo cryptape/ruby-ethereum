@@ -60,7 +60,7 @@ module Ethereum
         raise AssertError, "refcount must be greater than zero!" unless refcount > 0
 
         @journal.push [node_object[0], k]
-        new_refcount = Utils.encode(refcount-1)
+        new_refcount = Utils.encode_int(refcount-1)
         ref_put k, RLP.encode([new_refcount, node_object[1]])
 
         @death_row.push k if new_refcount == ZERO_ENCODED
@@ -130,7 +130,7 @@ module Ethereum
         @db.put "deathrow:#{timeout_epoch}", RLP.encode(death_row_nodes)
 
         journal = RLP.decode(@db.get("journal:#{epoch}")) rescue []
-        journal.extend @journal
+        journal.concat @journal
         @journal = []
         @db.put "journal:#{epoch}", RLP.encode(journal)
       end
@@ -169,7 +169,11 @@ module Ethereum
       end
 
       def ref_get(k)
-        @db.get ref_key(k)
+        if has_key?(k)
+          @db.get ref_key(k)
+        else
+          raise KeyError, k.inspect
+        end
       end
 
       def ref_put(k, v)
