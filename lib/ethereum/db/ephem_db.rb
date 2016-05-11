@@ -2,14 +2,15 @@
 
 module Ethereum
   module DB
-    class EphemDB < BaseDB
+    class EphemDB
+      include BaseDB
 
       def initialize
         @db = {}
       end
 
       def get(k)
-        if has_key?
+        if has_key?(k)
           @db[k]
         else
           raise KeyError, k.inspect

@@ -4,7 +4,8 @@ require 'leveldb'
 
 module Ethereum
   module DB
-    class LevelDB < BaseDB
+    class LevelDB
+      include BaseDB
 
       def initialize(dbfile)
         logger.info "opening LevelDB", path: dbfile

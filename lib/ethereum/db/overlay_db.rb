@@ -5,7 +5,8 @@ module Ethereum
     ##
     # Used for making temporary objects.
     #
-    class OverlayDB < BaseDB
+    class OverlayDB
+      include BaseDB
 
       def initialize(db)
         @db = db

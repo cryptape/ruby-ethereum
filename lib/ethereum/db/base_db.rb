@@ -2,7 +2,7 @@
 
 module Ethereum
   module DB
-    class BaseDB
+    module BaseDB
       attr :db
     end
   end

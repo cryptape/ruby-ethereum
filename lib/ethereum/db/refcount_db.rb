@@ -2,7 +2,8 @@
 
 module Ethereum
   module DB
-    class RefcountDB < BaseDB
+    class RefcountDB
+      include BaseDB
 
       DEATH_ROW_OFFSET = 2**62
 
