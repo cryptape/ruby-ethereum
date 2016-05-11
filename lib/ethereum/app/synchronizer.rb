@@ -35,6 +35,8 @@ module Ethereum
 
       MAX_NEWBLOCK_AGE = 5 # maximum age (in blocks) of blocks received as newblock
 
+      attr :chain, :chainservice
+
       ##
       # @param force_sync [Array, NilClass] If passed in array, it must be in
       #   the form of tuple: (blockhash, chain_difficulty). Helper for long
@@ -178,6 +180,11 @@ module Ethereum
         end
       end
 
+      private
+
+      def logger
+        @logger ||= Logger.new('eth.sync')
+      end
     end
 
   end
