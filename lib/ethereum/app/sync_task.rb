@@ -92,7 +92,7 @@ module Ethereum
             proto.send_getblockhashes blockhash, max_blockhashes_per_request
             begin
               blockhashes_batch = deferred.result(BLOCKHASHES_REQUEST_TIMEOUT)
-            rescue TimedOut
+            rescue Defer::TimedOut
               logger.warn 'syncing hashchain timed out'
               next
             ensure
@@ -171,7 +171,7 @@ module Ethereum
             proto.send_getblocks *blockhashes_batch
             begin
               t_blocks = deferred.result(BLOCKS_REQUEST_TIMEOUT)
-            rescue TimedOut
+            rescue Defer::TimedOut
               logger.warn 'getblocks timed out, trying next proto'
               next
             ensure

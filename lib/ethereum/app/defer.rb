@@ -5,6 +5,8 @@ module Ethereum
 
     class Defer
 
+      class TimedOut < StandardError; end
+
       def initialize
         @cond = Celluloid::Condition.new
 
@@ -32,6 +34,8 @@ module Ethereum
           return @result if finished?
           @cond.wait(timeout)
         end
+      rescue ConditionError => e
+        raise TimedOut, e
       end
 
       def resolve(result)
