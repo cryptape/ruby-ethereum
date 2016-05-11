@@ -29,7 +29,7 @@ module Ethereum
         @blockhash = blockhash
         @chain_difficulty = chain_difficulty
 
-        @requests = {}
+        @requests = {} # proto => [cond, result]
         @start_block_number = @chain.head.number
         @end_block_number = @start_block_number + 1 # minimum synctask
 
@@ -42,6 +42,7 @@ module Ethereum
         fetch_hashchain
       rescue
         logger.error $!
+        logger.error $!.backtrace[0,20].join("\n")
         task_exit false
       end
 
@@ -85,12 +86,12 @@ module Ethereum
             next if proto.dead? || proto.stopped?
 
             raise AssertError if @requests.has_key?(proto)
-            deferred = Celluloid::Future.new
+            deferred = Defer.new
             @requests[proto] = deferred
 
             proto.send_getblockhashes blockhash, max_blockhashes_per_request
             begin
-              blockhashes_batch = deferred.value(BLOCKHASHES_REQUEST_TIMEOUT)
+              blockhashes_batch = deferred.result(BLOCKHASHES_REQUEST_TIMEOUT)
             rescue TimedOut
               logger.warn 'syncing hashchain timed out'
               next
@@ -164,12 +165,12 @@ module Ethereum
             raise AssertError if @requests.has_key?(proto)
 
             logger.debug 'requesting blocks', num: blockhashes_batch.size
-            deferred = Celluloid::Future.new
+            deferred = Defer.new
             @requests[proto] = deferred
 
             proto.send_getblocks *blockhashes_batch
             begin
-              t_blocks = deferred.value(BLOCKS_REQUEST_TIMEOUT)
+              t_blocks = deferred.result(BLOCKS_REQUEST_TIMEOUT)
             rescue TimedOut
               logger.warn 'getblocks timed out, trying next proto'
               next
@@ -237,7 +238,7 @@ module Ethereum
           logger.debug 'unexpected blocks'
           return
         end
-        @requests[proto].signal t_blocks
+        @requests[proto].resolve t_blocks
       end
 
       def receive_blockhashes(proto, blockhashes)
@@ -246,7 +247,7 @@ module Ethereum
           logger.debug 'unexpected blockhashes'
           return
         end
-        @requests[proto].signal blockhashes
+        @requests[proto].resolve blockhashes
       end
 
       private

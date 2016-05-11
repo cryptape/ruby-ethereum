@@ -11,6 +11,7 @@ require 'ethereum/app/keystore'
 require 'ethereum/app/account'
 
 require 'ethereum/app/duplicates_filter'
+require 'ethereum/app/defer'
 require 'ethereum/app/sync_task'
 require 'ethereum/app/synchronizer'
 
