@@ -27,11 +27,36 @@ class Reth
   end
 
   def load_config
-    App::Config.setup
-    @config = App::Config.load
+    profile = App::Profile[:livenet] # default to livenet profile
 
+    App::Config.setup
+    @config = profile.deep_merge App::Config.load
+
+    genesis_from_config_file = @config.fetch(:eth, {})[:genesis]
+    if genesis_from_config_file
+      # Fixed genesis_hash take from profile must be deleted as custom genesis loaded
+      @config[:eth].delete :genesis_hash
+      @config[:eth][:genesis] = genesis_from_config_file
+    end
+
+    update_config_from_genesis_json @config[:eth][:genesis]
+
+    # TODO: bootstrap_nodes_from_config_file
+
+    dump_config
+  end
+
+  def dump_config
     puts_header 'CONFIGURATION'
-    puts @config.to_hash
+
+    cfg = @config.to_hash
+    alloc = cfg.fetch('eth', {}).fetch('block', {}).fetch('genesis_initial_alloc', {})
+    if alloc.size > 100
+      puts "omitting reporting of #{alloc.size} accounts in genesis"
+      cfg['eth']['block'].delete('genesis_initial_alloc')
+    end
+
+    puts cfg
   end
 
   def register_services
@@ -78,6 +103,36 @@ class Reth
 
   def puts_header(text)
     puts "\n>>>>> #{text}"
+  end
+
+  def update_config_from_genesis_json(genesis_json_filename_or_hash)
+    genesis = genesis_json_filename_or_hash.instance_of?(String) ?
+      JSON.parse(File.read(genesis_json_filename_or_hash)) :
+      genesis_json_filename_or_hash
+
+    @config[:eth] ||= {}
+    @config[:eth][:block] ||= {}
+
+    id = ->(x) { x }
+    parse_int_or_hex = ->(x) { Utils.parse_int_or_hex(x) }
+    dec = ->(x) { Utils.decode_hex Utils.remove_0x_head(x) }
+
+    m = {
+      'alloc' => [:genesis_initial_alloc, id],
+      'difficulty' => [:genesis_difficulty, parse_int_or_hex],
+      'timestamp' => [:genesis_timestamp, parse_int_or_hex],
+      'extraData' => [:genesis_extra_data, dec],
+      'gasLimit' => [:genesis_gas_limit, parse_int_or_hex],
+      'mixhash' => [:genesis_mixhash, dec],
+      'parentHash' => [:genesis_prevhash, dec],
+      'coinbase' => [:genesis_coinbase, dec],
+      'nonce' => [:genesis_nonce, dec]
+    }
+
+    genesis.each do |k, v|
+      target_key, trans = m[k]
+      @config[:eth][:block][target_key] = trans.call v
+    end
   end
 end
 

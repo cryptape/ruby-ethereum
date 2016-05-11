@@ -5,7 +5,7 @@ module Ethereum
 
     class Profile
 
-      GENESIS_DIR = File.expand_path('..', __FILE__)
+      GENESIS_DIR = File.expand_path('../genesisdata', __FILE__)
 
       ALL = {
         livenet: {
