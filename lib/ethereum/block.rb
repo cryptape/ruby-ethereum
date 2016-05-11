@@ -175,10 +175,10 @@ module Ethereum
         start_alloc.each do |addr, data|
           addr = Utils.normalize_address addr
 
-          block.set_balance addr, data[:wei] if data[:wei]
-          block.set_balance addr, data[:balance] if data[:balance]
-          block.set_code addr, data[:code] if data[:code]
-          block.set_nonce addr, data[:nonce] if data[:nonce]
+          block.set_balance addr, Utils.parse_int_or_hex(data[:wei]) if data[:wei]
+          block.set_balance addr, Utils.parse_int_or_hex(data[:balance]) if data[:balance]
+          block.set_code addr, Utils.decode_hex(data[:code]) if data[:code]
+          block.set_nonce addr, Utils.parse_int_or_hex(data[:nonce]) if data[:nonce]
 
           if data[:storage]
             data[:storage].each {|k, v| block.set_storage_data addr, k, v }
