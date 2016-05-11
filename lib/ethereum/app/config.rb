@@ -52,8 +52,8 @@ module Ethereum
           end
         end
 
-        def save(config, data_dir=DEFAULT_DATA_DIR)
-          File.open(get_path(data_dir), 'wb') do |f|
+        def save(config, path)
+          File.open(path, 'wb') do |f|
             h = config.instance_of?(Hashie::Mash) ? config.to_hash : config
             f.write YAML.dump(h)
           end
