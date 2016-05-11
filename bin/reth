@@ -32,6 +32,9 @@ class Reth
     App::Config.setup
     @config = profile.deep_merge App::Config.load
 
+    update_config_with_defaults @config, App::Config.get_default_config([App::Full] + Services)
+    update_config_with_defaults @config, {eth: {block: Env::DEFAULT_CONFIG}}
+
     genesis_from_config_file = @config.fetch(:eth, {})[:genesis]
     if genesis_from_config_file
       # Fixed genesis_hash take from profile must be deleted as custom genesis loaded
@@ -103,6 +106,10 @@ class Reth
 
   def puts_header(text)
     puts "\n>>>>> #{text}"
+  end
+
+  def update_config_with_defaults(config, default_config)
+    DEVp2p::Utils.update_config_with_defaults config, default_config
   end
 
   def update_config_from_genesis_json(genesis_json_filename_or_hash)

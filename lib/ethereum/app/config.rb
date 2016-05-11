@@ -69,6 +69,17 @@ module Ethereum
         def get_path(data_dir=DEFAULT_DATA_DIR)
           File.join data_dir, FILENAME
         end
+
+        ##
+        # Collect default_config from services.
+        #
+        def get_default_config(services)
+          config = {}
+          services.each do |s|
+            DEVp2p::Utils.update_config_with_defaults config, s.default_config
+          end
+          config
+        end
       end
 
     end
