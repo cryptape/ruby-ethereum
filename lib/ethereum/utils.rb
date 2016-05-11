@@ -187,5 +187,27 @@ module Ethereum
       keccak256_rlp([normalize_address(sender), nonce])[12..-1]
     end
 
+    def remove_0x_head(s)
+      s[0,2] == '0x' ? s[2..-1] : s
+    end
+
+    def parse_int_or_hex(s)
+      if s.is_a?(Numeric)
+        s
+      elsif s[0,2] == '0x'
+        big_endian_to_int decode_hex(normalize_hex_without_prefix(s))
+      else
+        s.to_i
+      end
+    end
+
+    def normalize_hex_without_prefix(s)
+      if s[0,2] == '0x'
+        (s.size % 2 == 1 ? '0' : '') + s[2..-1]
+      else
+        s
+      end
+    end
+
   end
 end
