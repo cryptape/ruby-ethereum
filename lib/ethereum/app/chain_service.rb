@@ -233,7 +233,10 @@ module Ethereum
         @synchronizer.receive_newblockhashes(proto, newblockhashes)
       end
 
-      def on_receive_getblockhashes(proto, child_block_hash, count)
+      def on_receive_getblockhashes(proto, options)
+        child_block_hash = options[:child_block_hash]
+        count = options[:count]
+
         logger.debug 'handle getblockhashes', count: count, block_hash: Utils.encode_hex(child_block_hash)
 
         max_hashes = [count, @wire_protocol::MAX_GETBLOCKHASHES_COUNT].min
@@ -304,12 +307,18 @@ module Ethereum
         end
       end
 
-      def on_receive_newblock(proto, block, chain_difficulty)
+      def on_receive_newblock(proto, options)
+        block = options[:block]
+        chain_difficulty = options[:chain_difficulty]
+
         logger.debug 'recv newblock', block: block, remote_id: proto
         @synchronizer.receive_newblock proto, block, chain_difficulty
       end
 
-      def on_receive_getblockhashesfromnumber(proto, number, count)
+      def on_receive_getblockhashesfromnumber(proto, options)
+        number = options[:number]
+        count = options[:count]
+
         logger.debug 'recv getblockhashesfromnumber', number: number, count: count, remote_id: proto
 
         found = []
