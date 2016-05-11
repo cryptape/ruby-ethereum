@@ -187,7 +187,13 @@ module Ethereum
         logger.debug 'on_wire_protocol_stop', proto: proto
       end
 
-      def on_receive_status(proto, eth_version, network_id, chain_difficulty, chain_head_hash, genesis_hash)
+      def on_receive_status(proto, options)
+        eth_version = options[:eth_version]
+        network_id = options[:network_id]
+        chain_difficulty = options[:chain_difficulty]
+        chain_head_hash = options[:chain_head_hash]
+        genesis_hash = options[:genesis_hash]
+
         logger.debug 'status received', proto: proto, eth_version: eth_version
         raise AssertError, 'eth version mismatch' unless eth_version == proto.version
 
