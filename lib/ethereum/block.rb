@@ -228,7 +228,7 @@ module Ethereum
       making = options.has_key?(:making) ? options.delete(:making) : false
 
       raise ArgumentError, "No Env object given" unless env.instance_of?(Env)
-      raise ArgumentError, "No database object given" unless env.db.is_a?(DB::BaseDB)
+      raise ArgumentError, "No database object given. db=#{env.db}" unless env.db.is_a?(DB::BaseDB)
 
       @env = env
       @db = env.db

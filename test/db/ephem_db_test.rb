@@ -3,9 +3,14 @@
 require 'test_helper'
 
 class EphemDBTest < Minitest::Test
+  include Ethereum
+
+  def test_is_a_base_db
+    assert DB::EphemDB.new.is_a?(DB::BaseDB)
+  end
 
   def test_ephem_db
-    db = Ethereum::DB::EphemDB.new
+    db = DB::EphemDB.new
 
     content = [1,32,255].product([0,1,32,255])
       .map {|(lk,lv)| [Random.new.bytes(lk), Random.new.bytes(lv)] }

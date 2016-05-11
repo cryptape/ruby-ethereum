@@ -4,6 +4,7 @@ module Ethereum
   module App
 
     class DBService < DEVp2p::BaseService
+      include DB::BaseDB
 
       name 'db'
       default_config(
