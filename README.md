@@ -6,15 +6,9 @@ A Ruby implementation of [Ethereum](https://ethereum.org).
 
 ## Install Secp256k1
 
-```
-git clone git@github.com:bitcoin/bitcoin.git
-git checkout v0.11.2
+The [ruby-bitcoin-secp256k1 gem](https://github.com/janx/ruby-bitcoin-secp256k1) requires libsecp256k1 with recovery module enabled.
 
-./autogen.sh
-./configure
-make
-sudo make install
-```
+See the gem's [install script](https://github.com/janx/ruby-bitcoin-secp256k1/blob/master/install_lib.sh) for how to install this once you've cloned [libsecp256k1](https://github.com/bitcoin-core/secp256k1/tree/7b549b1abc06fe1c640014603346b85c8bc83e0b).
 
 ## Caveats
 
@@ -29,6 +23,25 @@ Set `RUBY_THREAD_VM_STACK_SIZE` in your shell/environment:
 export RUBY_THREAD_VM_STACK_SIZE=104857600 # 100M, 100 times default
 ```
 
+### Fiber Stack Size
+
+[ruby-devp2p](https://github.com/janx/ruby-devp2p) is built on [Celluloid](https://github.com/celluloid/celluloid/), which
+uses fibers to schedule tasks. Ruby's default limit on fiber stack size is quite small, which needs to be increased by setting environment variables:
+
+```
+export RUBY_FIBER_VM_STACK_SIZE=104857600 # 100MB
+export RUBY_FIBER_MACHINE_STACK_SIZE=1048576000
+```
+
+## Testing
+Setup:
+```
+git submodule update --init
+```
+Run:
+```
+rake
+```
 ## License
 
 [MIT License](LICENSE)
