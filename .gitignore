@@ -1,4 +1,5 @@
 tags
 .bundle
 .yardoc
+.ruby-version
 doc
