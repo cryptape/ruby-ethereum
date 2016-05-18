@@ -99,16 +99,11 @@ class BlockFixtureTest < Minitest::Test
     pre.map do |addr, data|
       parsed_data = {}
 
-      parsed_data[:wei] = parse_int_or_hex(data['wei']) if data['wei']
-      parsed_data[:balance] = parse_int_or_hex(data['balance']) if data['balance']
-      parsed_data[:code] = Scanner.bin(data['code']) if data['code']
-      parsed_data[:nonce] = parse_int_or_hex(data['nonce']) if data['nonce']
-
-      if data['storage']
-        parsed_data[:storage] = data['storage'].map do |k,v|
-          [Scanner.int256b(k[2..-1]), Scanner.int256b(v[2..-1])]
-        end.to_h
-      end
+      parsed_data[:wei] = data['wei'] if data['wei']
+      parsed_data[:balance] = data['balance'] if data['balance']
+      parsed_data[:code] = data['code'] if data['code']
+      parsed_data[:nonce] = data['nonce'] if data['nonce']
+      parsed_data[:storage] = data['storage'] if data['storage']
 
       alloc[addr] = parsed_data
     end

@@ -178,11 +178,15 @@ module Ethereum
 
           block.set_balance addr, Utils.parse_int_or_hex(data[:wei]) if data[:wei]
           block.set_balance addr, Utils.parse_int_or_hex(data[:balance]) if data[:balance]
-          block.set_code addr, Utils.decode_hex(data[:code]) if data[:code]
+          block.set_code addr, Utils.decode_hex(Utils.remove_0x_head(data[:code])) if data[:code]
           block.set_nonce addr, Utils.parse_int_or_hex(data[:nonce]) if data[:nonce]
 
           if data[:storage]
-            data[:storage].each {|k, v| block.set_storage_data addr, k, v }
+            data[:storage].each do |k, v|
+              k = Utils.big_endian_to_int Utils.decode_hex(Utils.remove_0x_head(k))
+              v = Utils.big_endian_to_int Utils.decode_hex(Utils.remove_0x_head(v))
+              block.set_storage_data addr, k, v
+            end
           end
 
         end
