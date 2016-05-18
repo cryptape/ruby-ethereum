@@ -67,6 +67,7 @@ module Ethereum
 
         c
       end
+      lru_cache :get_cache, 5
 
       def hashimoto_light(blknum, cache, mining_hash, bin_nonce)
         nonce = Utils.big_endian_to_int(bin_nonce)
