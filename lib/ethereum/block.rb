@@ -1106,6 +1106,27 @@ module Ethereum
     end
     alias :inspect :to_s
 
+    def validate_transaction(tx)
+      raise UnsignedTransactionError.new(tx) unless tx.sender
+
+      acct_nonce = get_nonce tx.sender
+      raise InvalidNonce, "#{tx}: nonce actual: #{tx.nonce} target: #{acct_nonce}" if acct_nonce != tx.nonce
+
+      min_gas = get_intrinsic_gas tx
+      raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}" if tx.startgas < min_gas
+
+      total_cost = tx.value + tx.gasprice * tx.startgas
+      balance = get_balance tx.sender
+      raise InsufficientBalance, "#{tx}: balance actual: #{balance} target: #{total_cost}" if balance < total_cost
+
+      accum_gas = gas_used + tx.startgas
+      raise BlockGasLimitReached, "#{tx}: gaslimit actual: #{accum_gas} target: #{gas_limit}" if accum_gas > gas_limit
+
+      tx.check_low_s if number >= config[:homestead_fork_blknum]
+
+      true
+    end
+
     private
 
     def logger
@@ -1183,27 +1204,6 @@ module Ethereum
       raise ValueError, "Coinbase cannot be empty address" if header.coinbase.false?
       raise ValueError, "State merkle root of block #{self} not found in database" unless @state.root_hash_valid?
       raise ValueError, "PoW check failed" if !genesis? && nonce.true? && !header.check_pow
-    end
-
-    def validate_transaction(tx)
-      raise UnsignedTransactionError.new(tx) unless tx.sender
-
-      acct_nonce = get_nonce tx.sender
-      raise InvalidNonce, "#{tx}: nonce actual: #{tx.nonce} target: #{acct_nonce}" if acct_nonce != tx.nonce
-
-      min_gas = get_intrinsic_gas tx
-      raise InsufficientStartGas, "#{tx}: startgas actual: #{tx.startgas} target: #{min_gas}" if tx.startgas < min_gas
-
-      total_cost = tx.value + tx.gasprice * tx.startgas
-      balance = get_balance tx.sender
-      raise InsufficientBalance, "#{tx}: balance actual: #{balance} target: #{total_cost}" if balance < total_cost
-
-      accum_gas = gas_used + tx.startgas
-      raise BlockGasLimitReached, "#{tx}: gaslimit actual: #{accum_gas} target: #{gas_limit}" if accum_gas > gas_limit
-
-      tx.check_low_s if number >= config[:homestead_fork_blknum]
-
-      true
     end
 
     ##
