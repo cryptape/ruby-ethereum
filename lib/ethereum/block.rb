@@ -330,6 +330,10 @@ module Ethereum
       @transaction_count.times.map {|i| get_transaction(i) }
     end
 
+    def uncles_hash
+      Utils.keccak256_rlp(uncles)
+    end
+
     ##
     # Validate the uncles of this block.
     #
