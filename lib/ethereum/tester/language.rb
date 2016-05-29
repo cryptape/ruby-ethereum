@@ -8,10 +8,18 @@ module Ethereum
         def all
           return @all if @all
 
-          @all = {
-            serpent: Serpent,
-            solidity: SolidityWrapper.solc_path && SolidityWrapper
-          }
+          @all = {}
+
+          begin
+            require 'serpent'
+            @all[:serpent] = Serpent
+          rescue
+            # do nothing
+          end
+
+          if SolidityWrapper.solc_path
+            @all[:solidity] = SolidityWrapper
+          end
 
           @all
         end
