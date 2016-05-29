@@ -13,7 +13,7 @@ module Ethereum
           begin
             require 'serpent'
             @all[:serpent] = Serpent
-          rescue
+          rescue LoadError
             # do nothing
           end
 
