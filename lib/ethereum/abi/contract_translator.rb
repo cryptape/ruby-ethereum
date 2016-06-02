@@ -140,18 +140,18 @@ module Ethereum
         o
       end
 
-      private
-
-      def logger
-        @logger ||= Logger.new 'eth.abi.contract_translator'
-      end
-
       def method_id(name, encode_types)
         Utils.big_endian_to_int Utils.keccak256(get_sig(name, encode_types))[0,4]
       end
 
       def event_id(name, encode_types)
         Utils.big_endian_to_int Utils.keccak256(get_sig(name, encode_types))
+      end
+
+      private
+
+      def logger
+        @logger ||= Logger.new 'eth.abi.contract_translator'
       end
 
       def get_sig(name, encode_types)
