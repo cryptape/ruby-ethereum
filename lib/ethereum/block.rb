@@ -815,6 +815,7 @@ module Ethereum
       loop do
         begin
           receipts.push get_receipt(i)
+          i += 1
         rescue IndexError
           return receipts
         end

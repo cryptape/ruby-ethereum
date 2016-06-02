@@ -165,6 +165,17 @@ class ChainTest < Minitest::Test
     assert !blk.get_transactions.include?(tx)
   end
 
+  def test_get_transaction_receipts
+    blk = mkgenesis initial_alloc: {@v => {balance: 1.ether}}, db: @db
+    store_block blk
+
+    tx = get_transaction
+    blk = mine_next_block blk, transactions: [tx]
+
+    assert_equal 1, blk.get_receipts.size
+    assert blk.get_receipt(0).instance_of?(Receipt)
+  end
+
   def test_block_serialization_same_db
     blk = mkgenesis initial_alloc: {@v => {balance: 1.ether}}, db: @db
     assert_equal RLP.decode(RLP.encode(blk), sedes: Block, env: Env.new(@db)).full_hash, blk.full_hash
