@@ -21,6 +21,7 @@ PATH
       ffi (~> 1.9)
       lru_redux (~> 1.1)
       rlp (~> 0.6)
+      slop (~> 4.3)
 
 GEM
   remote: https://rubygems.org/
@@ -44,6 +45,7 @@ GEM
     rake (10.5.0)
     rlp (0.7.2)
     serpent (0.3.0)
+    slop (4.3.0)
     yard (0.8.7.6)
 
 PLATFORMS
