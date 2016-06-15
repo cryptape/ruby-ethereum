@@ -1,9 +1,21 @@
 PATH
+  remote: ../ruby-devp2p
+  specs:
+    devp2p (0.3.0)
+      bitcoin-secp256k1 (~> 0.4)
+      block_logger (= 0.1.2)
+      concurrent-ruby (~> 1.0)
+      digest-sha3 (~> 1.1)
+      hashie (~> 3.4)
+      rlp (>= 0.7.1)
+
+PATH
   remote: .
   specs:
     ruby-ethereum (0.9.1)
       bitcoin-secp256k1 (~> 0.4)
       block_logger (~> 0.1)
+      devp2p (~> 0.3)
       digest-sha3 (~> 1.1)
       ethash (~> 0.2)
       ffi (~> 1.9)
@@ -17,9 +29,11 @@ GEM
       ffi (>= 1.9.10)
     block_logger (0.1.2)
       logging (~> 2.0)
+    concurrent-ruby (1.0.2)
     digest-sha3 (1.1.0)
     ethash (0.2.0)
     ffi (1.9.10)
+    hashie (3.4.4)
     little-plugger (1.1.4)
     logging (2.1.0)
       little-plugger (~> 1.1)
@@ -36,6 +50,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  devp2p!
   minitest (= 5.8.3)
   rake (~> 10.5)
   ruby-ethereum!
