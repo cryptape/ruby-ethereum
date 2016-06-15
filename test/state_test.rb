@@ -78,7 +78,7 @@ class StateTest < Minitest::Test
         startgas: parse_int_or_hex(exek['gasLimit'] || '0'),
         to: Utils.normalize_address(exek['to'], allow_blank: true),
         value: parse_int_or_hex(exek['value'] || '0'),
-        data: decode_hex(remove_0x_head(exek['data']))
+        data: decode_hex(Utils.remove_0x_head(exek['data']))
       )
     rescue InvalidTransaction
       tx = nil
@@ -89,9 +89,9 @@ class StateTest < Minitest::Test
       if exek.has_key?('secretKey')
         tx.sign(exek['secretKey'])
       elsif %w(v r s).all? {|k| exek.has_key?(k) }
-        tx.v = decode_hex remove_0x_head(exek['v'])
-        tx.r = decode_hex remove_0x_head(exek['r'])
-        tx.s = decode_hex remove_0x_head(exek['s'])
+        tx.v = decode_hex Utils.remove_0x_head(exek['v'])
+        tx.r = decode_hex Utils.remove_0x_head(exek['r'])
+        tx.s = decode_hex Utils.remove_0x_head(exek['s'])
       else
         assert false, 'no way to sign'
       end
