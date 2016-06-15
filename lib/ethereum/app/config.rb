@@ -63,9 +63,11 @@ module Ethereum
           config[:data_dir] = data_dir
 
           genesis_path = File.join data_dir, GENESIS_FILE
-          genesis = File.exist?(genesis_path) ? JSON.parse(File.read(genesis_path)) : {}
-          config[:eth] ||= {}
-          config[:eth][:genesis] = genesis
+          genesis = File.exist?(genesis_path) ? JSON.parse(File.read(genesis_path)) : nil
+          if genesis
+            config[:eth] ||= {}
+            config[:eth][:genesis] = genesis
+          end
 
           Defaults.deep_merge(config)
         end
