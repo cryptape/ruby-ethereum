@@ -85,7 +85,7 @@ module Ethereum
 
         logger.debug 'add_transaction', locked: !@add_transaction_lock.locked?, tx: tx
         raise ArgumentError, 'tx must be Transaction' unless tx.instance_of?(Transaction)
-        raise ArgumentError, 'origin must be nil or DEVp2p::BaseProtocol' unless origin.nil? || origin.is_a?(DEVp2p::BaseProtocol)
+        raise ArgumentError, 'origin must be nil or DEVp2p::Protocol' unless origin.nil? || origin.is_a?(DEVp2p::Protocol)
 
         if @broadcast_filter.include?(tx.full_hash)
           logger.debug 'discarding known tx'
@@ -307,6 +307,9 @@ module Ethereum
         end
       rescue App::ETHProtocolError
         app.services.peermanager.exclude proto.peer
+      rescue
+        logger.error $!
+        logger.error $!.backtrace[0,10].join("\n")
       end
 
       def on_receive_transactions(proto, transactions)
@@ -314,6 +317,9 @@ module Ethereum
         transactions.each do |tx|
           add_transaction tx, proto
         end
+      rescue
+        logger.debug $!
+        logger.debug $!.backtrace[0,10].join("\n")
       end
 
       def on_receive_newblockhashes(proto, newblockhashes)
@@ -403,6 +409,9 @@ module Ethereum
 
         logger.debug 'recv newblock', block: block, remote_id: proto
         @synchronizer.receive_newblock proto, block, chain_difficulty
+      rescue
+        logger.debug $!
+        logger.debug $!.backtrace[0,10].join("\n")
       end
 
       def on_receive_getblockhashesfromnumber(proto, options)

@@ -63,7 +63,7 @@ module Ethereum
       def protocols
         @protocols = @protocols
           .map {|proto, diff| [proto, diff] }
-          .select {|tuple| tuple[0].alive? && !tuple[0].stopped? }
+          .select {|tuple| !tuple[0].stopped? }
           .to_h
 
         @protocols.keys.sort_by {|proto| -@protocols[proto] }
@@ -135,6 +135,9 @@ module Ethereum
           logger.debug 'sufficient difficulty'
           @synctask = App::SyncTask.new self, proto, blockhash, chain_difficulty
         end
+      rescue
+        logger.debug $!
+        logger.debug $!.backtrace[0,10].join("\n")
       end
 
       ##

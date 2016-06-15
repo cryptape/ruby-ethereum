@@ -84,7 +84,7 @@ module Ethereum
 
           protos.each do |proto|
             logger.debug "syncing with", proto: proto
-            next if proto.dead? || proto.stopped?
+            next if proto.stopped?
 
             raise AssertError if @requests.has_key?(proto)
             deferred = Concurrent::IVar.new
@@ -170,7 +170,7 @@ module Ethereum
           protos.each do |_proto|
             proto = _proto
 
-            next if proto.dead? || proto.stopped?
+            next if proto.stopped?
             raise AssertError if @requests.has_key?(proto)
 
             logger.debug 'requesting blocks', num: blockhashes_batch.size
