@@ -1,4 +1,4 @@
-# encoding: ascii-8bit
+# -*- encoding : ascii-8bit -*-
 
 require 'ffi'
 
