@@ -144,16 +144,6 @@ module Ethereum
             next
           end
 
-          # FIXME: this is also done in validation and in synchronizer for
-          # new_blocks
-          if !t_block.header.check_pow
-            logger.warn 'invalid pow', block: t_block
-            # TODO: ban node
-            warn_invalid t_block, 'InvalidBlockNonce'
-            @block_queue.deq
-            next
-          end
-
           block = nil
           begin # deserialize
             t = Time.now

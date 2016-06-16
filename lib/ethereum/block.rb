@@ -1212,7 +1212,7 @@ module Ethereum
       raise ValueError, "Extra data cannot exceed #{config[:max_extradata_length]} bytes" if header.extra_data.size > config[:max_extradata_length]
       raise ValueError, "Coinbase cannot be empty address" if header.coinbase.false?
       raise ValueError, "State merkle root of block #{self} not found in database" unless @state.root_hash_valid?
-      raise ValueError, "PoW check failed" if !genesis? && nonce.true? && !header.check_pow
+      raise InvalidNonce, "PoW check failed" if !genesis? && nonce.true? && !header.check_pow
     end
 
     ##
