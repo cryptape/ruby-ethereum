@@ -3,61 +3,44 @@
 module Ethereum
   module App
 
-    class DBService < ::DEVp2p::Service
-      include DB::BaseDB
+    class LevelDBService < ::DEVp2p::Service
+      name 'leveldb'
 
-      name 'db'
-      default_config(
-        db: {
-          implementation: 'LevelDB'
-        }
-      )
+      attr :db # implement DB::BaseDB interface
 
       def initialize(app)
         super(app)
-        @db_service = LevelDBService.new(app)
+        @db = ::Ethereum::DB::LevelDB.new File.join(app.config[:data_dir], 'leveldb')
       end
 
       def start
-        @db_service.async.start
+        # do nothing
       end
 
       def stop
-        @db_service.async.stop
-      end
-
-      def db
-        @db_service.db
+        # do nothing
       end
 
       def get(k)
-        ivar = @db_service.await.get(k)
-        if ivar.rejected?
-          raise ivar.reason
-        else
-          ivar.value
-        end
+        @db.get(k)
+      rescue KeyError
+        nil
       end
 
       def put(k, v)
-        @db_service.async.put(k, v)
+        @db.put(k, v)
       end
 
       def commit
-        @db_service.async.commit
+        @db.commit
       end
 
       def delete(k)
-        @db_service.async.delete(k)
+        @db.delete(k)
       end
 
       def include?(k)
-        ivar = @db_service.await.include?(k)
-        if ivar.rejected?
-          raise ivar.reason
-        else
-          ivar.value
-        end
+        @db.include?(k)
       end
       alias has_key? include?
 
@@ -84,6 +67,12 @@ module Ethereum
       def put_temporarily(k, v)
         inc_refcount(k, v)
         dec_refcount(k)
+      end
+
+      private
+
+      def logger
+        @logger ||= Ethereum::Logger.new 'db'
       end
 
     end

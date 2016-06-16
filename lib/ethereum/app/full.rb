@@ -19,6 +19,7 @@ require 'ethereum/app/eth_protocol'
 
 require 'ethereum/app/account_service'
 require 'ethereum/app/db_service'
+require 'ethereum/app/leveldb_service'
 require 'ethereum/app/chain_service'
 #require 'ethereum/app/pow_service'
 
