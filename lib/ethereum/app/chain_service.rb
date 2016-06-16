@@ -17,8 +17,8 @@ module Ethereum
         block: Ethereum::Env::DEFAULT_CONFIG
       )
 
-      BLOCK_QUEUE_SIZE = 1024
-      TRANSACTION_QUEUE_SIZE = 1024
+      BLOCK_QUEUE_SIZE = 512
+      TRANSACTION_QUEUE_SIZE = 512
 
       MAX_NEWBLOCK_PROCESSING_TIME_STATS = 1000
 
