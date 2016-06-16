@@ -7,6 +7,9 @@ module Ethereum
     class LevelDB
       include BaseDB
 
+      # FIXME: workaround, because leveldb gem doesn't allow put empty string
+      EMPTY_STRING = Utils.keccak256('').freeze
+
       def initialize(dbfile)
         logger.info "opening LevelDB", path: dbfile
 
@@ -114,11 +117,11 @@ module Ethereum
       end
 
       def decompress(x)
-        x
+        x == EMPTY_STRING ? '' : x
       end
 
       def compress(x)
-        x
+        x.empty? ? EMPTY_STRING : x
       end
 
     end
