@@ -202,11 +202,13 @@ module Ethereum
           @block_queue.deq
           sleep 0.001
         end
+      rescue
+        logger.error $!
+        logger.error $!.backtrace[0,10].join("\n")
       ensure
         @add_blocks_lock = false
         @add_transaction_lock.unlock
       end
-
 
       def add_mined_block(block)
         logger.debug 'adding mined block', block: block

@@ -239,6 +239,10 @@ module Ethereum
         end
 
         task_exit(true)
+      rescue
+        logger.error $!
+        logger.error $!.backtrace[0,10].join("\n")
+        task_exit(false)
       end
 
       def receive_blocks(proto, t_blocks)
