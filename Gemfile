@@ -6,4 +6,3 @@ gemspec
 #gem 'serpent', path: '../ruby-serpent'
 #gem 'bitcoin-secp256k1', path: '../ruby-bitcoin-secp256k1'
 #gem 'block_logger', path: '../block_logger'
-gem 'devp2p', path: '../ruby-devp2p'
