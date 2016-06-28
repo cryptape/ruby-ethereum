@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    ruby-ethereum (0.9.1)
+    ruby-ethereum (0.9.3)
       bitcoin-secp256k1 (~> 0.4)
       block_logger (~> 0.1)
       digest-sha3 (~> 1.1)
