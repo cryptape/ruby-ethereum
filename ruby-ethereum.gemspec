@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
 
   s.files = Dir["{lib}/**/*"] + ["LICENSE", "README.md"]
 
-  s.add_dependency('rlp', '~> 0.6')
+  s.add_dependency('rlp', '0.7.3')
   s.add_dependency('ethash', '~> 0.2')
   s.add_dependency('bitcoin-secp256k1', '~> 0.4')
   s.add_dependency('lru_redux', '~> 1.1')

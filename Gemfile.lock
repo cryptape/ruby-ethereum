@@ -9,7 +9,7 @@ PATH
       ffi (~> 1.9)
       leveldb (= 0.1.9)
       lru_redux (~> 1.1)
-      rlp (~> 0.6)
+      rlp (= 0.7.3)
 
 GEM
   remote: https://rubygems.org/
@@ -32,7 +32,7 @@ GEM
     minitest (5.8.3)
     multi_json (1.12.1)
     rake (10.5.0)
-    rlp (0.7.2)
+    rlp (0.7.3)
     serpent (0.3.0)
     yard (0.8.7.6)
 
