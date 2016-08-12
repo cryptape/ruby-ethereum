@@ -46,8 +46,12 @@ module Ethereum
 
       account_initial_nonce: 0,
 
+      # Milestones
       homestead_fork_blknum: 1150000,
-      homestead_diff_adjustment_cutoff: 10
+      homestead_diff_adjustment_cutoff: 10,
+
+      metropolis_fork_blknum: 9999999,
+      metropolis_entry_point: 2**160-1
     }.freeze
 
     attr :db, :config, :global_config

@@ -187,6 +187,10 @@ module Ethereum
       keccak256_rlp([normalize_address(sender), nonce])[12..-1]
     end
 
+    def mk_metropolis_contract_address(sender, initcode)
+      keccak256(normalize_address(sender) + initcode)[12..-1]
+    end
+
     def remove_0x_head(s)
       s[0,2] == '0x' ? s[2..-1] : s
     end

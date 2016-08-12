@@ -12,7 +12,9 @@ module Ethereum
   class ExternalCall
 
     extend Forwardable
-    def_delegators :@block, :get_code, :get_balance, :set_balance, :get_storage_data, :set_storage_data, :add_refund, :account_exists
+    def_delegators :@block, :get_code, :get_balance, :set_balance,
+      :get_nonce, :set_nonce, :get_storage_data, :set_storage_data,
+      :add_refund, :account_exists
 
     def initialize(block, tx)
       @block = block
@@ -77,10 +79,23 @@ module Ethereum
 
       sender = Utils.normalize_address(msg.sender, allow_blank: true)
 
-      @block.increment_nonce msg.sender if tx_origin != msg.sender
+      code = msg.data.extract_all
+      if @block.number >= @block.config[:metropolis_fork_blknum]
+        msg.to = Utils.mk_metropolis_contract_address msg.sender, code
+        if get_code(msg.to)
+          n1 = get_nonce msg.to
+          n2 = n1 >= Constant::TT40 ?
+            (n + 1) :
+            (Utils.big_endian_to_int(msg.to) + 2)
+          set_nonce msg.to, (n2 % Constant::TT160)
+          msg.to = Utils.normalize_address((get_nonce(msg.to) - 1) % Constant::TT160)
+        end
+      else
+        @block.increment_nonce msg.sender if tx_origin != msg.sender
 
-      nonce = Utils.encode_int(@block.get_nonce(msg.sender) - 1)
-      msg.to = Utils.mk_contract_address sender, nonce
+        nonce = Utils.encode_int(@block.get_nonce(msg.sender) - 1)
+        msg.to = Utils.mk_contract_address sender, nonce
+      end
 
       balance = get_balance(msg.to)
       if balance > 0
@@ -91,11 +106,9 @@ module Ethereum
       end
 
       msg.is_create = true
-
-      code = msg.data.extract_all
       msg.data = VM::CallData.new [], 0, 0
-      snapshot = @block.snapshot
 
+      snapshot = @block.snapshot
       res, gas, dat = apply_msg msg, code
 
       if res.true?

@@ -1118,7 +1118,13 @@ module Ethereum
     alias :inspect :to_s
 
     def validate_transaction(tx)
-      raise UnsignedTransactionError.new(tx) unless tx.sender
+      unless tx.sender
+        if number >= config[:metropolis_fork_blknum]
+          tx.sender = Utils.normalize_address(config[:metropolis_entry_point])
+        else
+          raise UnsignedTransactionError.new(tx)
+        end
+      end
 
       acct_nonce = get_nonce tx.sender
       raise InvalidNonce, "#{tx}: nonce actual: #{tx.nonce} target: #{acct_nonce}" if acct_nonce != tx.nonce
