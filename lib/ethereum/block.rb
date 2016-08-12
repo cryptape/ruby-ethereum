@@ -368,6 +368,8 @@ module Ethereum
       uncles.each do |uncle|
         parent = Block.find env, uncle.prevhash
         return false if uncle.difficulty != Block.calc_difficulty(parent, uncle.timestamp)
+        return false if uncle.number != parent.number + 1
+        return false if uncle.timestamp < parent.timestamp
         return false unless uncle.check_pow
 
         unless eligible_ancestor_hashes.include?(uncle.prevhash)
