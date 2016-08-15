@@ -116,8 +116,11 @@ module Ethereum
       end
 
       def mkspv(sender, to, value, data: [], funid: nil, abi: nil)
+        serpent = Language.get :serpent
+        raise "ruby-serpent not installed" unless serpent
+
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
-        evmdata = funid ? Serpent.encode_abi(funid, *abi) : Serpent.encode_datalist(*data)
+        evmdata = funid ? serpent.encode_abi(funid, *abi) : serpent.encode_datalist(*data)
 
         tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
         @last_tx = tx
@@ -127,8 +130,11 @@ module Ethereum
       end
 
       def verifyspv(sender, to, value, data: [], funid: nil, abi: nil, proof: [])
+        serpent = Language.get(:serpent)
+        raise "ruby-serpent not installed" unless serpent
+
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
-        evmdata = funid ? Serpent.encode_abi(funid, *abi) : Serpent.encode_datalist(*data)
+        evmdata = funid ? serpent.encode_abi(funid, *abi) : serpent.encode_datalist(*data)
 
         tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
         @last_tx = tx
