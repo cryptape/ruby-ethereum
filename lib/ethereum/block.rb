@@ -1166,6 +1166,8 @@ module Ethereum
         @transaction_count = 0 # TODO - should always equal @transactions.size
         self.gas_used = 0
 
+        hard_fork_initialize(parent)
+
         transaction_list.each {|tx| apply_transaction tx }
 
         finalize
@@ -1179,6 +1181,18 @@ module Ethereum
         # receipts trie populated by add_transaction_to_list is incorrect (it
         # doesn't know intermediate states), so reset it
         @receipts = PruningTrie.new db, header.receipts_root
+      end
+    end
+
+    def hard_fork_initialize(parent)
+      if number == @config[:metropolis_fork_blknum]
+        set_code Utils.normalize_address(@config[:metropolis_stateroot_store]), @config[:metropolis_getter_code]
+        set_code Utils.normalize_address(@config[:metropolis_blockhash_store]), @config[:metropolis_getter_code]
+      end
+
+      if number >= @config[:metropolis_fork_blknum]
+        set_storage_data Utils.normalize_address(@config[:metropolis_stateroot_store]), (number % @config[:metropolis_wrapround]), parent.state_root
+        set_storage_data Utils.normalize_address(@config[:metropolis_blockhash_store]), (number % @config[:metropolis_wrapround]), prevhash
       end
     end
 
