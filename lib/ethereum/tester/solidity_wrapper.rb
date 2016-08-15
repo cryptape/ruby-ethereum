@@ -8,34 +8,8 @@ module Ethereum
       class CompileError < StandardError; end
 
       class <<self
-        def split_contracts(code)
-          contracts = []
-          contract = nil
-
-          code.split("\n").each do |line|
-            if line =~ /\Acontract /
-              contracts.push(contract.join("\n")) if contract
-              contract = [line]
-            elsif contract
-              contract.push line
-            end
-          end
-
-          contracts.push(contract.join("\n")) if contract
-
-          contracts
-        end
-
         def contract_names(code)
-          names = []
-
-          split_contracts(code).each do |contract|
-            keyword, name, _ = contract.split(/\s+/, 3)
-            raise AssertError, 'keyword must be contract' unless keyword == 'contract' && !name.empty?
-            names.push name
-          end
-
-          names
+          code.scan(/^\s*(contract|library) (\S*) /m)
         end
 
         def combined(code, format='bin')
@@ -58,7 +32,7 @@ module Ethereum
           names = contract_names code
           raise AssertError unless names.size <= contracts.size
 
-          names.map {|n| [n, contracts[n]] }
+          names.map {|n| p n; [n[1], contracts[n[1]]] }
         ensure
           out.close
         end
@@ -66,12 +40,18 @@ module Ethereum
         ##
         # Returns binary of last contract in code.
         #
-        def compile(code, contract_name='', format='bin')
+        def compile(code, contract_name: '', format: 'bin', libraries: nil)
           sorted_contracts = combined code, format
           if contract_name.true?
             idx = sorted_contracts.map(&:first).index(contract_name)
           else
             idx = -1
+          end
+          if libraries
+            libraries.each do |name, address|
+              raise CompileError, "Compiler does not support libraries. Please update Compiler." if compiler_version < '0.1.2'
+              sorted_contracts[idx][1]['bin'].gsub! "__#{name}#{'_' * (38 - name.size)}", address
+            end
           end
 
           output = sorted_contracts[idx][1][format]
@@ -90,7 +70,7 @@ module Ethereum
         ##
         # Returns signature of last contract in code.
         #
-        def mk_full_signature(code, contract_name='')
+        def mk_full_signature(code, contract_name: '', libraries: nil)
           sorted_contracts = combined code
           if contract_name.true?
             idx = sorted_contracts.map(&:first).index(contract_name)

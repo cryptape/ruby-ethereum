@@ -45,20 +45,12 @@ module Ethereum
         listen        = kwargs.delete(:listen) || true
 
         code = Language.format_spaces code
-
-        if contract_name.true?
-          raise ArgumentError, "language must be solidity when contract name is given" unless language == :solidity
-          cn_args = {contract_name: contract_name}
-        else
-          cn_args = kwargs
-        end
-
         lang = Language.get language
-        opcodes = lang.compile code, **cn_args
+        opcodes = lang.compile code, **kwargs
         addr = evm(opcodes, sender: sender, endowment: endowment, gas: gas)
         raise AssertError, "Contract code empty" if @block.get_code(addr).empty?
 
-        abi = lang.mk_full_signature(code, **cn_args)
+        abi = lang.mk_full_signature(code, **kwargs)
         ABIContract.new(self, abi, addr, listen: listen, log_listener: log_listener)
       end
 
