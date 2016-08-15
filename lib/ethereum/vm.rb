@@ -273,7 +273,7 @@ module Ethereum
           case op
           when :BLOCKHASH
             s0 = stk.pop
-            stk.push Utils.big_endian_to_int(ext.block_hash(s0))
+            stk.push ext.block_hash(s0)
           when :COINBASE
             stk.push Utils.big_endian_to_int(ext.block_coinbase)
           when :TIMESTAMP

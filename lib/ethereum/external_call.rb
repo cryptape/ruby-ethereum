@@ -30,11 +30,16 @@ module Ethereum
     end
 
     def block_hash(x)
-      d = @block.number - x
-      if d > 0 && d <= 256
-        @block.get_ancestor_hash d
+      if post_metropolis_hardfork
+        get_storage_data @block.config[:metropolis_blockhash_store], x
       else
-        Constant::BYTE_EMPTY
+        d = @block.number - x
+        hash = if d > 0 && d <= 256
+                 @block.get_ancestor_hash d
+               else
+                 Constant::BYTE_EMPTY
+               end
+        Utils.big_endian_to_int hash
       end
     end
 
@@ -72,6 +77,10 @@ module Ethereum
 
     def post_homestead_hardfork
       @block.number >= @block.config[:homestead_fork_blknum]
+    end
+
+    def post_metropolis_hardfork
+      @block.number >= @block.config[:metropolis_fork_blknum]
     end
 
     def create(msg)
