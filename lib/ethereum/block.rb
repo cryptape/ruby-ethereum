@@ -1322,7 +1322,11 @@ module Ethereum
     end
 
     def mk_transaction_receipt(tx)
-      Receipt.new state_root, gas_used, logs
+      if number >= @config[:metropolis_fork_blknum]
+        Receipt.new Constant::HASH_ZERO, gas_used, logs
+      else
+        Receipt.new state_root, gas_used, logs
+      end
     end
 
   end
