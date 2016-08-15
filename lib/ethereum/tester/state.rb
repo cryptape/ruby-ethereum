@@ -8,13 +8,18 @@ module Ethereum
 
       TMP_DIR_PREFIX = 'eth-tester-'.freeze
 
-      attr :block, :blocks
+      attr :env, :block, :blocks
 
-      def initialize(num_accounts=Fixture::NUM_ACCOUNTS)
+      def initialize(env: nil, num_accounts: Fixture::NUM_ACCOUNTS)
         @temp_data_dir = Dir.mktmpdir TMP_DIR_PREFIX
 
-        @db = DB::EphemDB.new
-        @env = Env.new @db
+        if env
+          @db = env.db
+          @env = env
+        else
+          @db = DB::EphemDB.new
+          @env = Env.new @db
+        end
 
         @block = Block.genesis @env, start_alloc: get_start_alloc(num_accounts)
         @block.timestamp = 1410973349
