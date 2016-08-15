@@ -12,12 +12,32 @@ module Ethereum
           code.scan(/^\s*(contract|library) (\S*) /m)
         end
 
-        def combined(code, format='bin')
+        ##
+        # compile combined-json with abi,bin,devdoc,userdoc
+        #
+        # @param code [String] literal solidity code
+        # @param path [String] absolute path to solidity file. `code` and
+        #   `path` are exclusive`
+        #
+        def combined(code, format: 'bin', path: nil)
           out = Tempfile.new 'solc_output_'
 
-          pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', "abi,#{format},devdoc,userdoc"], 'w', [:out, :err] => out)
-          pipe.write code
-          pipe.close_write
+          pipe = nil
+          if path
+            raise ArgumentError, "code and path are exclusive" if code
+
+            workdir = File.dirname path
+            fn = File.basename path
+
+            Dir.chdir(workdir) do
+              pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', "abi,#{format},devdoc,userdoc", fn], 'w', [:out, :err] => out)
+              pipe.close_write
+            end
+          else
+            pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', "abi,#{format},devdoc,userdoc"], 'w', [:out, :err] => out)
+            pipe.write code
+            pipe.close_write
+          end
           raise CompileError, 'compilation failed' unless $?.success?
 
           out.rewind
@@ -29,7 +49,7 @@ module Ethereum
             data['userdoc'] = JSON.parse data['userdoc']
           end
 
-          names = contract_names code
+          names = contract_names(code || File.read(path))
           raise AssertError unless names.size <= contracts.size
 
           names.map {|n| p n; [n[1], contracts[n[1]]] }
@@ -40,8 +60,8 @@ module Ethereum
         ##
         # Returns binary of last contract in code.
         #
-        def compile(code, contract_name: '', format: 'bin', libraries: nil)
-          sorted_contracts = combined code, format
+        def compile(code, contract_name: '', format: 'bin', libraries: nil, path: nil)
+          sorted_contracts = combined code, format: format, path: path
           if contract_name.true?
             idx = sorted_contracts.map(&:first).index(contract_name)
           else
@@ -70,8 +90,8 @@ module Ethereum
         ##
         # Returns signature of last contract in code.
         #
-        def mk_full_signature(code, contract_name: '', libraries: nil)
-          sorted_contracts = combined code
+        def mk_full_signature(code, contract_name: '', libraries: nil, path: nil)
+          sorted_contracts = combined code, path: path
           if contract_name.true?
             idx = sorted_contracts.map(&:first).index(contract_name)
           else
@@ -89,8 +109,8 @@ module Ethereum
         ##
         # Full format as returned by jsonrpc.
         #
-        def compile_rich(code)
-          combined(code).map do |(name, contract)|
+        def compile_rich(code, path: nil)
+          combined(code, path).map do |(name, contract)|
             [
               name,
               {
