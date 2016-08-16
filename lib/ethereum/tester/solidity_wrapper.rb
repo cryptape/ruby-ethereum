@@ -52,7 +52,7 @@ module Ethereum
           names = contract_names(code || File.read(path))
           raise AssertError unless names.size <= contracts.size
 
-          names.map {|n| p n; [n[1], contracts[n[1]]] }
+          names.map {|n| [n[1], contracts[n[1]]] }
         ensure
           out.close
         end
@@ -110,7 +110,7 @@ module Ethereum
         # Full format as returned by jsonrpc.
         #
         def compile_rich(code, path: nil)
-          combined(code, path).map do |(name, contract)|
+          combined(code, path: path).map do |(name, contract)|
             [
               name,
               {
