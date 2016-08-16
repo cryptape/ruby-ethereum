@@ -6,26 +6,22 @@ module Ethereum
 
       attr :address, :abi
 
-      def initialize(state, abi, address, listen: true, log_listener: nil)
-        @state = state
-        @abi = abi
+      def initialize(test_state, abi_translator, address, listen: true, log_listener: nil, default_key: nil)
+        @test_state = test_state
         @address = address
-
-        @translator = ABI::ContractTranslator.new abi
+        @default_key = default_key || Fixture.keys.first
+        @translator = abi_translator
 
         if listen
-          if log_listener
-            listener = lambda do |log|
-              r = @translator.listen(log, noprint: true)
-              log_listener.call r if r.true?
-            end
-          else
-            listener = ->(log) { @translator.listen(log, noprint: false) }
-          end
+          listener = ->(log) {
+            result = @translator.listen log, noprint: false
+            log_listener(result) if result && log_listener
+          }
+          @test_state.block.log_listeners.push listener
         end
 
-        @translator.function_data.each do |f, _|
-          generate_function f
+        @translator.function_data.each do |fn, _|
+          generate_function fn
         end
       end
 
@@ -38,13 +34,13 @@ module Ethereum
       def generate_function(f)
         singleton_class.class_eval <<-EOF
         def #{f}(*args, **kwargs)
-          sender = kwargs.delete(:sender) || Fixture.keys[0]
+          sender = kwargs.delete(:sender) || @default_key
           to = @address
           value = kwargs.delete(:value) || 0
           evmdata = @translator.encode('#{f}', args)
           output = kwargs.delete(:output)
 
-          o = @state._send_tx(sender, to, value, **kwargs.merge(evmdata: evmdata))
+          o = @test_state._send_tx(sender, to, value, **kwargs.merge(evmdata: evmdata))
 
           if output == :raw
             outdata = o[:output]
@@ -55,7 +51,7 @@ module Ethereum
             outdata = outdata.size == 1 ? outdata[0] : outdata
           end
 
-          kwargs[:profiling].true? ? o.merge(outdata: outdata) : outdata
+          kwargs[:profiling].true? ? o.merge(output: outdata) : outdata
         end
         EOF
       end

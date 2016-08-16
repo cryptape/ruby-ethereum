@@ -11,8 +11,6 @@ module Ethereum
       attr :env, :block, :blocks
 
       def initialize(env: nil, num_accounts: Fixture::NUM_ACCOUNTS)
-        @temp_data_dir = Dir.mktmpdir TMP_DIR_PREFIX
-
         if env
           @db = env.db
           @env = env
@@ -20,6 +18,8 @@ module Ethereum
           @db = DB::EphemDB.new
           @env = Env.new @db
         end
+
+        @temp_data_dir = Dir.mktmpdir TMP_DIR_PREFIX
 
         @block = Block.genesis @env, start_alloc: get_start_alloc(num_accounts)
         @block.timestamp = 1410973349
@@ -32,37 +32,44 @@ module Ethereum
         ObjectSpace.define_finalizer(self) {|id| FileUtils.rm_rf(@temp_data_dir) }
       end
 
-      def contract(code, sender: Fixture.keys[0], endowment: 0, language: :serpent, gas: nil)
+      def contract(code, sender: Fixture.keys[0], endowment: 0, language: :serpent,
+                   libraries: nil, path: nil, constructor_call: nil, **kwargs)
         code = Language.format_spaces code
-        opcodes = Language.get(language).compile(code)
-        addr = evm(opcodes, sender: sender, endowment: endowment)
-        raise AssertError, "Contract code empty" if @block.get_code(addr).empty?
-        addr
+        compiler = Language.get language
+
+        bytecode = compiler.compile code, path: path, libraries: libraries, **kwargs
+        bytecode += constructor_call if constructor_call
+
+        address = evm bytecode, sender: sender, endowment: endowment
+        raise AssertError, "Contract code empty" if @block.get_code(address).empty?
+
+        address
       end
 
-      def abi_contract(code, **kwargs)
-        sender        = kwargs.delete(:sender) || Fixture.keys[0]
-        endowment     = kwargs.delete(:endowment) || 0
-        language      = kwargs.delete(:language) || :serpent
-        contract_name = kwargs.delete(:contract_name) || ''
-        gas           = kwargs.delete(:gas) || nil
-        log_listener  = kwargs.delete(:log_listener) || nil
-        listen        = kwargs.delete(:listen) || true
-
+      def abi_contract(code, sender: Fixture.keys[0], endowment: 0, language: :serpent,
+                       libraries: nil, path: nil, constructor_parameters: nil,
+                       log_listener: nil, listen: true, **kwargs)
         code = Language.format_spaces code
-        lang = Language.get language
-        opcodes = lang.compile code, **kwargs
-        addr = evm(opcodes, sender: sender, endowment: endowment, gas: gas)
-        raise AssertError, "Contract code empty" if @block.get_code(addr).empty?
+        compiler = Language.get language
 
-        abi = lang.mk_full_signature(code, **kwargs)
-        ABIContract.new(self, abi, addr, listen: listen, log_listener: log_listener)
+        contract_interface = compiler.mk_full_signature code, path: path, **kwargs
+        translator = ABI::ContractTranslator.new contract_interface
+
+        encoded_parameters = constructor_parameters ?
+          translator.encode_constructor_arguments(constructor_parameters) :
+          nil
+
+        address = contract(code, sender: sender, endowment: endowment, language: language,
+                           libraries: libraries, path: path, constructor_call: encoded_parameters,
+                           **kwargs)
+
+        ABIContract.new(self, translator, address, listen: listen, log_listener: log_listener)
       end
 
-      def evm(opcodes, sender: Fixture.keys[0], endowment: 0, gas: nil)
+      def evm(bytecode, sender: Fixture.keys[0], endowment: 0, gas: nil)
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
 
-        tx = Transaction.contract sendnonce, Fixture.gas_price, Fixture.gas_limit, endowment, opcodes
+        tx = Transaction.contract sendnonce, Fixture.gas_price, Fixture.gas_limit, endowment, bytecode
         tx.sign sender
         tx.startgas = gas if gas
 
@@ -80,7 +87,7 @@ module Ethereum
         _send_tx(*args, **kwargs)[:output]
       end
 
-      def _send_tx(sender, to, value, evmdata: '', output: nil, funid: nil, abi: nil, profiling: 0)
+      def _send_tx(sender, to, value, evmdata: '', funid: nil, abi: nil, profiling: 0)
         if funid || abi
           raise ArgumentError, "Send with funid+abi is deprecated. Please use the abi_contract mechanism."
         end
@@ -121,6 +128,8 @@ module Ethereum
       end
 
       def mkspv(sender, to, value, data: [], funid: nil, abi: nil)
+        raise NotImplemented
+
         serpent = Language.get :serpent
         raise "ruby-serpent not installed" unless serpent
 
@@ -135,6 +144,8 @@ module Ethereum
       end
 
       def verifyspv(sender, to, value, data: [], funid: nil, abi: nil, proof: [])
+        raise NotImplemented
+
         serpent = Language.get(:serpent)
         raise "ruby-serpent not installed" unless serpent
 
