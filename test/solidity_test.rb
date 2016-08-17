@@ -103,4 +103,20 @@ class SolidityTest < Minitest::Test
     assert_equal %w(subtract7 subtract42), contract_info['contract_sub']['info']['abiDefinition'].map {|d| d['name'] }
   end
 
+  CONSTRUCTOR_CONTRACT = <<-EOF
+      contract testme {
+          uint value;
+          function testme(uint a) {
+              value = a;
+          }
+          function getValue() returns (uint) {
+              return value;
+          }
+      }
+  EOF
+  def test_constructor
+    contract = @s.abi_contract(CONSTRUCTOR_CONTRACT, language: :solidity, constructor_parameters: [2])
+    assert_equal 2, contract.getValue
+  end
+
 end
