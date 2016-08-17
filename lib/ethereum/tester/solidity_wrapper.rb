@@ -8,102 +8,47 @@ module Ethereum
       class CompileError < StandardError; end
 
       class <<self
-        def contract_names(code)
-          code.scan(/^\s*(contract|library) (\S*) /m)
-        end
 
-        ##
-        # compile combined-json with abi,bin,devdoc,userdoc
-        #
-        # @param code [String] literal solidity code
-        # @param path [String] absolute path to solidity file. `code` and
-        #   `path` are exclusive`
-        #
-        def combined(code, format: 'bin', path: nil)
-          out = Tempfile.new 'solc_output_'
+        def compile_code_or_path(code, path, contract_name, libraries, combined)
+          raise ValueError, 'code and path are mutually exclusive' if code && path
 
-          pipe = nil
-          if path
-            raise ArgumentError, "code and path are exclusive" if code
+          return compile_contract(path, contract_name, libraries: libraries, combined: combined) if path && contract_name.true?
+          return compile_last_contract(path, libraries: libraries, combined: combined) if path
 
-            workdir = File.dirname path
-            fn = File.basename path
+          all_names = solidity_names code
+          all_contract_names = all_names
+            .select {|(kind, name)| kind == 'contract' }
+            .map(&:last)
 
-            Dir.chdir(workdir) do
-              pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', "abi,#{format},devdoc,userdoc", fn], 'w', [:out, :err] => out)
-              pipe.close_write
-            end
-          else
-            pipe = IO.popen([solc_path, '--add-std', '--optimize', '--combined-json', "abi,#{format},devdoc,userdoc"], 'w', [:out, :err] => out)
-            pipe.write code
-            pipe.close_write
-          end
-          raise CompileError, 'compilation failed' unless $?.success?
-
-          out.rewind
-          contracts = JSON.parse(out.read)['contracts']
-
-          contracts.each do |name, data|
-            data['abi'] = JSON.parse data['abi']
-            data['devdoc'] = JSON.parse data['devdoc']
-            data['userdoc'] = JSON.parse data['userdoc']
-          end
-
-          names = contract_names(code || File.read(path))
-          raise AssertError unless names.size <= contracts.size
-
-          names.map {|n| [n[1], contracts[n[1]]] }
-        ensure
-          out.close
+          result = compile_code(code, libraries: libraries, combined: combined)
+          result[all_contract_names.last]
         end
 
         ##
         # Returns binary of last contract in code.
         #
-        def compile(code, contract_name: '', format: 'bin', libraries: nil, path: nil)
-          sorted_contracts = combined code, format: format, path: path
-          if contract_name.true?
-            idx = sorted_contracts.map(&:first).index(contract_name)
-          else
-            idx = -1
-          end
-          if libraries
-            libraries.each do |name, address|
-              raise CompileError, "Compiler does not support libraries. Please update Compiler." if compiler_version < '0.1.2'
-              sorted_contracts[idx][1]['bin'].gsub! "__#{name}#{'_' * (38 - name.size)}", address
-            end
-          end
-
-          output = sorted_contracts[idx][1][format]
-          case format
-          when 'bin'
-            Utils.decode_hex output
-          when 'asm'
-            output['.code']
-          when 'opcodes'
-            output
-          else
-            raise ArgumentError
-          end
+        def compile(code, contract_name: '', libraries: nil, path: nil)
+          result = compile_code_or_path code, path, contract_name, libraries, 'bin'
+          result['bin']
         end
 
         ##
         # Returns signature of last contract in code.
         #
         def mk_full_signature(code, contract_name: '', libraries: nil, path: nil)
-          sorted_contracts = combined code, path: path
-          if contract_name.true?
-            idx = sorted_contracts.map(&:first).index(contract_name)
-          else
-            idx = -1
-          end
-
-          sorted_contracts[idx][1]['abi']
+          result = compile_code_or_path code, path, contract_name, libraries, 'abi'
+          result['abi']
         end
 
-        def compiler_version
-          output = `#{solc_path} --version`.strip
-          output =~ /^Version: ([0-9a-z.-]+)\// ? $1 : nil
+        ##
+        # Compile combined-json with abi,bin,devdoc,userdoc.
+        #
+        def combined(code, path: nil)
+          contracts = compile_code_or_path code, path, nil, nil, 'abi,bin,devdoc,userdoc'
+          code = File.read(path) if path
+          solidity_names(code).map do |(kind, name)|
+            [name, contracts[name]]
+          end
         end
 
         ##
@@ -127,6 +72,113 @@ module Ethereum
               }
             ]
           end.to_h
+        end
+
+        def compile_code(code, libraries: nil, combined:'bin,abi', optimize: true)
+          args = solc_arguments libraries: libraries, combined: combined, optimize: optimize
+          args.unshift solc_path
+
+          out = Tempfile.new 'solc_output_'
+          pipe = IO.popen(args, 'w', [:out, :err] => out)
+          pipe.write code
+          pipe.close_write
+          raise CompileError, 'compilation failed' unless $?.success?
+
+          out.rewind
+          solc_parse_output out.read
+        end
+
+        def compile_last_contract(path, libraries: nil, combined: 'bin,abi', optimize: true)
+          all_names = solidity_names File.read(path)
+          all_contract_names = all_names.map(&:last) # don't filter libraries
+          compile_contract path, all_contract_names.last, libraries: libraries, combined: combined, optimize: optimize
+        end
+
+        def compile_contract(path, contract_name, libraries: nil, combined: 'bin,abi', optimize: true)
+          all_contracts = compile_file path, libraries: libraries, combined: combined, optimize: optimize
+          all_contracts[contract_name]
+        end
+
+        ##
+        # Return the compiled contract code.
+        #
+        # @param path [String] Path to the contract source code.
+        # @param libraries [Hash] A hash mapping library name to address.
+        # @param combined [Array[String]] The flags passed to the solidity
+        #   compiler to define what output should be used.
+        # @param optimize [Bool] Flag to set up compiler optimization.
+        #
+        # @return [Hash] A mapping from the contract name to it's bytecode.
+        #
+        def compile_file(path, libraries: nil, combined: 'bin,abi', optimize: true)
+          workdir = File.dirname path
+          filename = File.basename path
+
+          args = solc_arguments libraries: libraries, combined: combined, optimize: optimize
+          args.unshift solc_path
+          args.push filename
+
+          out = Tempfile.new 'solc_output_'
+          Dir.chdir(workdir) do
+            pipe = IO.popen(args, 'w', [:out, :err] => out)
+            pipe.close_write
+          end
+
+          out.rewind
+          solc_parse_output out.read
+        end
+
+        ##
+        # Return the library and contract names in order of appearence.
+        #
+        def solidity_names(code)
+          code.scan /(contract|library)\s+([_a-zA-Z][_a-zA-Z0-9]*)/m
+        end
+
+        def compiler_version
+          output = `#{solc_path} --version`.strip
+          output =~ /^Version: ([0-9a-z.-]+)\///m ? $1 : nil
+        end
+
+        ##
+        # Parse compiler output.
+        #
+        def solc_parse_output(compiler_output)
+          result = JSON.parse(compiler_output)['contracts']
+
+          if result.values.first.has_key?('bin')
+            result.each_value do |v|
+              v['bin_hex'] = v['bin']
+              v['bin'] = Utils.decode_hex v['bin']
+            end
+          end
+
+          %w(abi devdoc userdoc).each do |json_data|
+            next unless result.values.first.has_key?(json_data)
+
+            result.each_value do |v|
+              v[json_data] = JSON.parse v[json_data]
+            end
+          end
+
+          result
+        end
+
+        def solc_arguments(libraries: nil, combined: 'bin,abi', optimize: true)
+          args = [
+            '--combined-json', combined,
+            '--add-std'
+          ]
+
+          args.push '--optimize' if optimize
+
+          if libraries
+            addresses = libraries.map {|name, addr| "#{name}:#{addr}" }
+            args.push '--libraries'
+            args.push addresses.join(',')
+          end
+
+          args
         end
 
         def solc_path
