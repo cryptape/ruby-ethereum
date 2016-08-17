@@ -147,8 +147,80 @@ class SolidityTest < Minitest::Test
     assert_equal 7, contract.seven
     assert_equal 4, contract.mul2(2)
     assert_equal -4, contract.mul2(-2)
-
-
   end
 
+  CONTRACTS_DIR = File.expand_path '../fixtures', __FILE__
+  def test_library_from_file
+    db = DB::EphemDB.new
+    env = Env.new db, config: Env::DEFAULT_CONFIG.merge(homestead_fork_blknum: 0)
+    @s = Tester::State.new env: env
+
+    library = @s.abi_contract nil, path: File.join(CONTRACTS_DIR, 'seven_library.sol'), language: :solidity
+    libraries = {
+      'SevenLibrary' => Utils.encode_hex(library.address)
+    }
+    contract = @s.abi_contract nil, path: File.join(CONTRACTS_DIR, 'seven_contract.sol'), libraries: libraries, language: :solidity
+
+    assert_equal 7, library.seven
+    assert_equal 7, contract.test
+  end
+
+  def test_library_from_code
+    db = DB::EphemDB.new
+    env = Env.new db, config: Env::DEFAULT_CONFIG.merge(homestead_fork_blknum: 0)
+    @s = Tester::State.new env: env
+
+    library_code = File.read File.join(CONTRACTS_DIR, 'seven_library.sol')
+    contract_code = File.read File.join(CONTRACTS_DIR, 'seven_contract_without_import.sol')
+
+    library = @s.abi_contract library_code, path: nil, language: :solidity
+    libraries = {
+      'SevenLibrary' => Utils.encode_hex(library.address)
+    }
+    contract = @s.abi_contract contract_code, path: nil, libraries: libraries, language: :solidity
+
+    assert_equal 7, library.seven
+    assert_equal 7, contract.test
+  end
+
+  def test_names
+    code = File.read File.join(CONTRACTS_DIR, 'contract_names.sol')
+    names_in_order = Tester::Language.get(:solidity).solidity_names code
+    assert_equal [
+        ['contract', 'AContract'],
+        ['library', 'ALibrary'],
+        ['contract', 'WithSpace'],
+        ['contract', 'WithLineBreak'],
+    ], names_in_order
+  end
+
+  def test_symbols
+    compiler = Tester::Language.get(:solidity)
+
+    assert_equal "__a#{'_' * 37}", compiler.solidity_library_symbol('a')
+    assert_equal "__aaa#{'_' * 35}", compiler.solidity_library_symbol('aaa')
+    assert_equal "__#{'a' * 36}__", compiler.solidity_library_symbol('a'*40)
+
+    assert_raises(ValueError) {
+      compiler.solidity_resolve_address(
+        'beef__a_____________________________________cafe',
+        '__a_____________________________________',
+        '0x1111111111111111111111111111111111111111'
+      )
+    }
+
+    assert_raises(ValueError) {
+      compiler.solidity_resolve_address(
+        'beef__a_____________________________________cafe',
+        '__a_____________________________________',
+        '111111111111111111111111111111111111111_'
+      )
+    }
+
+    assert_equal 'beef1111111111111111111111111111111111111111cafe', compiler.solidity_resolve_address(
+      'beef__a_____________________________________cafe',
+      '__a_____________________________________',
+      '1111111111111111111111111111111111111111'
+    )
+  end
 end

@@ -42,8 +42,17 @@ module Ethereum
         # Compile combined-json with abi,bin,devdoc,userdoc.
         #
         def combined(code, path: nil)
-          contracts = compile_code_or_path code, path, nil, nil, 'abi,bin,devdoc,userdoc'
-          code = File.read(path) if path
+          raise ValueError, "code and path are mutually exclusive." if code && path
+
+          if path
+            contracts = compile_file path
+            code = File.read(path)
+          elsif code
+            contracts = compile_code code
+          else
+            raise ValueError, 'either code or path needs to be supplied.'
+          end
+
           solidity_names(code).map do |(kind, name)|
             [name, contracts[name]]
           end
@@ -57,7 +66,7 @@ module Ethereum
             [
               name,
               {
-                'code' => "0x#{contract['bin']}",
+                'code' => "0x#{contract['bin_hex']}",
                 'info' => {
                   'abiDefinition' => contract['abi'],
                   'compilerVersion' => compiler_version,
@@ -101,10 +110,9 @@ module Ethereum
         # Return the compiled contract code.
         #
         # @param path [String] Path to the contract source code.
-        # @param libraries [Hash] A hash mapping library name to address.
-        # @param combined [Array[String]] The flags passed to the solidity
-        #   compiler to define what output should be used.
-        # @param optimize [Bool] Flag to set up compiler optimization.
+        # @param libraries [Hash] A hash mapping library name to its address.
+        # @param combined [Array[String]] The argument for solc's --combined-json.
+        # @param optimize [Bool] Enable/disables compiler optimization.
         #
         # @return [Hash] A mapping from the contract name to it's bytecode.
         #
