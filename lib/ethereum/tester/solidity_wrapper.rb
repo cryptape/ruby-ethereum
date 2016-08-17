@@ -16,9 +16,7 @@ module Ethereum
           return compile_last_contract(path, libraries: libraries, combined: combined) if path
 
           all_names = solidity_names code
-          all_contract_names = all_names
-            .select {|(kind, name)| kind == 'contract' }
-            .map(&:last)
+          all_contract_names = all_names.map(&:last)
 
           result = compile_code(code, libraries: libraries, combined: combined)
           result[all_contract_names.last]
@@ -132,7 +130,111 @@ module Ethereum
         # Return the library and contract names in order of appearence.
         #
         def solidity_names(code)
-          code.scan /(contract|library)\s+([_a-zA-Z][_a-zA-Z0-9]*)/m
+          names = []
+          in_string = nil
+          backslash = false
+          comment = nil
+
+          # "parse" the code by hand to handle the corner cases:
+          #
+          # - the contract or library can be inside a comment or string
+          # - multiline comments
+          # - the contract and library keywords could not be at the start of the line
+          code.each_char.with_index do |char, pos|
+            if in_string
+              if !backslash && in_string == char
+                in_string = nil
+                backslash = false
+              end
+
+              backslash = char == "\\"
+            elsif comment == "//"
+              comment = nil if ["\n", "\r"].include?(char)
+            elsif comment == "/*"
+              comment = nil if char == "*" && code[pos + 1] == "/"
+            else
+              in_string = char if %w(' ").include?(char)
+
+              if char == "/"
+                char2 = code[pos + 1]
+                comment = char + char2 if %w(/ *).include?(char2)
+              end
+
+              if char == 'c' && code[pos, 8] == 'contract'
+                result = code[pos..-1] =~ /^contract[^_$a-zA-Z]+([_$a-zA-Z][_$a-zA-Z0-9]*)/
+                names.push ['contract', $1] if result
+              end
+
+              if char == 'l' && code[pos, 7] == 'library'
+                result = code[pos..-1] =~ /^library[^_$a-zA-Z]+([_$a-zA-Z][_$a-zA-Z0-9]*)/
+                names.push ['library', $1] if result
+              end
+            end
+          end
+
+          names
+        end
+
+        ##
+        # Return the symbol used in the bytecode to represent the
+        # `library_name`.
+        #
+        # The symbol is always 40 characters in length with the minimum of two
+        # leading and trailing underscores.
+        #
+        def solidity_library_symbol(library_name)
+          len = [library_name.size, 36].min
+          lib_piece = library_name[0,len]
+          hold_piece = '_' * (36 - len)
+          "__#{lib_piece}#{hold_piece}__"
+        end
+
+        ##
+        # Change the bytecode to use the given library address.
+        #
+        # @param hex_code [String] The bytecode encoded in hex.
+        # @param library_name [String] The library that will be resolved.
+        # @param library_address [String] The address of the library.
+        #
+        # @return [String] The bytecode encoded in hex with the library
+        #   references.
+        #
+        def solidity_resolve_address(hex_code, library_symbol, library_address)
+          raise ValueError, "Address should not contain the 0x prefix" if library_address =~ /\A0x/
+          raise ValueError, "Address with wrong length" if library_symbol.size != 40 || library_address.size != 40
+
+          begin
+            Utils.decode_hex library_address
+          rescue TypeError
+            raise ValueError, "library_address contains invalid characters, it must be hex encoded."
+          end
+
+          hex_code.gsub library_symbol, library_address
+        end
+
+        def solidity_resolve_symbols(hex_code, libraries)
+          symbol_address = libraries
+            .map {|name, addr| [solidity_library_symbol(name), addr] }
+            .to_h
+
+          solidity_unresolved_symbols(hex_code).each do |unresolved|
+            address = symbol_address[unresolved]
+            hex_code = solidity_resolve_address(hex_code, unresolved, address)
+          end
+
+          hex_code
+        end
+
+        ##
+        # Return the unresolved symbols contained in the `hex_code`.
+        #
+        # Note: the binary representation should not be provided since this
+        # function relies on the fact that the '_' is invalid in hex encoding.
+        #
+        # @param hex_code [String] The bytecode encoded as hex.
+        #
+        def solidity_unresolved_symbols(hex_code)
+          hex_code.scan(/_.{39}/).uniq
         end
 
         def compiler_version
@@ -149,7 +251,13 @@ module Ethereum
           if result.values.first.has_key?('bin')
             result.each_value do |v|
               v['bin_hex'] = v['bin']
-              v['bin'] = Utils.decode_hex v['bin']
+
+              # decoding can fail if the compiled contract has unresolved symbols
+              begin
+                v['bin'] = Utils.decode_hex v['bin']
+              rescue TypeError
+                # do nothing
+              end
             end
           end
 
@@ -172,7 +280,7 @@ module Ethereum
 
           args.push '--optimize' if optimize
 
-          if libraries
+          if libraries && !libraries.empty?
             addresses = libraries.map {|name, addr| "#{name}:#{addr}" }
             args.push '--libraries'
             args.push addresses.join(',')
