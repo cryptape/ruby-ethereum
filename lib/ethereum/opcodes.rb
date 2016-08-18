@@ -65,6 +65,9 @@ module Ethereum
       0xa2 => [:LOG2, 4, 0, 1125],
       0xa3 => [:LOG3, 5, 0, 1500],
       0xa4 => [:LOG4, 6, 0, 1875],
+      0xe1 => [:SLOADBYTES, 3, 0, 50],
+      0xe2 => [:SSTOREBYTES, 3, 0, 0],
+      0xe3 => [:SSIZE, 1, 1, 50],
       0xf0 => [:CREATE, 3, 1, 32000],
       0xf1 => [:CALL, 7, 1, 40],
       0xf2 => [:CALLCODE, 7, 1, 40],
@@ -100,10 +103,6 @@ module Ethereum
     GDEFAULT = 1
     GMEMORY = 3
     GQUADRATICMEMDENOM = 512  # 1 gas per 512 quadwords
-    GSTORAGEREFUND = 15000
-    GSTORAGEKILL = 5000
-    GSTORAGEMOD = 5000
-    GSTORAGEADD = 20000
     GEXPONENTBYTE = 10    # cost of EXP exponent per byte
     GCOPY = 3             # cost to copy one 32 byte word
     GCONTRACTBYTE = 200   # one byte of code in contract creation
@@ -127,5 +126,16 @@ module Ethereum
     GCALLNEWACCOUNT = 25000
     GSUICIDEREFUND = 24000
 
+    GSTORAGEBASE = 2500
+    GSTORAGEBYTESTORAGE = 250
+    GSTORAGEBYTECHANGE = 40
+    GSTORAGEMIN = 2500
+    GSSIZE = 50
+    GSLOADBYTES = 50
+
+    GSTORAGEREFUND = 15000
+    GSTORAGEKILL = 5000
+    GSTORAGEMOD = 5000
+    GSTORAGEADD = 20000
   end
 end

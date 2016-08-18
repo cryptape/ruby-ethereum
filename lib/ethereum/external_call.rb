@@ -14,7 +14,7 @@ module Ethereum
     extend Forwardable
     def_delegators :@block, :get_code, :get_balance, :set_balance,
       :get_nonce, :set_nonce, :get_storage_data, :set_storage_data,
-      :add_refund, :account_exists
+      :get_storage_bytes, :add_refund, :account_exists
 
     def initialize(block, tx)
       @block = block

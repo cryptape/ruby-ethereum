@@ -51,7 +51,7 @@ class StateTest < Minitest::Test
         blk.set_storage_data(
           address,
           Utils.big_endian_to_int(decode_hex(k[2..-1])),
-          Utils.big_endian_to_int(decode_hex(v[2..-1]))
+          Utils.zpad(decode_hex(v[2..-1]), 32)
         )
       end
     end
