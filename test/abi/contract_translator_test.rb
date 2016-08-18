@@ -10,9 +10,8 @@ class ABIContractTranslatorTest < Minitest::Test
   def test_parse_json_abi
     t = ContractTranslator.new JSON_ABI
 
-    foo = t.function(:foo)
+    foo = t.function('foo')
     assert_equal 79450872, foo[:prefix]
-    assert_equal false, foo[:is_unknown_type]
     assert_equal false, foo[:is_constant]
     assert_equal %w(uint256 uint256), foo[:encode_types]
     assert_equal %w(int256), foo[:decode_types]

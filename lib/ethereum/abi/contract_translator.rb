@@ -6,109 +6,114 @@ module Ethereum
   module ABI
     class ContractTranslator
 
-      def initialize(full_signature)
-        @v = {
+      def initialize(contract_interface)
+        if contract_interface.instance_of?(String)
+          contract_interface = JSON.parse contract_interface
+        end
+
+        @contract = {
+          constructor_data: nil,
           function_data: {},
           event_data: {}
         }
 
-        if full_signature.instance_of?(String)
-          full_signature = JSON.parse full_signature
-        end
+        contract_interface.each do |desc|
+          encode_types = desc['inputs'].map {|e| e['type'] }
+          signature = desc['inputs'].map {|e| [e['type'], e['name']] }
 
-        full_signature.each do |sig_item|
-          next if sig_item['type'] == 'constructor'
-
-          encode_types = sig_item['inputs'].map {|f| f['type'] }
-          signature = sig_item['inputs'].map {|f| [f['type'], f['name']] }
-          name = sig_item['name']
-
-          if name =~ /\(/
-            name = name[0, name.index('(')]
-          end
-
-          # TODO: removable?
-          #if @v.has_key?(name.to_sym)
-          #  i = 2
-          #  i += 1 while @v.has_key?(:"#{name}#{i}")
-          #  name += i.to_s
-
-          #  logger.warn "multiple methods with the same name. Use #{name} to call #{sig_item['name']} with types #{encode_types}"
-          #end
-
-          if sig_item['type'] == 'function'
-            decode_types = sig_item['outputs'].map {|f| f['type'] }
-            is_unknown_type = sig_item['outputs'].size.true? && sig_item['outputs'][0]['name'] == 'unknown_out'
-            function_data[name.to_sym] = {
+          # type can be omitted, defaulting to function
+          type = desc['type'] || 'function'
+          case type
+          when 'function'
+            name = basename desc['name']
+            decode_types = desc['outputs'].map {|e| e['type'] }
+            @contract[:function_data][name] = {
               prefix: method_id(name, encode_types),
               encode_types: encode_types,
               decode_types: decode_types,
-              is_unknown_type: is_unknown_type,
-              is_constant: sig_item.fetch('constant', false),
+              is_constant: desc.fetch('constant', false),
               signature: signature
             }
-          elsif sig_item['type'] == 'event'
-            indexed = sig_item['inputs'].map {|f| f['indexed'] }
-            names = sig_item['inputs'].map {|f| f['name'] }
-
-            event_data[event_id(name, encode_types)] = {
+          when 'event'
+            name = basename desc['name']
+            indexed = desc['inputs'].map {|e| e['indexed'] }
+            names = desc['inputs'].map {|e| e['name'] }
+            @contract[:event_data][event_id(name, encode_types)] = {
               types: encode_types,
               name: name,
               names: names,
               indexed: indexed,
-              anonymous: sig_item.fetch('anonymous', false)
+              anonymous: desc.fetch('anonymous', false)
             }
+          when 'constructor'
+            raise ValueError, "Only one constructor is supported." if @contract[:constructor_data]
+            @contract[:constructor_data] = {
+              encode_types: encode_types,
+              signature: signature
+            }
+          else
+            raise ValueError, "Unknown interface type: #{type}"
           end
         end
       end
 
+      ##
+      # Return the encoded function call.
+      #
+      # @param name [String] One of the existing functions described in the
+      #   contract interface.
+      # @param args [Array[Object]] The function arguments that will be encoded
+      #   and used in the contract execution in the vm.
+      #
+      # @return [String] The encoded function name and arguments so that it can
+      #   be used with the evm to execute a function call, the binary string
+      #   follows the Ethereum Contract ABI.
+      #
       def encode(name, args)
-        fdata = function_data[name.to_sym]
-        id = Utils.zpad(Utils.encode_int(fdata[:prefix]), 4)
-        calldata = ABI.encode_abi fdata[:encode_types], args
-        "#{id}#{calldata}"
+        raise ValueError, "Unknown function #{name}" unless function_data.include?(name)
+
+        desc = function_data[name]
+        func_id = Utils.zpad(Utils.encode_int(desc[:prefix]), 4)
+        calldata = ABI.encode_abi desc[:encode_types], args
+
+        "#{func_id}#{calldata}"
+      end
+
+      ##
+      # Return the encoded constructor call.
+      #
+      def encode_constructor_arguments(args)
+        raise ValueError, "The contract interface didn't have a constructor" unless constructor_data
+
+        ABI.encode_abi constructor_data[:encode_types], args
       end
 
       def decode(name, data)
-        fdata = function_data[name.to_sym]
+        desc = function_data[name]
+        ABI.decode_abi desc[:decode_types], data
+      end
 
-        if fdata[:is_unknown_type]
-          i = 0
-          o = []
-
-          while i < data.size
-            o.push Utils.to_signed(Utils.big_endian_to_int(data[i,32]))
-            i += 32
-          end
-
-          return 0 if o.empty?
-          o.size == 1 ? o[0] : o
-        else
-          ABI.decode_abi fdata[:decode_types], data
-        end
+      def constructor_data
+        @contract[:constructor_data]
       end
 
       def function_data
-        @v[:function_data]
+        @contract[:function_data]
       end
 
       def event_data
-        @v[:event_data]
+        @contract[:event_data]
       end
 
       def function(name)
-        function_data[name.to_sym]
+        function_data[name]
       end
 
       def event(name, encode_types)
         event_data[event_id(name, encode_types)]
       end
 
-      def is_unknown_type(name)
-        function_data[name.to_sym][:is_unknown_type]
-      end
-
-      def listen(log, noprint=false)
+      def listen(log, noprint: false)
         return if log.topics.size == 0 || !event_data.has_key?(log.topics[0])
 
         data = event_data[log.topics[0]]
@@ -167,6 +172,11 @@ module Ethereum
         else
           x
         end
+      end
+
+      def basename(n)
+        i = n.index '('
+        i ? n[0,i] : n
       end
 
     end
