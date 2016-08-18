@@ -988,7 +988,7 @@ module Ethereum
       if bytes.size >= 32
         Utils.big_endian_to_int(bytes[-32..-1])
       else
-        Utils.big_endian_to_int(bytes) * (1 << (8 * (32 - bytes.size)))
+        Utils.big_endian_to_int(bytes)
       end
     end
 
@@ -1061,7 +1061,7 @@ module Ethereum
 
           v = cache[Utils.big_endian_to_int(k)]
           if v.true?
-            h[:storage][hexkey] = "0x#{Utils.encode_hex Utils.int_to_big_endian(v)}"
+            h[:storage][hexkey] = "0x#{Utils.encode_hex v}"
           else
             v = sh[k]
             h[:storage][hexkey] = "0x#{Utils.encode_hex RLP.decode(v)}" if v

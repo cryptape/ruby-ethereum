@@ -55,7 +55,7 @@ module Ethereum
       metropolis_stateroot_store: 0x10,
       metropolis_blockhash_store: 0x20,
       metropolis_wrapround: 65536,
-      metropolis_getter_code: Utils.decode_hex('6000355460205260206020f3')
+      metropolis_getter_code: Utils.decode_hex('6000355460205260206020f3'),
       metropolis_diff_adjustment_cutoff: 9
     }.freeze
 
