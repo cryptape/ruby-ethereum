@@ -8,6 +8,8 @@ require 'json'
 
 Logging.logger.root.level = :error
 
+CONTRACTS_DIR = File.expand_path '../contracts', __FILE__
+
 def fixture_root
   File.expand_path('../../fixtures', __FILE__)
 end
