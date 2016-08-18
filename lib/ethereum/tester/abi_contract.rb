@@ -6,18 +6,19 @@ module Ethereum
 
       attr :address, :abi
 
-      def initialize(test_state, abi_translator, address, listen: true, log_listener: nil, default_key: nil)
-        @test_state = test_state
+      def initialize(state, abi, address, listen: true, log_listener: nil, default_key: nil)
+        @state = state
         @address = address
         @default_key = default_key || Fixture.keys.first
-        @translator = abi_translator
+
+        @translator = abi.instance_of?(ABI::ContractTranslator) ? abi : ABI::ContractTranslator.new(abi)
 
         if listen
           listener = ->(log) {
             result = @translator.listen log, noprint: false
             log_listener(result) if result && log_listener
           }
-          @test_state.block.log_listeners.push listener
+          @state.block.log_listeners.push listener
         end
 
         @translator.function_data.each do |fn, _|
@@ -40,7 +41,7 @@ module Ethereum
           evmdata = @translator.encode('#{f}', args)
           output = kwargs.delete(:output)
 
-          o = @test_state._send_tx(sender, to, value, **kwargs.merge(evmdata: evmdata))
+          o = @state._send_tx(sender, to, value, **kwargs.merge(evmdata: evmdata))
 
           if output == :raw
             outdata = o[:output]

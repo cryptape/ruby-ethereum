@@ -149,7 +149,6 @@ class SolidityTest < Minitest::Test
     assert_equal -4, contract.mul2(-2)
   end
 
-  CONTRACTS_DIR = File.expand_path '../fixtures', __FILE__
   def test_library_from_file
     db = DB::EphemDB.new
     env = Env.new db, config: Env::DEFAULT_CONFIG.merge(homestead_fork_blknum: 0)
