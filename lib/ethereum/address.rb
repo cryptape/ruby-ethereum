@@ -31,6 +31,8 @@ module Ethereum
     private
 
     def parse(s)
+      return Utils.int_to_addr(s) if s.is_a?(Integer)
+
       case s.size
       when 0
         s
