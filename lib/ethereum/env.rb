@@ -56,7 +56,12 @@ module Ethereum
       metropolis_blockhash_store: 0x20,
       metropolis_wrapround: 65536,
       metropolis_getter_code: Utils.decode_hex('6000355460205260206020f3'),
-      metropolis_diff_adjustment_cutoff: 9
+      metropolis_diff_adjustment_cutoff: 9,
+
+      dao_fork_blknum: 9999998,
+      dao_address_list: [],
+      dao_main_addr: '0xbb9bc244d798123fde783fcc1c72d3bb8c189413',
+      dao_newcode: ''
     }.freeze
 
     attr :db, :config, :global_config

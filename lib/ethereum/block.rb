@@ -1196,6 +1196,18 @@ module Ethereum
     end
 
     def hard_fork_initialize(parent)
+      if number == @config[:dao_fork_blknum]
+        dao_main_addr = Utils.normalize_address @config[:dao_main_addr]
+
+        @config[:dao_address_list].each do |addr|
+          addr = Utils.normalize_address addr
+          delta_balance dao_main_addr, get_balance(addr)
+          set_balance addr, 0
+        end
+
+        set_code dao_main_addr, @config[:dao_newcode]
+      end
+
       if number == @config[:metropolis_fork_blknum]
         set_code Utils.normalize_address(@config[:metropolis_stateroot_store]), @config[:metropolis_getter_code]
         set_code Utils.normalize_address(@config[:metropolis_blockhash_store]), @config[:metropolis_getter_code]
