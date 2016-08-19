@@ -33,10 +33,13 @@ class StateTest < Minitest::Test
       number: parse_int_or_hex(env['currentNumber']),
       coinbase: decode_hex(env['currentCoinbase']),
       difficulty: parse_int_or_hex(env['currentDifficulty']),
-      gas_limit: parse_int_or_hex(env['currentGasLimit']),
-      timestamp: parse_int_or_hex(env['currentTimestamp'])
+      timestamp: parse_int_or_hex(env['currentTimestamp']),
+      gas_limit: [db_env.config[:max_gas_limit], parse_int_or_hex(env['currentGasLimit'])].min # work around https://github.com/ethereum/pyethereum/issues/390, step 1
     )
     blk = Block.new(header, env: db_env)
+
+    # work around https://github.com/ethereum/pyethereum/issues/390, step 2
+    blk.gas_limit = parse_int_or_hex env['currentGasLimit']
 
     # setup state
     pre.each do |addr, h|
