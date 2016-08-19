@@ -12,9 +12,10 @@ module Ethereum
   class ExternalCall
 
     extend Forwardable
-    def_delegators :@block, :get_code, :get_balance, :set_balance,
-      :get_nonce, :set_nonce, :get_storage_data, :set_storage_data,
-      :get_storage_bytes, :add_refund, :account_exists
+    def_delegators :@block, :get_code, :set_code, :get_balance, :set_balance,
+      :delta_balance, :get_nonce, :set_nonce, :increment_nonce,
+      :get_storage_data, :set_storage_data, :get_storage_bytes, :reset_storage,
+      :add_refund, :account_exists, :snapshot, :revert, :transfer_value
 
     def initialize(block, tx)
       @block = block
@@ -89,7 +90,7 @@ module Ethereum
       sender = Utils.normalize_address(msg.sender, allow_blank: true)
 
       code = msg.data.extract_all
-      if @block.number >= @block.config[:metropolis_fork_blknum]
+      if post_metropolis_hardfork
         msg.to = Utils.mk_metropolis_contract_address msg.sender, code
         if get_code(msg.to)
           n1 = get_nonce msg.to
@@ -100,24 +101,24 @@ module Ethereum
           msg.to = Utils.normalize_address((get_nonce(msg.to) - 1) % Constant::TT160)
         end
       else
-        @block.increment_nonce msg.sender if tx_origin != msg.sender
+        increment_nonce msg.sender if tx_origin != msg.sender
 
-        nonce = Utils.encode_int(@block.get_nonce(msg.sender) - 1)
+        nonce = Utils.encode_int(get_nonce(msg.sender) - 1)
         msg.to = Utils.mk_contract_address sender, nonce
       end
 
       balance = get_balance(msg.to)
       if balance > 0
         set_balance msg.to, balance
-        @block.set_nonce msg.to, 0
-        @block.set_code msg.to, Constant::BYTE_EMPTY
-        @block.reset_storage msg.to
+        set_nonce msg.to, 0
+        set_code msg.to, Constant::BYTE_EMPTY
+        reset_storage msg.to
       end
 
       msg.is_create = true
       msg.data = VM::CallData.new [], 0, 0
 
-      snapshot = @block.snapshot
+      snapshot = self.snapshot
       res, gas, dat = apply_msg msg, code
 
       if res.true?
@@ -130,13 +131,13 @@ module Ethereum
           dat = []
           log_msg.debug "CONTRACT CREATION OOG", have: gas, want: gcost, block_number: @block.number
 
-          if @block.number >= @block.config[:homestead_fork_blknum]
-            @block.revert snapshot
+          if post_homestead_hardfork
+            revert snapshot
             return 0, 0, Constant::BYTE_EMPTY
           end
         end
 
-        @block.set_code msg.to, Utils.int_array_to_bytes(dat)
+        set_code msg.to, Utils.int_array_to_bytes(dat)
         return 1, gas, msg.to
       else
         return 0, gas, Constant::BYTE_EMPTY
@@ -151,11 +152,11 @@ module Ethereum
       log_state.trace "MSG PRE STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
 
       # snapshot before execution
-      snapshot = @block.snapshot
+      snapshot = self.snapshot
 
       # transfer value
       if msg.transfers_value
-        unless @block.transfer_value(msg.sender, msg.to, msg.value)
+        unless transfer_value(msg.sender, msg.to, msg.value)
           log_msg.debug "MSG TRANSFER FAILED", have: get_balance(msg.to), want: msg.value
           return [1, msg.gas, []]
         end
@@ -174,7 +175,7 @@ module Ethereum
 
       if res == 0
         log_msg.debug 'REVERTING'
-        @block.revert snapshot
+        revert snapshot
       end
 
       return res, gas, dat
