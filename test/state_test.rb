@@ -27,7 +27,7 @@ class StateTest < Minitest::Test
     assert_equal 40, env['currentCoinbase'].size
 
     # setup env
-    db_env = Env.new DB::EphemDB.new, config: Env::DEFAULT_CONFIG.merge(homestead_fork_blknum: 1000000)
+    db_env = Env.new DB::EphemDB.new
     header = BlockHeader.new(
       prevhash: decode_hex(env['previousHash']),
       number: parse_int_or_hex(env['currentNumber']),
@@ -54,7 +54,7 @@ class StateTest < Minitest::Test
         blk.set_storage_data(
           address,
           Utils.big_endian_to_int(decode_hex(k[2..-1])),
-          decode_hex(v[2..-1])
+          Utils.zpad(decode_hex(v[2..-1]), 32)
         )
       end
     end
@@ -100,15 +100,12 @@ class StateTest < Minitest::Test
       end
 
       time_pre = Time.now
-      blk.commit_state
-      snapshot = blk.snapshot
       begin
         success, output = blk.apply_transaction(tx)
-        success, output = 0, Constant::BYTE_EMPTY if success.false?
 
         blk.commit_state
       rescue InvalidTransaction
-        success, output = 0, Constant::BYTE_EMPTY
+        success, output = false, Constant::BYTE_EMPTY
         blk.commit_state
       end
       time_post = Time.now
@@ -152,10 +149,11 @@ class StateTest < Minitest::Test
         blk = self
         apply_msg = lambda do |msg, code=nil|
           block_hash = lambda do |n|
-            h = n >= blk.number || n < blk.number - 256 ?
-              Ethereum::Constant::BYTE_EMPTY :
+            if n >= blk.number || n < blk.number - 256
+              Ethereum::Constant::BYTE_EMPTY
+            else
               Ethereum::Utils.keccak256(n.to_s)
-            Ethereum::Utils.big_endian_to_int h
+            end
           end
           singleton_class.send :define_method, :block_hash, &block_hash
 

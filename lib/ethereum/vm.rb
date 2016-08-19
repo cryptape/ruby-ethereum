@@ -325,7 +325,7 @@ module Ethereum
 
             s.gas -= gascost
             ext.add_refund refund
-            ext.set_storage_data msg.to, s0, Utils.encode_int(s1)
+            ext.set_storage_data msg.to, s0, Utils.zpad_int(s1)
           when :JUMP
             s0 = stk.pop
             s.pc = s0
