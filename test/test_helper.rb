@@ -332,11 +332,10 @@ module VMTest
       end
 
       def block_hash(n)
-        if n >= block_number || n < block_number-256
-          Ethereum::Constant::BYTE_EMPTY
-        else
-          Ethereum::Utils.keccak256 n.to_s
-        end
+        h = n >= block_number || n < block_number - 256 ?
+          Ethereum::Constant::BYTE_EMPTY :
+          Ethereum::Utils.keccak256(n.to_s)
+        Ethereum::Utils.big_endian_to_int(h)
       end
     end
 
