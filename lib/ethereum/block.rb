@@ -1229,6 +1229,7 @@ module Ethereum
       raise ValidationError, "Block's gaslimit is inconsistent with its parent's gaslimit" unless Block.check_gaslimit(parent, gas_limit)
       raise ValidationError, "Block's difficulty is inconsistent with its parent's difficulty" if difficulty != Block.calc_difficulty(parent, timestamp)
       raise ValidationError, "Gas used exceeds gas limit" if gas_used > gas_limit
+      raise ValidationError, "Block's gaslimit went too high!" if gas_limit > @config[:max_gas_limit]
       raise ValidationError, "Timestamp equal to or before parent" if timestamp <= parent.timestamp
       raise ValidationError, "Timestamp way too large" if timestamp > Constant::UINT_MAX
     end

@@ -20,6 +20,7 @@ module Ethereum
       # block.gas_limit = block.parent.gas_limit * 1023/1024 +
       #                     (block.gas.used * 6/5) / 1024
       min_gas_limit: 5000,
+      max_gas_limit: 2**63 - 1,
       gaslimit_ema_factor: 1024,
       gaslimit_adjmax_factor: 1024,
       blklim_factor_nom: 3,
