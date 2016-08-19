@@ -6,15 +6,7 @@ A Ruby implementation of [Ethereum](https://ethereum.org).
 
 ## Install Secp256k1
 
-```
-git clone git@github.com:bitcoin/bitcoin.git
-git checkout v0.11.2
-
-./autogen.sh
-./configure
-make
-sudo make install
-```
+https://github.com/cryptape/ruby-bitcoin-secp256k1
 
 ## Caveats
 
