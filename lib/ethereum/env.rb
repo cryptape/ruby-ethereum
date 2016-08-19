@@ -50,7 +50,7 @@ module Ethereum
       homestead_fork_blknum: 1150000,
       homestead_diff_adjustment_cutoff: 10,
 
-      metropolis_fork_blknum: 9999999,
+      metropolis_fork_blknum: 2**100,
       metropolis_entry_point: 2**160-1,
       metropolis_stateroot_store: 0x10,
       metropolis_blockhash_store: 0x20,
