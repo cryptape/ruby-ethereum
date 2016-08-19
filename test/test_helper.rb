@@ -73,9 +73,7 @@ def decode_uint(x)
 end
 
 def normalize_hex(s)
-  s = s.size > 2 ? s : '0x00'
-  s = s[0,2] + '0' * (66 - s.size) + s[2..-1] if s.size < 66
-  s
+  s.size > 2 ? s : '0x00'
 end
 
 def normalize_value(k, p)
@@ -216,7 +214,7 @@ module VMTest
         blk.set_storage_data(
           address,
           Utils.big_endian_to_int(decode_hex(k[2..-1])),
-          Utils.zpad(decode_hex(v[2..-1]), 32)
+          Utils.big_endian_to_int(decode_hex(v[2..-1]))
         )
       end
     end

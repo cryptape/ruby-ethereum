@@ -325,7 +325,7 @@ module Ethereum
 
             s.gas -= gascost
             ext.add_refund refund
-            ext.set_storage_data msg.to, s0, Utils.zpad_int(s1)
+            ext.set_storage_data msg.to, s0, s1
           when :JUMP
             s0 = stk.pop
             s.pc = s0
@@ -345,44 +345,6 @@ module Ethereum
             stk.push mem.size
           when :GAS
             stk.push s.gas # AFTER subtracting cost 1
-          end
-        elsif opcode >= 0xe0 && opcode < 0xef
-          return vm_exception('OPCODE RANGE INACTIVE', opcode: opcode) unless ext.post_metropolis_hardfork
-
-          case opcode
-          when :SLOADBYTES
-            key, mstart, msize = stk.pop, stk.pop, stk.pop
-            bytes = ext.get_storage_bytes(msg.to, key).bytes
-
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, [msize, bytes.size].min)
-
-            [msize, bytes.size].min.times do |i|
-              mem[mstart+i] = bytes[i]
-            end
-          when :SSTOREBYTES
-            key, mstart, msize = stk.pop, stk.pop, stk.pop
-
-            return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, mstart, msize)
-
-            prev_adjusted_byte_count = ext.get_storage_bytes(msg.to, key).size
-            prev_adjusted_byte_count += 32 if prev_adjusted_byte_count >= 0
-            post_adjusted_byte_count = msize + (msize.true? ? 32 : 0)
-
-            gas_cost = Opcodes::GSTORAGEBASE +
-              Opcodes::GSTORAGEBYTESTORAGE * (post_adjusted_byte_count - prev_adjusted_byte_count) +
-              Opcodes::GSTORAGEBYTECHANGE * post_adjusted_byte_count
-            gas_payment = [Opcodes::GSTORAGEMIN, gas_cost].max
-            refund = gas_payment - gas_cost
-
-            return vm_exception('OUT OF GAS') if s.gas < gas_payment
-            s.gas -= gas_payment
-
-            data = Utils.int_array_to_bytes mem[mstart, msize]
-            ext.set_storage_bytes msg.to, key, data
-            ext.add_refund refund
-          when :SSIZE
-            key = stk.pop
-            stk.push ext.get_storage_bytes(msg.to, key).size
           end
         elsif op[0,Opcodes::PREFIX_PUSH.size] == Opcodes::PREFIX_PUSH
           pushnum = op[Opcodes::PREFIX_PUSH.size..-1].to_i

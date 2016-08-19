@@ -969,9 +969,9 @@ module Ethereum
     # @param address [String] the address of the account (binary or hex string)
     # @param index [Integer] the index of the requested item in the storage
     #
-    # @return [String] the bytes at storage index
+    # @return [Integer] the value at storage index
     #
-    def get_storage_bytes(address, index)
+    def get_storage_data(address, index)
       address = Utils.normalize_address address
 
       cache = @caches["storage:#{address}"]
@@ -980,16 +980,7 @@ module Ethereum
       key = Utils.zpad Utils.coerce_to_bytes(index), 32
       value = get_storage(address)[key]
 
-      value.true? ? RLP.decode(value) : ''
-    end
-
-    def get_storage_data(address, index)
-      bytes = get_storage_bytes address, index
-      if bytes.size >= 32
-        Utils.big_endian_to_int(bytes[-32..-1])
-      else
-        Utils.big_endian_to_int(bytes) * (1 << (8 * (32 - bytes.size)))
-      end
+      value.true? ? RLP.decode(value, sedes: Sedes.big_endian_int) : 0
     end
 
     ##
