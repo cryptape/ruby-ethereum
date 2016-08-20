@@ -88,9 +88,76 @@ module Ethereum
         ABI.encode_abi constructor_data[:encode_types], args
       end
 
-      def decode(name, data)
+      ##
+      # Return the function call result decoded.
+      #
+      # @param name [String] One of the existing functions described in the
+      #   contract interface.
+      # @param data [String] The encoded result from calling function `name`.
+      #
+      # @return [Array[Object]] The values returned by the call to function
+      #
+      def decode_function_result(name, data)
         desc = function_data[name]
         ABI.decode_abi desc[:decode_types], data
+      end
+      alias :decode :decode_function_result
+
+      ##
+      # Return a dictionary represent the log.
+      #
+      # Notes: this function won't work with anonymous events.
+      #
+      # @param log_topics [Array[String]] The log's indexed arguments.
+      # @param log_data [String] The encoded non-indexed arguments.
+      #
+      def decode_event(log_topics, log_data)
+        # topics[0]: keccak256(normalized_event_name)
+        raise ValueError, "Unknown log type" unless log_topics.size > 0 && event_data.has_key?(log_topics[0])
+
+        event_id = log_topics[0]
+        event = event_data[event_id]
+
+        names = event[:names]
+        types = event[:types]
+        indexed = event[:indexed]
+
+        unindexed_types = types.zip(indexed).select {|(t, i)| i.false? }.map(&:first)
+        unindexed_args = ABI.decode_abi unindexed_types, log_data
+
+        result = {}
+        indexed_count = 1 # skip topics[0]
+        names.each_with_index do |name, i|
+          v = if indexed[i].true?
+                topic_bytes = Utils.zpad_int log_topics[indexed_count]
+                indexed_count += 1
+                ABI.decode_primitive_type ABI::Type.parse(types[i]), topic_bytes
+              else
+                unindexed_args.shift
+              end
+
+          result[name] = v
+        end
+
+        result['_event_type'] = event[:name]
+        result
+      end
+
+      ##.
+      # Return a dictionary representation of the Log instance.
+      #
+      # Note: this function won't work with anonymous events.
+      #
+      # @param log [Log] The Log instance that needs to be parsed.
+      # @param noprint [Bool] Flag to turn off printing of the decoded log
+      #   instance.
+      #
+      def listen(log, noprint: true)
+        result = decode_event log.topics, log.data
+        p result if noprint
+        result
+      rescue ValueError
+        nil # api compatibility
       end
 
       def constructor_data
@@ -113,38 +180,6 @@ module Ethereum
         event_data[event_id(name, encode_types)]
       end
 
-      def listen(log, noprint: false)
-        return if log.topics.size == 0 || !event_data.has_key?(log.topics[0])
-
-        data = event_data[log.topics[0]]
-        types = data[:types]
-        name = data[:name]
-        names = data[:names]
-        indexed = data[:indexed]
-        indexed_types = types.zip(indexed).select {|(t, i)| i.true? }.map(&:first)
-        unindexed_types = types.zip(indexed).select {|(t, i)| i.false? }.map(&:first)
-
-        deserialized_args = ABI.decode_abi unindexed_types, log.data
-
-        o = {}
-        c1, c2 = 0, 0
-        names.each_with_index do |n, i|
-          if indexed[i].true?
-            topic_bytes = Utils.zpad_int log.topics[c1+1]
-            o[n] = ABI.decode_primitive_type ABI::Type.parse(indexed_types[c1]), topic_bytes
-            c1 += 1
-          else
-            o[n] = deserialized_args[c2]
-            c2 += 1
-          end
-        end
-
-        o['_event_type'] = name
-        p o unless noprint
-
-        o
-      end
-
       def method_id(name, encode_types)
         Utils.big_endian_to_int Utils.keccak256(get_sig(name, encode_types))[0,4]
       end
@@ -160,14 +195,14 @@ module Ethereum
       end
 
       def get_sig(name, encode_types)
-        "#{name}(#{encode_types.map {|x| canonical_name(x) }.join(',')})"
+        "#{name}(#{encode_types.map {|x| canonical_type(x) }.join(',')})"
       end
 
-      def canonical_name(x)
+      def canonical_type(x)
         case x
         when /\A(uint|int)(\[.*\])?\z/
           "#{$1}256#{$2}"
-        when /\A(real|ureal|fixed|ufixed)(\[.*\])?\z/
+        when /\A(fixed|ufixed)(\[.*\])?\z/
           "#{$1}128x128#{$2}"
         else
           x
