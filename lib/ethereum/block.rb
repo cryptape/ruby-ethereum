@@ -104,7 +104,9 @@ module Ethereum
         config = parent.config
         offset = parent.difficulty / config[:block_diff_factor]
 
-        if parent.number >= (config[:homestead_fork_blknum] - 1)
+        if parent.number >= (config[:metropolis_fork_blknum] - 1)
+          sign = [parent.uncles.size - ((ts - parent.timestamp) / config[:metropolis_diff_adjustment_cutoff]), -99].max
+        elsif parent.number >= (config[:homestead_fork_blknum] - 1)
           sign = [1 - ((ts - parent.timestamp) / config[:homestead_diff_adjustment_cutoff]), -99].max
         else
           sign = (ts - parent.timestamp) < config[:diff_adjustment_cutoff] ? 1 : -1
@@ -1118,7 +1120,13 @@ module Ethereum
     alias :inspect :to_s
 
     def validate_transaction(tx)
-      raise UnsignedTransactionError.new(tx) unless tx.sender
+      unless tx.sender
+        if number >= config[:metropolis_fork_blknum]
+          tx.sender = Utils.normalize_address(config[:metropolis_entry_point])
+        else
+          raise UnsignedTransactionError.new(tx)
+        end
+      end
 
       acct_nonce = get_nonce tx.sender
       raise InvalidNonce, "#{tx}: nonce actual: #{tx.nonce} target: #{acct_nonce}" if acct_nonce != tx.nonce
@@ -1160,6 +1168,8 @@ module Ethereum
         @transaction_count = 0 # TODO - should always equal @transactions.size
         self.gas_used = 0
 
+        hard_fork_initialize(parent)
+
         transaction_list.each {|tx| apply_transaction tx }
 
         finalize
@@ -1176,6 +1186,24 @@ module Ethereum
       end
     end
 
+    def hard_fork_initialize(parent)
+      if number == @config[:metropolis_fork_blknum]
+        set_code Utils.normalize_address(@config[:metropolis_stateroot_store]), @config[:metropolis_getter_code]
+        set_code Utils.normalize_address(@config[:metropolis_blockhash_store]), @config[:metropolis_getter_code]
+      end
+
+      if number >= @config[:metropolis_fork_blknum]
+        set_storage_data Utils.normalize_address(@config[:metropolis_stateroot_store]), (number % @config[:metropolis_wrapround]), parent.state_root
+        set_storage_data Utils.normalize_address(@config[:metropolis_blockhash_store]), (number % @config[:metropolis_wrapround]), prevhash
+      end
+
+      if number == @config[:dao_fork_blknum]
+        @config[:child_dao_list].each do |acct|
+          transfer_value acct, @config[:dao_withdrawer], get_balance(acct)
+        end
+      end
+    end
+
     ##
     # Validate block (header) against previous block.
     #
@@ -1186,6 +1214,7 @@ module Ethereum
       raise ValidationError, "Block's gaslimit is inconsistent with its parent's gaslimit" unless Block.check_gaslimit(parent, gas_limit)
       raise ValidationError, "Block's difficulty is inconsistent with its parent's difficulty" if difficulty != Block.calc_difficulty(parent, timestamp)
       raise ValidationError, "Gas used exceeds gas limit" if gas_used > gas_limit
+      raise ValidationError, "Block's gaslimit went too high!" if gas_limit > @config[:max_gas_limit]
       raise ValidationError, "Timestamp equal to or before parent" if timestamp <= parent.timestamp
       raise ValidationError, "Timestamp way too large" if timestamp > Constant::UINT_MAX
     end
@@ -1316,7 +1345,11 @@ module Ethereum
     end
 
     def mk_transaction_receipt(tx)
-      Receipt.new state_root, gas_used, logs
+      if number >= @config[:metropolis_fork_blknum]
+        Receipt.new Constant::HASH_ZERO, gas_used, logs
+      else
+        Receipt.new state_root, gas_used, logs
+      end
     end
 
   end

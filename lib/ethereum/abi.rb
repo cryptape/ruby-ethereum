@@ -18,7 +18,7 @@ module Ethereum
 
     class EncodingError < StandardError; end
     class DecodingError < StandardError; end
-    class ValueOutOfBounds < StandardError; end
+    class ValueOutOfBounds < ValueError; end
 
     ##
     # Encodes multiple arguments using the head/tail mechanism.
@@ -54,12 +54,7 @@ module Ethereum
     #
     def encode_type(type, arg)
       if %w(string bytes).include?(type.base) && type.sub.empty?
-        raise ArgumentError, "arg must be a string" unless arg.instance_of?(String)
-
-        size = encode_type Type.size_type, arg.size
-        padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
-
-        "#{size}#{arg}#{padding}"
+        encode_primitive_type type, arg
       elsif type.dynamic?
         raise ArgumentError, "arg must be an array" unless arg.instance_of?(Array)
 
@@ -94,44 +89,76 @@ module Ethereum
     def encode_primitive_type(type, arg)
       case type.base
       when 'uint'
-        real_size = type.sub.to_i
-        i = get_uint arg
+        begin
+          real_size = type.sub.to_i
+          i = get_uint arg
 
-        raise ValueOutOfBounds, arg unless i >= 0 && i < 2**real_size
-        Utils.zpad_int i
+          raise ValueOutOfBounds, arg unless i >= 0 && i < 2**real_size
+          Utils.zpad_int i
+        rescue EncodingError
+          raise ValueOutOfBounds, arg
+        end
       when 'bool'
         raise ArgumentError, "arg is not bool: #{arg}" unless arg.instance_of?(TrueClass) || arg.instance_of?(FalseClass)
-        Utils.zpad_int(arg ? 1: 0)
+        Utils.zpad_int(arg ? 1 : 0)
       when 'int'
-        real_size = type.sub.to_i
-        i = get_int arg
+        begin
+          real_size = type.sub.to_i
+          i = get_int arg
 
-        raise ValueOutOfBounds, arg unless i >= -2**(real_size-1) && i < 2**(real_size-1)
-        Utils.zpad_int(i % 2**type.sub.to_i)
-      when 'ureal', 'ufixed'
+          raise ValueOutOfBounds, arg unless i >= -2**(real_size-1) && i < 2**(real_size-1)
+          Utils.zpad_int(i % 2**type.sub.to_i)
+        rescue EncodingError
+          raise ValueOutOfBounds, arg
+        end
+      when 'ufixed'
         high, low = type.sub.split('x').map(&:to_i)
 
         raise ValueOutOfBounds, arg unless arg >= 0 && arg < 2**high
         Utils.zpad_int((arg * 2**low).to_i)
-      when 'real', 'fixed'
+      when 'fixed'
         high, low = type.sub.split('x').map(&:to_i)
 
         raise ValueOutOfBounds, arg unless arg >= -2**(high - 1) && arg < 2**(high - 1)
 
         i = (arg * 2**low).to_i
         Utils.zpad_int(i % 2**(high+low))
-      when 'string', 'bytes'
-        raise EncodingError, "Expecting string: #{arg}" unless arg.instance_of?(String)
+      when 'string'
+        if arg.encoding.name == 'UTF-8'
+          arg = arg.b
+        else
+          begin
+            arg.unpack('U*')
+          rescue ArgumentError
+            raise ValueError, "string must be UTF-8 encoded"
+          end
+        end
 
         if type.sub.empty? # variable length type
+          raise ValueOutOfBounds, "Integer invalid or out of range: #{arg.size}" if arg.size >= TT256
           size = Utils.zpad_int arg.size
-          padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
-          "#{size}#{arg}#{padding}"
+          value = Utils.rpad arg, BYTE_ZERO, Utils.ceil32(arg.size)
+          "#{size}#{value}"
         else # fixed length type
-          raise ValueOutOfBounds, arg unless arg.size <= type.sub.to_i
+          sub = type.sub.to_i
+          raise ValueOutOfBounds, "invalid string length #{sub}" if arg.size > sub
+          raise ValueOutOfBounds, "invalid string length #{sub}" if sub < 0 || sub > 32
+          Utils.rpad(arg, BYTE_ZERO, 32)
+        end
+      when 'bytes'
+        raise EncodingError, "Expecting string: #{arg}" unless arg.instance_of?(String)
+        arg = arg.b
 
-          padding = BYTE_ZERO * (32 - arg.size)
-          "#{arg}#{padding}"
+        if type.sub.empty? # variable length type
+          raise ValueOutOfBounds, "Integer invalid or out of range: #{arg.size}" if arg.size >= TT256
+          size = Utils.zpad_int arg.size
+          value = Utils.rpad arg, BYTE_ZERO, Utils.ceil32(arg.size)
+          "#{size}#{value}"
+        else # fixed length type
+          sub = type.sub.to_i
+          raise ValueOutOfBounds, "invalid bytes length #{sub}" if arg.size > sub
+          raise ValueOutOfBounds, "invalid bytes length #{sub}" if sub < 0 || sub > 32
+          Utils.rpad(arg, BYTE_ZERO, 32)
         end
       when 'hash'
         size = type.sub.to_i
@@ -266,10 +293,10 @@ module Ethereum
       when 'int'
         u = Utils.big_endian_to_int data
         u >= 2**(type.sub.to_i-1) ? (u - 2**type.sub.to_i) : u
-      when 'ureal', 'ufixed'
+      when 'ufixed'
         high, low = type.sub.split('x').map(&:to_i)
         Utils.big_endian_to_int(data) * 1.0 / 2**low
-      when 'real', 'fixed'
+      when 'fixed'
         high, low = type.sub.split('x').map(&:to_i)
         u = Utils.big_endian_to_int data
         i = u >= 2**(high+low-1) ? (u - 2**(high+low)) : u
@@ -289,13 +316,17 @@ module Ethereum
         raise EncodingError, "Number out of range: #{n}" if n > UINT_MAX || n < UINT_MIN
         n
       when String
-        if n.size == 40
-          Utils.big_endian_to_int Utils.decode_hex(n)
-        elsif n.size <= 32
-          Utils.big_endian_to_int n
-        else
-          raise EncodingError, "String too long: #{n}"
-        end
+        i = if n.size == 40
+              Utils.decode_hex(n)
+            elsif n.size <= 32
+              n
+            else
+              raise EncodingError, "String too long: #{n}"
+            end
+        i = Utils.big_endian_to_int i
+
+        raise EncodingError, "Number out of range: #{i}" if i > UINT_MAX || i < UINT_MIN
+        i
       when true
         1
       when false, nil
@@ -311,14 +342,18 @@ module Ethereum
         raise EncodingError, "Number out of range: #{n}" if n > INT_MAX || n < INT_MIN
         n
       when String
-        if n.size == 40
-          i = Utils.big_endian_to_int Utils.decode_hex(n)
-        elsif n.size <= 32
-          i = Utils.big_endian_to_int n
-        else
-          raise EncodingError, "String too long: #{n}"
-        end
-        i > INT_MAX ? (i-TT256) : i
+        i = if n.size == 40
+              Utils.decode_hex(n)
+            elsif n.size <= 32
+              n
+            else
+              raise EncodingError, "String too long: #{n}"
+            end
+        i = Utils.big_endian_to_int i
+
+        i = i > INT_MAX ? (i-TT256) : i
+        raise EncodingError, "Number out of range: #{i}" if i > INT_MAX || i < INT_MIN
+        i
       when true
         1
       when false, nil

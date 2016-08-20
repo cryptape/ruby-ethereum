@@ -20,6 +20,7 @@ module Ethereum
       # block.gas_limit = block.parent.gas_limit * 1023/1024 +
       #                     (block.gas.used * 6/5) / 1024
       min_gas_limit: 5000,
+      max_gas_limit: 2**63 - 1,
       gaslimit_ema_factor: 1024,
       gaslimit_adjmax_factor: 1024,
       blklim_factor_nom: 3,
@@ -46,8 +47,21 @@ module Ethereum
 
       account_initial_nonce: 0,
 
+      # Milestones
       homestead_fork_blknum: 1150000,
-      homestead_diff_adjustment_cutoff: 10
+      homestead_diff_adjustment_cutoff: 10,
+
+      metropolis_fork_blknum: 2**100,
+      metropolis_entry_point: 2**160-1,
+      metropolis_stateroot_store: 0x10,
+      metropolis_blockhash_store: 0x20,
+      metropolis_wrapround: 65536,
+      metropolis_getter_code: Utils.decode_hex('6000355460205260206020f3'),
+      metropolis_diff_adjustment_cutoff: 9,
+
+      dao_fork_blknum: 1920000,
+      child_dao_list: Utils.child_dao_list.map {|addr| Utils.normalize_address addr },
+      dao_withdrawer: Utils.normalize_address('0xbf4ed7b27f1d666546e30d74d50d173d20bca754')
     }.freeze
 
     attr :db, :config, :global_config
