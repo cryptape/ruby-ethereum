@@ -59,10 +59,9 @@ module Ethereum
       metropolis_getter_code: Utils.decode_hex('6000355460205260206020f3'),
       metropolis_diff_adjustment_cutoff: 9,
 
-      dao_fork_blknum: 9999998,
-      dao_address_list: [],
-      dao_main_addr: '0xbb9bc244d798123fde783fcc1c72d3bb8c189413',
-      dao_newcode: ''
+      dao_fork_blknum: 1920000,
+      child_dao_list: Utils.child_dao_list.map {|addr| Utils.normalize_address addr },
+      dao_withdrawer: Utils.normalize_address('0xbf4ed7b27f1d666546e30d74d50d173d20bca754')
     }.freeze
 
     attr :db, :config, :global_config

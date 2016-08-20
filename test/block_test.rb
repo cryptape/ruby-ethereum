@@ -115,14 +115,17 @@ class BlockFixtureTest < Minitest::Test
     return if EXCLUDES.include?(name)
 
     filename, _, testname = name.rpartition('_')
-    config_overrides = case filename
-                       when /Homestead/
-                         {homestead_fork_blknum: 0}
-                       when /TestNetwork/
-                         {homestead_fork_blknum: 5}
-                       else
-                         {}
-                       end
+
+    homestead_fork_blknum = 1000000
+    homestead_fork_blknum = 0 if filename =~ /Homestead/
+    homestead_fork_blknum = 5 if filename =~ /TestNetwork/
+
+    dao_fork_blknum = filename =~ /bcTheDaoTest/ ? 8 : 1920000
+
+    config_overrides = {
+      homestead_fork_blknum: homestead_fork_blknum,
+      dao_fork_blknum: dao_fork_blknum
+    }
 
     run_block_test params, config_overrides
   end

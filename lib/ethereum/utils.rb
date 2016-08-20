@@ -213,5 +213,24 @@ module Ethereum
       end
     end
 
+    def child_dao_list
+      source = '0x4a574510c7014e4ae985403536074abe582adfc8'
+
+      main = [ 
+        '0xbb9bc244d798123fde783fcc1c72d3bb8c189413', # TheDAO
+        '0x807640a13483f8ac783c557fcdf27be11ea4ac7a'  # TheDAO extrabalance
+      ]
+
+      child_daos = []
+      child_extra_balances = []
+      (1...58).each do |i|
+        child_addr = "0x#{encode_hex mk_contract_address(source, i)}"
+        child_daos.push child_addr
+        child_extra_balances.push "0x#{encode_hex mk_contract_address(child_addr, 0)}"
+      end
+
+      main + child_daos + child_extra_balances
+    end
+
   end
 end
