@@ -16,7 +16,9 @@ module Ethereum
         if listen
           listener = ->(log) {
             result = @translator.listen log, noprint: false
-            log_listener(result) if result && log_listener
+            # result could be nil if the log cannot be parsed into an event
+            # in that case we just pass raw log to listener
+            log_listener.call(result || log) if log_listener
           }
           @state.block.log_listeners.push listener
         end
