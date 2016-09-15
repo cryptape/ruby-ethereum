@@ -10,7 +10,7 @@ module Ethereum
 
       attr :env, :block, :blocks
 
-      def initialize(env: nil, num_accounts: Fixture::NUM_ACCOUNTS)
+      def initialize(env: nil, privkeys: Fixture.keys, start_alloc: nil, gas_price: Fixture.gas_price, gas_limit: Fixture.gas_limit)
         if env
           @db = env.db
           @env = env
@@ -21,9 +21,15 @@ module Ethereum
 
         @temp_data_dir = Dir.mktmpdir TMP_DIR_PREFIX
 
-        @block = Block.genesis @env, start_alloc: get_start_alloc(num_accounts)
+        @privkeys = privkeys
+        @accounts = @privkeys.map {|k| PrivateKey.new(k).to_address }
+        @gas_price = gas_price
+        @gas_limit = gas_limit
+
+        start_alloc ||= get_start_alloc(@privkeys.size)
+        @block = Block.genesis @env, start_alloc: start_alloc
         @block.timestamp = 1410973349
-        @block.coinbase = Fixture.accounts[0]
+        @block.coinbase = @accounts[0]
         @block.gas_limit = 10**9
 
         @blocks = [@block]
@@ -32,7 +38,7 @@ module Ethereum
         ObjectSpace.define_finalizer(self) {|id| FileUtils.rm_rf(@temp_data_dir) }
       end
 
-      def contract(code, sender: Fixture.keys[0], endowment: 0, language: :serpent,
+      def contract(code, sender: @privkeys[0], endowment: 0, language: :serpent,
                    libraries: nil, path: nil, constructor_call: nil, **kwargs)
         code = Language.format_spaces code
         compiler = Language.get language
@@ -46,7 +52,7 @@ module Ethereum
         address
       end
 
-      def abi_contract(code, sender: Fixture.keys[0], endowment: 0, language: :serpent,
+      def abi_contract(code, sender: @privkeys[0], endowment: 0, language: :serpent,
                        libraries: nil, path: nil, constructor_parameters: nil,
                        log_listener: nil, listen: true, **kwargs)
         code = Language.format_spaces code
@@ -66,10 +72,10 @@ module Ethereum
         ABIContract.new(self, translator, address, listen: listen, log_listener: log_listener)
       end
 
-      def evm(bytecode, sender: Fixture.keys[0], endowment: 0, gas: nil)
+      def evm(bytecode, sender: @privkeys[0], endowment: 0, gas: nil)
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
 
-        tx = Transaction.contract sendnonce, Fixture.gas_price, Fixture.gas_limit, endowment, bytecode
+        tx = Transaction.contract sendnonce, @gas_price, @gas_limit, endowment, bytecode
         tx.sign sender
         tx.startgas = gas if gas
 
@@ -94,7 +100,7 @@ module Ethereum
 
         t1, g1 = Time.now, @block.gas_used
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
-        tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
+        tx = Transaction.new(sendnonce, @gas_price, @gas_limit, to, value, evmdata)
         @last_tx = tx
         tx.sign(sender)
 
@@ -136,7 +142,7 @@ module Ethereum
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
         evmdata = funid ? serpent.encode_abi(funid, *abi) : serpent.encode_datalist(*data)
 
-        tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
+        tx = Transaction.new(sendnonce, @gas_price, @gas_limit, to, value, evmdata)
         @last_tx = tx
         tx.sign(sender)
 
@@ -152,7 +158,7 @@ module Ethereum
         sendnonce = @block.get_nonce PrivateKey.new(sender).to_address
         evmdata = funid ? serpent.encode_abi(funid, *abi) : serpent.encode_datalist(*data)
 
-        tx = Transaction.new(sendnonce, Fixture.gas_price, Fixture.gas_limit, to, value, evmdata)
+        tx = Transaction.new(sendnonce, @gas_price, @gas_limit, to, value, evmdata)
         @last_tx = tx
         tx.sign(sender)
 
@@ -165,7 +171,7 @@ module Ethereum
         recorder.pop_records # TODO: implement recorder
       end
 
-      def mine(n=1, coinbase: Fixture.accounts[0])
+      def mine(n=1, coinbase: @accounts[0])
         n.times do |i|
           @block.finalize
           @block.commit_state
@@ -198,7 +204,7 @@ module Ethereum
 
       def get_start_alloc(num_accounts)
         o = {}
-        num_accounts.times {|i| o[Fixture.accounts[i]] = {wei: 10**24} }
+        num_accounts.times {|i| o[@accounts[i]] = {wei: 10**24} }
         (1...5).each {|i| o[Utils.int_to_addr(i)] = {wei: 1} }
         o
       end
