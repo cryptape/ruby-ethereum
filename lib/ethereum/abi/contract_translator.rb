@@ -155,6 +155,7 @@ module Ethereum
       def listen(log, noprint: true)
         result = decode_event log.topics, log.data
         p result if noprint
+        result['_from'] = Utils.encode_hex(log.address)
         result
       rescue ValueError
         nil # api compatibility
