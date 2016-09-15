@@ -26,7 +26,7 @@ module Ethereum
         @gas_price = gas_price
         @gas_limit = gas_limit
 
-        start_alloc ||= get_start_alloc(@privkeys.size)
+        start_alloc ||= get_start_alloc()
         @block = Block.genesis @env, start_alloc: start_alloc
         @block.timestamp = 1410973349
         @block.coinbase = @accounts[0]
@@ -36,6 +36,10 @@ module Ethereum
         @last_tx = nil
 
         ObjectSpace.define_finalizer(self) {|id| FileUtils.rm_rf(@temp_data_dir) }
+      end
+
+      def head
+        @blocks.last
       end
 
       def contract(code, sender: @privkeys[0], endowment: 0, language: :serpent,
@@ -69,7 +73,7 @@ module Ethereum
                            libraries: libraries, path: path, constructor_call: encoded_parameters,
                            **kwargs)
 
-        ABIContract.new(self, translator, address, listen: listen, log_listener: log_listener)
+        ABIContract.new(self, translator, address, listen: listen, log_listener: log_listener, default_key: sender)
       end
 
       def evm(bytecode, sender: @privkeys[0], endowment: 0, gas: nil)
@@ -202,10 +206,10 @@ module Ethereum
 
       private
 
-      def get_start_alloc(num_accounts)
+      def get_start_alloc
         o = {}
-        num_accounts.times {|i| o[@accounts[i]] = {wei: 10**24} }
         (1...5).each {|i| o[Utils.int_to_addr(i)] = {wei: 1} }
+        @accounts.each {|addr| o[addr] = {wei: 10**24} }
         o
       end
 
