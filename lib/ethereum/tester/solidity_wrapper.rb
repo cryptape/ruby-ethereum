@@ -89,7 +89,11 @@ module Ethereum
           pipe = IO.popen(args, 'w', [:out, :err] => out)
           pipe.write code
           pipe.close_write
-          raise CompileError, 'compilation failed' unless $?.success?
+          unless $?.success?
+            out.rewind
+            output = out.read
+            raise CompileError, "compilation failed:\n#{output}"
+          end
 
           out.rewind
           solc_parse_output out.read
