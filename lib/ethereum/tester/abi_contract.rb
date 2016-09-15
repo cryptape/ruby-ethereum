@@ -28,8 +28,8 @@ module Ethereum
         end
       end
 
-      def listen(x)
-        @translator.listen x
+      def listen(x, noprint: true)
+        @translator.listen x, noprint: noprint
       end
 
       private

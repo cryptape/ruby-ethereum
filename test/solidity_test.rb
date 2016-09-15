@@ -13,6 +13,7 @@ class SolidityTest < Minitest::Test
     Dir.mktmpdir('contracts-') do |dir|
       lib_path = File.join dir, 'Other.sol'
       File.write lib_path, <<-EOF
+          pragma solidity ^0.4.0;
           library Other {
               function seven() returns (int256 y) {
                   y = 7;
@@ -22,6 +23,7 @@ class SolidityTest < Minitest::Test
 
       user_path = File.join dir, 'user.sol'
       File.write user_path, <<-EOF
+          pragma solidity ^0.4.0;
           import "Other.sol";
           contract user {
               function test() returns (int256 seven) {
@@ -53,6 +55,8 @@ class SolidityTest < Minitest::Test
           return(5)
   EOF
   SOLIDITY_CONTRACT = <<-EOF
+      pragma solidity ^0.4.0;
+
       contract serpent { function sub1() returns (int256 y) {} }
 
       contract zoo {
@@ -78,6 +82,7 @@ class SolidityTest < Minitest::Test
   end
 
   COMPILE_RICH_CONTRACT = <<-EOF
+      pragma solidity ^0.4.0;
       contract contract_add {
           function add7(uint a) returns(uint d) { return a + 7; }
           function add42(uint a) returns(uint d) { return a + 42; }
@@ -104,6 +109,7 @@ class SolidityTest < Minitest::Test
   end
 
   CONSTRUCTOR_CONTRACT = <<-EOF
+      pragma solidity ^0.4.0;
       contract testme {
           uint value;
           function testme(uint a) {
@@ -121,6 +127,7 @@ class SolidityTest < Minitest::Test
 
   def test_abi_contract
     one_contract = <<-EOF
+        pragma solidity ^0.4.0;
         contract foo {
             function seven() returns (int256 y) {
                 y = 7;
@@ -132,6 +139,7 @@ class SolidityTest < Minitest::Test
     EOF
 
     two_contracts = one_contract + <<-EOF
+        pragma solidity ^0.4.0;
         contract baz {
             function echo(address a) returns (address b) {
                 b = a;

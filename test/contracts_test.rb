@@ -1356,7 +1356,12 @@ class ContractsTest < Minitest::Test
     c = @s.abi_contract ABI_LOGGING_CODE
     o = []
 
-    @s.block.add_listener(->(x) { o.push(c.listen(x) ) })
+    @s.block.add_listener(->(x) {
+      result = c.listen(x, noprint: false)
+      result.delete('_from')
+      o.push(result)
+    })
+
     c.test_rabbit(3)
     assert_equal [{"_event_type" => "rabbit", "x" => 3}], o
 
@@ -1443,7 +1448,13 @@ class ContractsTest < Minitest::Test
   def test_string_logging
     c = @s.abi_contract STRING_LOGGING_CODE
     o = []
-    @s.block.add_listener(->(x) { o.push c.listen(x) })
+
+    @s.block.add_listener(->(x) {
+      result = c.listen(x, noprint: false)
+      result.delete('_from')
+      o.push(result)
+    })
+
     c.moo
 
     expect = [
