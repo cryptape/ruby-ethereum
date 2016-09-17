@@ -251,7 +251,7 @@ module Ethereum
 
         def compiler_version
           output = `#{solc_path} --version`.strip
-          output =~ /^Version: ([0-9a-z.-]+)\///m ? $1 : nil
+          output =~ /^Version: ([0-9a-zA-Z.\-+]+)/m ? $1 : nil
         end
 
         ##
