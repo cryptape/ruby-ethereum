@@ -18,6 +18,9 @@ module Ethereum
         }
 
         contract_interface.each do |desc|
+          # TODO: parse fallback interface
+          next if desc['type'] == 'fallback'
+
           encode_types = desc['inputs'].map {|e| e['type'] }
           signature = desc['inputs'].map {|e| [e['type'], e['name']] }
 
