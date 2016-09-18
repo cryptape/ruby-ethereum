@@ -13,8 +13,8 @@ module Ethereum
           begin
             require 'serpent'
             @all[:serpent] = Serpent
-          rescue LoadError
-            # do nothing
+          rescue LoadError => e
+            puts "Failed to load serpent"
           end
 
           if SolidityWrapper.solc_path
