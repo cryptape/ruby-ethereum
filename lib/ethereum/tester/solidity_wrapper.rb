@@ -310,6 +310,8 @@ module Ethereum
         end
 
         def which(cmd)
+          return ENV['SOLC_BINARY'] if ENV['SOLC_BINARY']
+
           exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
           ENV['PATH'].split(File::PATH_SEPARATOR).each do |path|
             exts.each { |ext|
