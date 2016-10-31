@@ -12,20 +12,22 @@ module Ethereum
         end
 
         @contract = {
+          fallback_data: nil,
           constructor_data: nil,
           function_data: {},
           event_data: {}
         }
 
         contract_interface.each do |desc|
-          # TODO: parse fallback interface
-          next if desc['type'] == 'fallback'
-
-          encode_types = desc['inputs'].map {|e| e['type'] }
-          signature = desc['inputs'].map {|e| [e['type'], e['name']] }
-
-          # type can be omitted, defaulting to function
           type = desc['type'] || 'function'
+          encode_types = []
+          signature = []
+
+          if type != 'fallback' && desc.has_key?('inputs')
+            encode_types = desc['inputs'].map {|e| e['type'] }
+            signature = desc['inputs'].map {|e| [e['type'], e['name']] }
+          end
+
           case type
           when 'function'
             name = basename desc['name']
@@ -35,7 +37,8 @@ module Ethereum
               encode_types: encode_types,
               decode_types: decode_types,
               is_constant: desc.fetch('constant', false),
-              signature: signature
+              signature: signature,
+              payable: desc.fetch('payable', false)
             }
           when 'event'
             name = basename desc['name']
@@ -53,6 +56,11 @@ module Ethereum
             @contract[:constructor_data] = {
               encode_types: encode_types,
               signature: signature
+            }
+          when 'fallback'
+            raise ValueError, "Only one fallback function is supported." if @contract[:fallback_data]
+            @contract[:fallback_data] = {
+              payable: desc['payable']
             }
           else
             raise ValueError, "Unknown interface type: #{type}"
