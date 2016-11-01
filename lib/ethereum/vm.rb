@@ -133,7 +133,8 @@ module Ethereum
             # fee for exponent is dependent on its bytes
             # calc n bytes to represent exponent
             nbytes = Utils.encode_int(exponent).size
-            expfee = nbytes * Opcodes::GEXPONENTBYTE
+            expprice = Opcodes::GEXPONENTBYTE + (ext.post_spurious_dragon_hardfork ? 1 : 0) * Opcodes::GEXPONENTBYTE_SUPPLEMENTAL_GAS
+            expfee = nbytes * expprice
             if s.gas < expfee
               s.gas = 0
               return vm_exception('OOG EXPONENT')

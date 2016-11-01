@@ -84,6 +84,10 @@ module Ethereum
       @block.number >= @block.config[:anti_dos_fork_blknum]
     end
 
+    def post_spurious_dragon_hardfork
+      @block.number >= @block.config[:spurious_dragon_fork_blknum]
+    end
+
     def post_metropolis_hardfork
       @block.number >= @block.config[:metropolis_fork_blknum]
     end

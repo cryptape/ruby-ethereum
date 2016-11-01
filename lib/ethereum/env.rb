@@ -64,7 +64,7 @@ module Ethereum
       dao_withdrawer: Utils.normalize_address('0xbf4ed7b27f1d666546e30d74d50d173d20bca754'),
 
       anti_dos_fork_blknum: 2457000,
-      clearing_fork_blknum: 2**100
+      spurious_dragon_fork_blknum: 2**100
     }.freeze
 
     attr :db, :config, :global_config
