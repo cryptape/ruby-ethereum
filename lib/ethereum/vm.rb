@@ -49,7 +49,7 @@ module Ethereum
         # only to decide which features get logged in 'eth.vm.op', i.e.
         # tracing can not be activated by activating a sub like
         # 'eth.vm.op.stack'.
-        if Logger.trace?(log_vm_exit.name)
+        if log_vm_exit.trace?
           trace_data = {
             stack: s.stack.map(&:to_s),
             gas: s.gas + fee,
@@ -396,7 +396,9 @@ module Ethereum
 
           data = mem.safe_slice(mstart, msz)
           ext.log(msg.to, topics, Utils.int_array_to_bytes(data))
-          log_log.trace('LOG', to: msg.to, topics: topics, data: data)
+          if log_log.trace?
+            log_log.trace('LOG', to: msg.to, topics: topics, data: data)
+          end
         elsif op == :CREATE
           value, mstart, msz = stk.pop, stk.pop, stk.pop
 
@@ -582,12 +584,16 @@ module Ethereum
     end
 
     def vm_exception(error, **kwargs)
-      log_vm_exit.trace('EXCEPTION', cause: error, **kwargs)
+      if log_vm_exit.trace?
+        log_vm_exit.trace('EXCEPTION', cause: error, **kwargs)
+      end
       return 0, 0, []
     end
 
     def peaceful_exit(cause, gas, data, **kwargs)
-      log_vm_exit.trace('EXIT', cause: cause, **kwargs)
+      if log_vm_exit.trace?
+        log_vm_exit.trace('EXIT', cause: cause, **kwargs)
+      end
       return 1, gas, data
     end
 

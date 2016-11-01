@@ -25,15 +25,15 @@ module Ethereum
       end
 
       def get(k)
-        logger.trace 'getting entry', key: Utils.encode_hex(k)[0,8]
+        logger.debug 'getting entry', key: Utils.encode_hex(k)[0,8]
 
         if @uncommited.has_key?(k)
           raise KeyError, 'key not in db' unless @uncommited[k]
-          logger.trace "from uncommited"
+          logger.debug "from uncommited"
           return @uncommited[k]
         end
 
-        logger.trace "from db"
+        logger.debug "from db"
         raise KeyError, k.inspect unless @db.exists?(k)
         v = @db.get(k)
         o = decompress v
@@ -43,7 +43,7 @@ module Ethereum
       end
 
       def put(k, v)
-        logger.trace 'putting entry', key: Utils.encode_hex(k)[0,8], size: v.size
+        logger.debug 'putting entry', key: Utils.encode_hex(k)[0,8], size: v.size
         @uncommited[k] = v
       end
 
@@ -64,7 +64,7 @@ module Ethereum
       end
 
       def delete(k)
-        logger.trace 'deleting entry', key: key
+        logger.debug 'deleting entry', key: key
         @uncommited[k] = nil
       end
 

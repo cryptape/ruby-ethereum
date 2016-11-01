@@ -34,14 +34,14 @@ module Ethereum
         new_refcount = Utils.encode_int(refcount+1)
         ref_put k, RLP.encode([new_refcount, v])
 
-        if Logger.trace?(logger.name)
+        if logger.trace?
           logger.trace "increasing #{Utils.encode_hex(k)}=#{v} to #{refcount+1}"
         end
       rescue
         ref_put k, RLP.encode([ONE_ENCODED, v])
         @journal.push [ZERO_ENCODED, k]
 
-        if Logger.trace?(logger.name)
+        if logger.trace?
           logger.trace "increasing #{Utils.encode_hex(k)}=#{v} to 1"
         end
       end
@@ -54,7 +54,7 @@ module Ethereum
         node_object = RLP.decode ref_get(k)
         refcount = Utils.decode_int node_object[0]
 
-        if Logger.trace?(logger.name)
+        if logger.trace?
           logger.trace "decreasing #{Utils.encode_hex(k)} to #{refcount-1}"
         end
 

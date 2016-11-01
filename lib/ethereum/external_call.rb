@@ -151,9 +151,13 @@ module Ethereum
     def apply_msg(msg, code=nil)
       code ||= get_code msg.code_address
 
-      log_msg.debug "MSG APPLY",  sender: Utils.encode_hex(msg.sender), to: Utils.encode_hex(msg.to), gas: msg.gas, value: msg.value, data: Utils.encode_hex(msg.data.extract_all)
-      log_state.trace "MSG PRE STATE SENDER", account: Utils.encode_hex(msg.sender), balance: get_balance(msg.sender), state: log_storage(msg.sender)
-      log_state.trace "MSG PRE STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
+      if log_msg.trace?
+        log_msg.debug "MSG APPLY",  sender: Utils.encode_hex(msg.sender), to: Utils.encode_hex(msg.to), gas: msg.gas, value: msg.value, data: Utils.encode_hex(msg.data.extract_all)
+        if log_state.trace?
+          log_state.trace "MSG PRE STATE SENDER", account: Utils.encode_hex(msg.sender), balance: get_balance(msg.sender), state: log_storage(msg.sender)
+          log_state.trace "MSG PRE STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
+        end
+      end
 
       # snapshot before execution
       snapshot = self.snapshot
@@ -173,9 +177,13 @@ module Ethereum
         res, gas, dat = VM.execute self, msg, code
       end
 
-      log_msg.trace "MSG APPLIED", gas_remained: gas, sender: msg.sender, to: msg.to, data: dat
-      log_state.trace "MSG POST STATE SENDER", account: Utils.encode_hex(msg.sender), balance: get_balance(msg.sender), state: log_storage(msg.sender)
-      log_state.trace "MSG POST STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
+      if log_msg.trace?
+        log_msg.trace "MSG APPLIED", gas_remained: gas, sender: msg.sender, to: msg.to, data: dat
+        if log_state.trace?
+          log_state.trace "MSG POST STATE SENDER", account: Utils.encode_hex(msg.sender), balance: get_balance(msg.sender), state: log_storage(msg.sender)
+          log_state.trace "MSG POST STATE RECIPIENT", account: Utils.encode_hex(msg.to), balance: get_balance(msg.to), state: log_storage(msg.to)
+        end
+      end
 
       if res == 0
         log_msg.debug 'REVERTING'

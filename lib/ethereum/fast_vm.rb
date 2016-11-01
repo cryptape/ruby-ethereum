@@ -57,7 +57,7 @@ module Ethereum
         s.gas -= gas
 
         ops.each do |op|
-          if Logger.trace?(log_vm_exit.name)
+          if log_vm_exit.trace?
             trace_data = {
               stack: s.stack.map(&:to_s),
               inst: op,
@@ -573,12 +573,16 @@ module Ethereum
     end
 
     def vm_exception(error, **kwargs)
-      log_vm_exit.trace('EXCEPTION', cause: error, **kwargs)
+      if log_vm_exit.trace?
+        log_vm_exit.trace('EXCEPTION', cause: error, **kwargs)
+      end
       return 0, 0, []
     end
 
     def peaceful_exit(cause, gas, data, **kwargs)
-      log_vm_exit.trace('EXIT', cause: cause, **kwargs)
+      if log_vm_exit.trace?
+        log_vm_exit.trace('EXIT', cause: cause, **kwargs)
+      end
       return 1, gas, data
     end
 
