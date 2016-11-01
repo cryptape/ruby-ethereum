@@ -146,21 +146,21 @@ def get_config_overrides(filename)
   override = {}
   parts = filename.split('_')
 
-  if parts.include?('Homestead')
+  if filename =~ /BlockchainTests_Homestead/
     override[:homestead_fork_blknum] = 0
   end
 
-  if parts.include?('TestNetwork')
+  if filename =~ /BlockchainTests_TestNetwork/
     override[:homestead_fork_blknum] = 5
     override[:dao_fork_blknum] = 8
     override[:anti_dos_fork_blknum] = 10
-  elsif parts.include?('EIP150')
+  elsif filename =~ /BlockchainTests_EIP150/
     override[:homestead_fork_blknum] = 0
     override[:anti_dos_fork_blknum] = 0
     override[:dao_fork_blknum] = 2**100
   end
 
-  if parts.include?('bcTheDaoTest')
+  if filename =~ /bcTheDaoTest/
     override[:dao_fork_blknum] = 8
   end
 
