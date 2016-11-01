@@ -133,6 +133,9 @@ class StateTest < Minitest::Test
       %w(pre exec env callcreates out gas logs postStateRoot).each do |k|
         shouldbe = params1[k]
         reallyis = stringify_possible_keys params2[k]
+        if k == 'out' && shouldbe[0] == '#'
+          reallyis = "##{(reallyis.size-2)/2}"
+        end
 
         if shouldbe != reallyis
           raise "Mismatch: #{k}:\n shouldbe #{shouldbe}\n reallyis #{reallyis}"

@@ -61,7 +61,10 @@ module Ethereum
 
       dao_fork_blknum: 1920000,
       child_dao_list: Utils.child_dao_list.map {|addr| Utils.normalize_address addr },
-      dao_withdrawer: Utils.normalize_address('0xbf4ed7b27f1d666546e30d74d50d173d20bca754')
+      dao_withdrawer: Utils.normalize_address('0xbf4ed7b27f1d666546e30d74d50d173d20bca754'),
+
+      anti_dos_fork_blknum: 2457000,
+      clearing_fork_blknum: 2**100
     }.freeze
 
     attr :db, :config, :global_config

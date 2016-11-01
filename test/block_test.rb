@@ -116,17 +116,10 @@ class BlockFixtureTest < Minitest::Test
 
     filename, _, testname = name.rpartition('_')
 
-    homestead_fork_blknum = 1000000
-    homestead_fork_blknum = 0 if filename =~ /Homestead/
-    homestead_fork_blknum = 5 if filename =~ /TestNetwork/
-
-    dao_fork_blknum = filename =~ /bcTheDaoTest/ ? 8 : 1920000
-
-    config_overrides = {
-      homestead_fork_blknum: homestead_fork_blknum,
-      dao_fork_blknum: dao_fork_blknum
-    }
-
+    puts "*"*100
+    puts filename
+    puts testname
+    config_overrides = get_config_overrides(filename)
     run_block_test params, config_overrides
   end
 

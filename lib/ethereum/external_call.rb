@@ -80,6 +80,10 @@ module Ethereum
       @block.number >= @block.config[:homestead_fork_blknum]
     end
 
+    def post_anti_dos_hardfork
+      @block.number >= @block.config[:anti_dos_fork_blknum]
+    end
+
     def post_metropolis_hardfork
       @block.number >= @block.config[:metropolis_fork_blknum]
     end

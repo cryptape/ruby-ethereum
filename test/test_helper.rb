@@ -142,6 +142,31 @@ def stringify_possible_keys(obj)
   end
 end
 
+def get_config_overrides(filename)
+  override = {}
+  parts = filename.split(File::PATH_SEPARATOR)
+
+  if parts.include?('Homestead')
+    override[:homestead_fork_blknum] = 0
+  end
+
+  if parts.include?('TestNetwork')
+    override[:homestead_fork_blknum] = 5
+    override[:dao_fork_blknum] = 8
+    override[:anti_dos_fork_blknum] = 10
+  elsif parts.include?('EIP150')
+    override[:homestead_fork_blknum] = 0
+    override[:anti_dos_fork_blknum] = 0
+    override[:dao_fork_blknum] = 2**100
+  end
+
+  if parts.include?('bcTheDaoTest')
+    override[:dao_fork_blknum] = 8
+  end
+
+  return override
+end
+
 module Scanner
   extend self
 
