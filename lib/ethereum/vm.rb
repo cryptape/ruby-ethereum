@@ -644,12 +644,8 @@ module Ethereum
       end
     end
 
-    def all_but_1_nth(gas, n)
-      gas - (gas / n)
-    end
-
     def max_call_gas(gas)
-      all_but_1_nth(gas, Opcodes::CALL_CHILD_LIMIT_DENOM)
+      gas - (gas / Opcodes::CALL_CHILD_LIMIT_DENOM)
     end
 
   end

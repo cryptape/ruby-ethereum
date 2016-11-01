@@ -144,7 +144,7 @@ end
 
 def get_config_overrides(filename)
   override = {}
-  parts = filename.split(File::PATH_SEPARATOR)
+  parts = filename.split('_')
 
   if parts.include?('Homestead')
     override[:homestead_fork_blknum] = 0

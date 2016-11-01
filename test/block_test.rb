@@ -115,10 +115,6 @@ class BlockFixtureTest < Minitest::Test
     return if EXCLUDES.include?(name)
 
     filename, _, testname = name.rpartition('_')
-
-    puts "*"*100
-    puts filename
-    puts testname
     config_overrides = get_config_overrides(filename)
     run_block_test params, config_overrides
   end
