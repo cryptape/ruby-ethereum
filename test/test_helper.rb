@@ -390,6 +390,7 @@ class Minitest::Test
     end
 
     def run_fixtures(path, except: nil, only: nil, options: {})
+      only = /#{ARGV[0]}/ if ARGV[0]
       Dir[fixture_path("#{path}/**/*.json")].each do |file_path|
         next if except && file_path =~ except
         next if only && file_path !~ only
