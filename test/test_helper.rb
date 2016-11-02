@@ -158,6 +158,14 @@ def get_config_overrides(filename)
     override[:homestead_fork_blknum] = 0
     override[:anti_dos_fork_blknum] = 0
     override[:dao_fork_blknum] = 2**100
+  elsif filename =~ /StateTests_EIP158/
+    override[:anti_dos_fork_blknum] = 0
+    override[:spurious_dragon_fork_blknum] = 0
+    override[:homestead_fork_blknum] = 10000
+    override[:dao_fork_blknum] = 2**100
+    if filename =~ /StateTests_EIP158_Homestead/
+      override[:homestead_fork_blknum] = 0
+    end
   end
 
   if filename =~ /bcTheDaoTest/
@@ -374,6 +382,8 @@ end
 class Minitest::Test
   class <<self
     def run_fixture(path, limit: nil, except: nil, only: nil)
+      only = /#{ARGV[1]}/ if ARGV[1]
+
       fixture = load_fixture(path).to_a
       fixture = fixture[0,limit] if limit
 
