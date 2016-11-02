@@ -8,17 +8,18 @@ class StateTest < Minitest::Test
   run_fixtures "StateTests", except: /stQuadraticComplexityTest|stMemoryStressTest|stPreCompiledContractsTransaction/
 
   def on_fixture_test(name, data)
-    check_state_test data
+    config_overrides = get_config_overrides(name)
+    check_state_test data, config_overrides
   end
 
-  def check_state_test(params)
-    run_state_test params, :verify
+  def check_state_test(params, config_overrides={})
+    run_state_test params, :verify, config_overrides
   end
 
   ENV_KEYS = %w(currentGasLimit currentTimestamp previousHash currentCoinbase currentDifficulty currentNumber).sort.freeze
   PRE_KEYS = %w(code nonce balance storage).sort.freeze
 
-  def run_state_test(params, mode)
+  def run_state_test(params, mode, config_overrides={})
     pre  = params['pre']
     exek = params['transaction']
     env  = params['env']
@@ -27,7 +28,7 @@ class StateTest < Minitest::Test
     assert_equal 40, env['currentCoinbase'].size
 
     # setup env
-    db_env = Env.new DB::EphemDB.new
+    db_env = Env.new DB::EphemDB.new, config: Env::DEFAULT_CONFIG.merge(config_overrides)
     header = BlockHeader.new(
       prevhash: decode_hex(env['previousHash']),
       number: parse_int_or_hex(env['currentNumber']),

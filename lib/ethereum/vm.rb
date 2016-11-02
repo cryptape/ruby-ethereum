@@ -433,13 +433,22 @@ module Ethereum
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, memout_sz)
 
           to = Utils.zpad_int(to)[12..-1] # last 20 bytes
-          extra_gas = (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT +
-            (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER +
-            (ext.post_anti_dos_hardfork ? 1 : 0) * Opcodes::CALL_SUPPLEMENTAL_GAS
-          if ext.post_anti_dos_hardfork
+          extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
+          if ext.post_spurious_dragon_hardfork
+            if ext.account_is_dead(to)
+              extra_gas += Opcodes::GCALLNEWACCOUNT
+              ext.add_touched to, Opcodes::GCALLNEWACCOUNT
+            end
+            extra_gas += Opcodes::CALL_SUPPLEMENTAL_GAS
+            return vm_exception('OUT OF GAS', needed: extra_gas) if s.gas < extra_gas
+            gas = [gas, max_call_gas(s.gas-extra_gas)].min
+          elsif ext.post_anti_dos_hardfork
+            extra_gas += (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
+            extra_gas += Opcodes::CALL_SUPPLEMENTAL_GAS
             return vm_exception('OUT OF GAS', needed: extra_gas) if s.gas < extra_gas
             gas = [gas, max_call_gas(s.gas-extra_gas)].min
           else
+            extra_gas += (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
             return vm_exception('OUT OF GAS', needed: gas+extra_gas) if s.gas < gas+extra_gas
           end
 
@@ -525,13 +534,26 @@ module Ethereum
           s0 = stk.pop
           to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
 
+          xfer = nil
           if ext.post_anti_dos_hardfork
             extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS +
               (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
             return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)
+          elsif ext.post_spurious_dragon_hardfork
+            extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS
+            return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)
+
+            # check balance after check SUICIDE_SUPPLEMENTAL_GAS to avoid DoS
+            xfer = ext.get_balance(msg.to)
+            if xfer > 0 && ext.account_is_dead
+              extra_gas += Opcodes::GCALLNEWACCOUNT # no use, just to keep consistency
+              return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::GCALLNEWACCOUNT)
+            end
+
+            ext.add_touched(to) if xfer == 0
           end
 
-          xfer = ext.get_balance(msg.to)
+          xfer ||= ext.get_balance(msg.to)
           ext.set_balance(to, ext.get_balance(to)+xfer)
           ext.set_balance(msg.to, 0)
           ext.add_suicide(msg.to)

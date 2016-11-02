@@ -27,7 +27,7 @@ module Ethereum
     def_delegators :header, *HeaderGetters, *HeaderSetters
 
     attr :env, :db, :config
-    attr_accessor :state, :transactions, :receipts, :refunds, :suicides, :ether_delta, :ancestor_hashes, :logs, :log_listeners
+    attr_accessor :state, :transactions, :receipts, :refunds, :suicides, :touched, :ether_delta, :ancestor_hashes, :logs, :log_listeners
 
     class <<self
       ##
@@ -248,6 +248,7 @@ module Ethereum
       @get_transactions_cache = []
 
       self.suicides = []
+      self.touched = {}
       self.logs = []
       self.log_listeners = []
 
@@ -286,6 +287,10 @@ module Ethereum
 
       header.block = self
       header.instance_variable_set :@_mutable, original_values[:header_mutable]
+    end
+
+    def post_hardfork?(name)
+      number >= config[:"#{name}_fork_blknum"]
     end
 
     def add_listener(l)
@@ -396,6 +401,15 @@ module Ethereum
       self.refunds += x
     end
 
+    def add_touched(addr, gas=nil)
+      self.touched[addr] ||= 0
+      self.touched[addr] += gas if gas
+    end
+
+    def add_suicide(addr)
+      self.suicides.push addr
+    end
+
     ##
     # Add a transaction to the transaction trie.
     #
@@ -459,8 +473,8 @@ module Ethereum
           self.refunds = 0
         end
 
-        delta_balance tx.sender, tx.gasprice * gas_remained
-        delta_balance coinbase, tx.gasprice * gas_used
+        apply_tx_refund tx.sender, gas_remained, tx.gasprice
+        apply_tx_reward coinbase, gas_used, tx.gasprice
         self.gas_used += gas_used
 
         output = tx.to.true? ? Utils.int_array_to_bytes(data) : data
@@ -469,7 +483,7 @@ module Ethereum
         logger.debug "TX FAILED", reason: 'out of gas', startgas: tx.startgas, gas_remained: gas_remained
 
         self.gas_used += tx.startgas
-        delta_balance coinbase, tx.gasprice*tx.startgas
+        apply_tx_reward coinbase, tx.startgas, tx.gasprice
 
         output = Constant::BYTE_EMPTY
         success = 0
@@ -483,6 +497,20 @@ module Ethereum
         del_account s
       end
       self.suicides = []
+
+      if post_hardfork?(:spurious_dragon)
+        touched.each do |addr, gas|
+          if account_exists(addr) && account_is_empty(addr)
+            # revert GCALLNEWACCOUNT cost first
+            if gas > 0
+              apply_tx_refund tx.sender, gas, tx.gasprice
+              apply_tx_reward coinbase, -gas, tx.gasprice
+            end
+            del_account addr
+          end
+        end
+      end
+      self.touched = {}
 
       add_transaction_to_list tx
       self.logs = []
@@ -705,6 +733,14 @@ module Ethereum
     def account_exists(address)
       address = Utils.normalize_address address
       @state[address].size > 0 || @caches[:all].has_key?(address)
+    end
+
+    def account_is_empty(address)
+      get_balance(address) == 0 && get_code(address) == Constant::BYTE_EMPTY && get_nonce(address) == 0
+    end
+
+    def account_is_dead(address)
+      !account_exists(address) || account_is_empty(address)
     end
 
     def add_log(log)
@@ -1350,6 +1386,14 @@ module Ethereum
       else
         Receipt.new state_root, gas_used, logs
       end
+    end
+
+    def apply_tx_refund(sender, remained, gasprice)
+      delta_balance sender, gasprice*remained if remained != 0
+    end
+
+    def apply_tx_reward(coinbase, used, gasprice)
+      delta_balance coinbase, gasprice*used if used != 0
     end
 
   end

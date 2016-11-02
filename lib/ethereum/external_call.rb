@@ -15,7 +15,9 @@ module Ethereum
     def_delegators :@block, :get_code, :set_code, :get_balance, :set_balance,
       :delta_balance, :get_nonce, :set_nonce, :increment_nonce,
       :get_storage_data, :set_storage_data, :get_storage_bytes, :reset_storage,
-      :add_refund, :account_exists, :snapshot, :revert, :transfer_value
+      :add_refund, :add_touched, :add_suicide,
+      :account_exists, :account_is_empty, :account_is_dead,
+      :snapshot, :revert, :transfer_value
 
     def initialize(block, tx)
       @block = block
@@ -24,10 +26,6 @@ module Ethereum
 
     def log_storage(x)
       @block.account_to_dict(x)[:storage]
-    end
-
-    def add_suicide(x)
-      @block.suicides.push x
     end
 
     def block_hash(x)
@@ -77,19 +75,19 @@ module Ethereum
     end
 
     def post_homestead_hardfork
-      @block.number >= @block.config[:homestead_fork_blknum]
+      @block.post_hardfork?(:homestead)
     end
 
     def post_anti_dos_hardfork
-      @block.number >= @block.config[:anti_dos_fork_blknum]
+      @block.post_hardfork?(:anti_dos)
     end
 
     def post_spurious_dragon_hardfork
-      @block.number >= @block.config[:spurious_dragon_fork_blknum]
+      @block.post_hardfork?(:spurious_dragon)
     end
 
     def post_metropolis_hardfork
-      @block.number >= @block.config[:metropolis_fork_blknum]
+      @block.post_hardfork?(:metropolis)
     end
 
     def create(msg)
@@ -118,10 +116,15 @@ module Ethereum
       balance = get_balance(msg.to)
       if balance > 0
         set_balance msg.to, balance
-        set_nonce msg.to, 0
         set_code msg.to, Constant::BYTE_EMPTY
         reset_storage msg.to
       end
+
+      init_nonce = @block.config[:account_initial_nonce]
+      if post_spurious_dragon_hardfork
+        init_nonce += 1 # EIP161.a
+      end
+      set_nonce msg.to, init_nonce
 
       msg.is_create = true
       msg.data = VM::CallData.new [], 0, 0
@@ -192,6 +195,10 @@ module Ethereum
       if res == 0
         log_msg.debug 'REVERTING'
         revert snapshot
+      end
+
+      if post_spurious_dragon_hardfork
+        add_touched msg.to if msg.value == 0
       end
 
       return res, gas, dat
