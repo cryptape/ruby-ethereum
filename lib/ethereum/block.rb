@@ -500,7 +500,7 @@ module Ethereum
 
       if post_hardfork?(:spurious_dragon)
         touched.each do |addr, gas|
-          if account_exists(addr) && account_is_empty(addr)
+          if account_is_dead(addr)
             # revert GCALLNEWACCOUNT cost first
             if gas > 0
               apply_tx_refund tx.sender, gas, tx.gasprice
