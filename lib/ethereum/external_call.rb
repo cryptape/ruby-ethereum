@@ -116,15 +116,12 @@ module Ethereum
       balance = get_balance(msg.to)
       if balance > 0
         set_balance msg.to, balance
+        set_nonce msg.to, @block.config[:account_initial_nonce]
         set_code msg.to, Constant::BYTE_EMPTY
         reset_storage msg.to
       end
 
-      init_nonce = @block.config[:account_initial_nonce]
-      if post_spurious_dragon_hardfork
-        init_nonce += 1 # EIP161.a
-      end
-      set_nonce msg.to, init_nonce
+      increment_nonce msg.to if post_spurious_dragon_hardfork
 
       msg.is_create = true
       msg.data = VM::CallData.new [], 0, 0
