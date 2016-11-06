@@ -232,5 +232,30 @@ module Ethereum
       main + child_daos + child_extra_balances
     end
 
+    def debug_by_step(ext, msg, s, op, in_args, out_args, fee, opcode, pushval)
+      indent = (msg.depth+1) * 5
+      prefix1 = '-' * indent
+      prefix2 = ' ' * indent
+      prefix2[-1] = '|'
+
+      puts "#{prefix1} ##{s.pc} 0x#{opcode.to_s(16)} #{s.gas} [#{msg.depth}]"
+      puts "#{prefix2} MEM: #{s.memory.map {|byte| byte.to_s(16)}.join(' ')}"
+      puts "#{prefix2} STACK: #{s.stack.map {|byte| '0x' + Utils.encode_hex(Utils.int_to_big_endian(byte)) }.join(' ')}"
+      case op
+      when /^PUSH/
+        puts "#{prefix2} #{op} 0x#{Utils.encode_hex(Utils.int_to_big_endian(pushval))} (#{pushval})"
+      when /^CREATE/
+        sender = Utils.normalize_address(msg.to, allow_blank: true)
+        msg_to_nonce = ext.get_nonce(msg.to)
+        nonce = Utils.encode_int(ext.tx_origin == msg.to ? msg_to_nonce-1 : msg_to_nonce)
+        puts "#{prefix2} #{op} 0x#{Utils.encode_hex(Utils.mk_contract_address(sender, nonce))}"
+      when /^INVALID/
+        # do nothing
+      else
+        puts "#{prefix2} #{op}"
+      end
+      STDIN.gets
+    end
+
   end
 end
