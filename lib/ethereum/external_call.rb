@@ -15,8 +15,7 @@ module Ethereum
     def_delegators :@block, :get_code, :set_code, :get_balance, :set_balance,
       :delta_balance, :get_nonce, :set_nonce, :increment_nonce,
       :get_storage_data, :set_storage_data, :get_storage_bytes, :reset_storage,
-      :add_refund, :add_touched, :add_suicide,
-      :account_exists, :account_is_empty, :account_is_dead,
+      :add_refund, :add_touched, :add_suicide, :account_exists, :account_is_empty,
       :snapshot, :revert, :transfer_value, :post_hardfork?
 
     def initialize(block, tx)

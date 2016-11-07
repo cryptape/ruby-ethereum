@@ -500,7 +500,7 @@ module Ethereum
 
       if post_hardfork?(:spurious_dragon)
         touched.each do |addr, gas|
-          if account_is_dead(addr)
+          if account_is_empty(addr)
             # revert GCALLNEWACCOUNT cost first
             if gas > 0 && tx.gasprice > 0
               apply_tx_refund tx.sender, gas, tx.gasprice
@@ -735,12 +735,11 @@ module Ethereum
       @state[address].size > 0 || @caches[:all].has_key?(address)
     end
 
+    ##
+    # Returns true when the account is either empty or non-exist.
+    #
     def account_is_empty(address)
       get_balance(address) == 0 && get_code(address) == Constant::BYTE_EMPTY && get_nonce(address) == 0
-    end
-
-    def account_is_dead(address)
-      !account_exists(address) || account_is_empty(address)
     end
 
     def add_log(log)

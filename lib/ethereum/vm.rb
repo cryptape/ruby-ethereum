@@ -435,7 +435,7 @@ module Ethereum
           extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
           new_account_charge = 0
           if ext.post_hardfork?(:spurious_dragon)
-            if ext.account_is_dead(to) && value > 0
+            if ext.account_is_empty(to) && value > 0
               new_account_charge = Opcodes::GCALLNEWACCOUNT
               extra_gas += new_account_charge
             end
@@ -547,7 +547,7 @@ module Ethereum
 
             # check balance after check SUICIDE_SUPPLEMENTAL_GAS to avoid DoS
             xfer = ext.get_balance(msg.to)
-            if xfer > 0 && ext.account_is_dead(to)
+            if xfer > 0 && ext.account_is_empty(to)
               extra_gas += Opcodes::GCALLNEWACCOUNT # no use, just to keep consistency
               return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::GCALLNEWACCOUNT)
             end
