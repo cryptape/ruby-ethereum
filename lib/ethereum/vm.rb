@@ -134,7 +134,7 @@ module Ethereum
             # fee for exponent is dependent on its bytes
             # calc n bytes to represent exponent
             nbytes = Utils.encode_int(exponent).size
-            expprice = Opcodes::GEXPONENTBYTE + (ext.post_spurious_dragon_hardfork ? 1 : 0) * Opcodes::GEXPONENTBYTE_SUPPLEMENTAL_GAS
+            expprice = Opcodes::GEXPONENTBYTE + (ext.post_hardfork?(:spurious_dragon) ? 1 : 0) * Opcodes::GEXPONENTBYTE_SUPPLEMENTAL_GAS
             expfee = nbytes * expprice
             if s.gas < expfee
               s.gas = 0
@@ -212,7 +212,7 @@ module Ethereum
           when :ADDRESS
             stk.push Utils.coerce_to_int(msg.to)
           when :BALANCE
-            if ext.post_anti_dos_hardfork
+            if ext.post_hardfork?(:anti_dos)
               return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::BALANCE_SUPPLEMENTAL_GAS)
             end
             s0 = stk.pop
@@ -253,14 +253,14 @@ module Ethereum
           when :GASPRICE
             stk.push ext.tx_gasprice
           when :EXTCODESIZE
-            if ext.post_anti_dos_hardfork
+            if ext.post_hardfork?(:anti_dos)
               return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::EXTCODELOAD_SUPPLEMENTAL_GAS)
             end
             addr = stk.pop
             addr = Utils.coerce_addr_to_hex(addr % 2**160)
             stk.push (ext.get_code(addr) || Constant::BYTE_EMPTY).size
           when :EXTCODECOPY
-            if ext.post_anti_dos_hardfork
+            if ext.post_hardfork?(:anti_dos)
               return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::EXTCODELOAD_SUPPLEMENTAL_GAS)
             end
             addr, mstart, cstart, size = stk.pop, stk.pop, stk.pop, stk.pop
@@ -318,7 +318,7 @@ module Ethereum
             return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, s0, 1)
             mem[s0] = s1 % 256
           when :SLOAD
-            if ext.post_anti_dos_hardfork
+            if ext.post_hardfork?(:anti_dos)
               return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::SLOAD_SUPPLEMENTAL_GAS)
             end
             s0 = stk.pop
@@ -410,7 +410,7 @@ module Ethereum
             cd = CallData.new mem, mstart, msz
 
             ingas = s.gas
-            ingas = max_call_gas(ingas) if ext.post_anti_dos_hardfork
+            ingas = max_call_gas(ingas) if ext.post_hardfork?(:anti_dos)
             create_msg = Message.new(msg.to, Constant::BYTE_EMPTY, value, ingas, cd, depth: msg.depth+1)
 
             o, gas, addr = ext.create create_msg
@@ -434,7 +434,7 @@ module Ethereum
           to = Utils.zpad_int(to)[12..-1] # last 20 bytes
           extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
           new_account_charge = 0
-          if ext.post_spurious_dragon_hardfork
+          if ext.post_hardfork?(:spurious_dragon)
             if ext.account_is_dead(to) && value > 0
               new_account_charge = Opcodes::GCALLNEWACCOUNT
               extra_gas += new_account_charge
@@ -442,7 +442,7 @@ module Ethereum
             extra_gas += Opcodes::CALL_SUPPLEMENTAL_GAS
             return vm_exception('OUT OF GAS', needed: extra_gas) if s.gas < extra_gas
             gas = [gas, max_call_gas(s.gas-extra_gas)].min
-          elsif ext.post_anti_dos_hardfork
+          elsif ext.post_hardfork?(:anti_dos)
             new_account_charge = (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
             extra_gas += new_account_charge
             extra_gas += Opcodes::CALL_SUPPLEMENTAL_GAS
@@ -472,7 +472,7 @@ module Ethereum
                 mem[memout_start+i] = data[i]
               end
 
-              if ext.post_spurious_dragon_hardfork
+              if ext.post_hardfork?(:spurious_dragon)
                 ext.add_touched to, new_account_charge if new_account_charge > 0
               end
             end
@@ -494,8 +494,8 @@ module Ethereum
           return vm_exception('OOG EXTENDING MEMORY') unless mem_extend(mem, s, memout_start, memout_sz)
 
           extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER +
-            (ext.post_anti_dos_hardfork ? 1 : 0) * Opcodes::CALL_SUPPLEMENTAL_GAS
-          if ext.post_anti_dos_hardfork
+            (ext.post_hardfork?(:anti_dos) ? 1 : 0) * Opcodes::CALL_SUPPLEMENTAL_GAS
+          if ext.post_hardfork?(:anti_dos)
             return vm_exception('OUT OF GAS', needed: extra_gas) if s.gas < extra_gas
             gas = [gas, max_call_gas(s.gas-extra_gas)].min
           else
@@ -510,7 +510,7 @@ module Ethereum
             to = Utils.zpad_int(to)[12..-1] # last 20 bytes
             cd = CallData.new mem, memin_start, memin_sz
 
-            if ext.post_homestead_hardfork && op == :DELEGATECALL
+            if ext.post_hardfork?(:homestead) && op == :DELEGATECALL
               call_msg = Message.new(msg.sender, msg.to, msg.value, submsg_gas, cd, depth: msg.depth+1, code_address: to, transfers_value: false)
             elsif op == :DELEGATECALL
               return vm_exception('OPCODE INACTIVE')
@@ -541,7 +541,7 @@ module Ethereum
           to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
 
           xfer = nil
-          if ext.post_spurious_dragon_hardfork
+          if ext.post_hardfork?(:spurious_dragon)
             extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS
             return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)
 
@@ -553,7 +553,7 @@ module Ethereum
             end
 
             ext.add_touched(to) if xfer == 0
-          elsif ext.post_anti_dos_hardfork
+          elsif ext.post_hardfork?(:anti_dos)
             extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS +
               (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
             return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)

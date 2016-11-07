@@ -17,7 +17,7 @@ module Ethereum
       :get_storage_data, :set_storage_data, :get_storage_bytes, :reset_storage,
       :add_refund, :add_touched, :add_suicide,
       :account_exists, :account_is_empty, :account_is_dead,
-      :snapshot, :revert, :transfer_value
+      :snapshot, :revert, :transfer_value, :post_hardfork?
 
     def initialize(block, tx)
       @block = block
@@ -29,7 +29,7 @@ module Ethereum
     end
 
     def block_hash(x)
-      if post_metropolis_hardfork
+      if post_hardfork?(:metropolis)
         get_storage_data @block.config[:metropolis_blockhash_store], x
       else
         d = @block.number - x
@@ -74,29 +74,13 @@ module Ethereum
       @tx.gasprice
     end
 
-    def post_homestead_hardfork
-      @block.post_hardfork?(:homestead)
-    end
-
-    def post_anti_dos_hardfork
-      @block.post_hardfork?(:anti_dos)
-    end
-
-    def post_spurious_dragon_hardfork
-      @block.post_hardfork?(:spurious_dragon)
-    end
-
-    def post_metropolis_hardfork
-      @block.post_hardfork?(:metropolis)
-    end
-
     def create(msg)
       log_msg.debug 'CONTRACT CREATION'
 
       sender = Utils.normalize_address(msg.sender, allow_blank: true)
 
       code = msg.data.extract_all
-      if post_metropolis_hardfork
+      if post_hardfork?(:metropolis)
         msg.to = Utils.mk_metropolis_contract_address msg.sender, code
         if get_code(msg.to)
           n1 = get_nonce msg.to
@@ -125,7 +109,7 @@ module Ethereum
       msg.data = VM::CallData.new [], 0, 0
 
       snapshot = self.snapshot
-      increment_nonce msg.to if post_spurious_dragon_hardfork
+      increment_nonce msg.to if post_hardfork?(:spurious_dragon)
       res, gas, dat = apply_msg msg, code
 
       if res.true?
@@ -138,7 +122,7 @@ module Ethereum
           dat = []
           log_msg.debug "CONTRACT CREATION OOG", have: gas, want: gcost, block_number: @block.number
 
-          if post_homestead_hardfork
+          if post_hardfork?(:homestead)
             revert snapshot
             return 0, 0, Constant::BYTE_EMPTY
           end
@@ -147,7 +131,7 @@ module Ethereum
         set_code msg.to, Utils.int_array_to_bytes(dat)
         return 1, gas, msg.to
       else
-        revert snapshot if post_homestead_hardfork
+        revert snapshot if post_hardfork?(:homestead)
         return 0, gas, Constant::BYTE_EMPTY
       end
     end
@@ -194,7 +178,7 @@ module Ethereum
         revert snapshot
       end
 
-      if post_spurious_dragon_hardfork
+      if post_hardfork?(:spurious_dragon)
         add_touched msg.to if msg.value == 0
       end
 
