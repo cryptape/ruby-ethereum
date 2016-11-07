@@ -205,7 +205,7 @@ module Ethereum
         # Change the bytecode to use the given library address.
         #
         # @param hex_code [String] The bytecode encoded in hex.
-        # @param library_name [String] The library that will be resolved.
+        # @param library_symbol [String] The library that will be resolved.
         # @param library_address [String] The address of the library.
         #
         # @return [String] The bytecode encoded in hex with the library

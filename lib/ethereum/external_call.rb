@@ -121,12 +121,11 @@ module Ethereum
         reset_storage msg.to
       end
 
-      increment_nonce msg.to if post_spurious_dragon_hardfork
-
       msg.is_create = true
       msg.data = VM::CallData.new [], 0, 0
 
       snapshot = self.snapshot
+      increment_nonce msg.to if post_spurious_dragon_hardfork
       res, gas, dat = apply_msg msg, code
 
       if res.true?
@@ -148,6 +147,7 @@ module Ethereum
         set_code msg.to, Utils.int_array_to_bytes(dat)
         return 1, gas, msg.to
       else
+        revert snapshot if post_homestead_hardfork
         return 0, gas, Constant::BYTE_EMPTY
       end
     end

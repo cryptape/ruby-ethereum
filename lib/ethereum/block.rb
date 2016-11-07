@@ -502,7 +502,7 @@ module Ethereum
         touched.each do |addr, gas|
           if account_is_dead(addr)
             # revert GCALLNEWACCOUNT cost first
-            if gas > 0
+            if gas > 0 && tx.gasprice > 0
               apply_tx_refund tx.sender, gas, tx.gasprice
               apply_tx_reward coinbase, -gas, tx.gasprice
             end
@@ -1389,11 +1389,15 @@ module Ethereum
     end
 
     def apply_tx_refund(sender, remained, gasprice)
-      delta_balance sender, gasprice*remained if remained != 0
+      delta_balance sender, gasprice*remained
     end
 
     def apply_tx_reward(coinbase, used, gasprice)
-      delta_balance coinbase, gasprice*used if used != 0
+      amount = gasprice * used
+      delta_balance coinbase, amount
+      if post_hardfork?(:spurious_dragon)
+        add_touched coinbase if amount == 0
+      end
     end
 
   end

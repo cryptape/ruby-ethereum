@@ -37,6 +37,7 @@ module Ethereum
         return peaceful_exit('CODE OUT OF RANGE', s.gas, []) if s.pc >= processed_code.size
 
         op, in_args, out_args, fee, opcode, pushval = processed_code[s.pc]
+        #Utils.debug_by_step(ext, msg, s, op, in_args, out_args, fee, opcode, pushval)
 
         return vm_exception('OUT OF GAS') if fee > s.gas
         return vm_exception('INSUFFICIENT STACK', op: op, needed: in_args, available: s.stack.size) if in_args > s.stack.size
@@ -409,9 +410,7 @@ module Ethereum
             cd = CallData.new mem, mstart, msz
 
             ingas = s.gas
-            if ext.post_anti_dos_hardfork
-              ingas = max_call_gas(ingas)
-            end
+            ingas = max_call_gas(ingas) if ext.post_anti_dos_hardfork
             create_msg = Message.new(msg.to, Constant::BYTE_EMPTY, value, ingas, cd, depth: msg.depth+1)
 
             o, gas, addr = ext.create create_msg
@@ -434,21 +433,24 @@ module Ethereum
 
           to = Utils.zpad_int(to)[12..-1] # last 20 bytes
           extra_gas = (value > 0 ? 1 : 0) * Opcodes::GCALLVALUETRANSFER
+          new_account_charge = 0
           if ext.post_spurious_dragon_hardfork
-            if ext.account_is_dead(to)
-              extra_gas += Opcodes::GCALLNEWACCOUNT
-              ext.add_touched to, Opcodes::GCALLNEWACCOUNT
+            if ext.account_is_dead(to) && value > 0
+              new_account_charge = Opcodes::GCALLNEWACCOUNT
+              extra_gas += new_account_charge
             end
             extra_gas += Opcodes::CALL_SUPPLEMENTAL_GAS
             return vm_exception('OUT OF GAS', needed: extra_gas) if s.gas < extra_gas
             gas = [gas, max_call_gas(s.gas-extra_gas)].min
           elsif ext.post_anti_dos_hardfork
-            extra_gas += (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
+            new_account_charge = (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
+            extra_gas += new_account_charge
             extra_gas += Opcodes::CALL_SUPPLEMENTAL_GAS
             return vm_exception('OUT OF GAS', needed: extra_gas) if s.gas < extra_gas
             gas = [gas, max_call_gas(s.gas-extra_gas)].min
           else
-            extra_gas += (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
+            new_account_charge = (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
+            extra_gas += new_account_charge
             return vm_exception('OUT OF GAS', needed: gas+extra_gas) if s.gas < gas+extra_gas
           end
 
@@ -468,6 +470,10 @@ module Ethereum
               s.gas += gas
               [data.size, memout_sz].min.times do |i|
                 mem[memout_start+i] = data[i]
+              end
+
+              if ext.post_spurious_dragon_hardfork
+                ext.add_touched to, new_account_charge if new_account_charge > 0
               end
             end
           else
@@ -535,22 +541,22 @@ module Ethereum
           to = Utils.zpad_int(s0)[12..-1] # last 20 bytes
 
           xfer = nil
-          if ext.post_anti_dos_hardfork
-            extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS +
-              (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
-            return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)
-          elsif ext.post_spurious_dragon_hardfork
+          if ext.post_spurious_dragon_hardfork
             extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS
             return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)
 
             # check balance after check SUICIDE_SUPPLEMENTAL_GAS to avoid DoS
             xfer = ext.get_balance(msg.to)
-            if xfer > 0 && ext.account_is_dead
+            if xfer > 0 && ext.account_is_dead(to)
               extra_gas += Opcodes::GCALLNEWACCOUNT # no use, just to keep consistency
               return vm_exception('OUT OF GAS') unless eat_gas(s, Opcodes::GCALLNEWACCOUNT)
             end
 
             ext.add_touched(to) if xfer == 0
+          elsif ext.post_anti_dos_hardfork
+            extra_gas = Opcodes::SUICIDE_SUPPLEMENTAL_GAS +
+              (ext.account_exists(to) ? 0 : 1) * Opcodes::GCALLNEWACCOUNT
+            return vm_exception('OUT OF GAS') unless eat_gas(s, extra_gas)
           end
 
           xfer ||= ext.get_balance(msg.to)

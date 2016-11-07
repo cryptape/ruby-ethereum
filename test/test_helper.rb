@@ -382,7 +382,7 @@ end
 class Minitest::Test
   class <<self
     def run_fixture(path, limit: nil, except: nil, only: nil)
-      only = /#{ARGV[1]}/ if ARGV[1]
+      only = /#{ARGV[1]}/ if ARGV[1] && $0 !~ /rake/
 
       fixture = load_fixture(path).to_a
       fixture = fixture[0,limit] if limit
@@ -400,7 +400,8 @@ class Minitest::Test
     end
 
     def run_fixtures(path, except: nil, only: nil, options: {})
-      only = /#{ARGV[0]}/ if ARGV[0]
+      only = /#{ARGV[0]}/ if ARGV[0] && $0 !~ /rake/
+
       Dir[fixture_path("#{path}/**/*.json")].each do |file_path|
         next if except && file_path =~ except
         next if only && file_path !~ only
