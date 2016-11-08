@@ -16,7 +16,7 @@ module Ethereum
         r = msg.data.extract32(64)
         s = msg.data.extract32(96)
 
-        if r >= Secp256k1::N || s >= Secp256k1::N || v < 27 || v > 28
+        if r >= Secp256k1::N || s >= Secp256k1::N || v < Transaction::V_MIN || v > Transaction::V_MAX
           return 1, msg.gas - gas_cost, []
         end
 
@@ -27,7 +27,7 @@ module Ethereum
 
         pub = nil
         begin
-          pub = Secp256k1.recover_pubkey(message_hash, [v,r,s])
+          pub = Secp256k1.recover_pubkey(message_hash, [Transaction.decode_v(v),r,s])
         rescue
           return 1, msg.gas - gas_cost, []
         end

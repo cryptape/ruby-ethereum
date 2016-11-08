@@ -29,7 +29,7 @@ module Ethereum
         pk = ::Secp256k1::PrivateKey.new privkey: privkey, raw: true
         signature = pk.ecdsa_recoverable_serialize pk.ecdsa_sign_recoverable(msg, raw: true)
 
-        v = signature[1] + 27
+        v = signature[1]
         r = Utils.big_endian_to_int signature[0][0,32]
         s = Utils.big_endian_to_int signature[0][32,32]
 
@@ -49,7 +49,7 @@ module Ethereum
       def recover_pubkey(msg, vrs, compressed: false)
         pk = ::Secp256k1::PublicKey.new(flags: ::Secp256k1::ALL_FLAGS)
         sig = Utils.zpad_int(vrs[1]) + Utils.zpad_int(vrs[2])
-        recsig = pk.ecdsa_recoverable_deserialize(sig, vrs[0]-27)
+        recsig = pk.ecdsa_recoverable_deserialize(sig, vrs[0])
         pk.public_key = pk.ecdsa_recover msg, recsig, raw: true
         pk.serialize compressed: compressed
       end

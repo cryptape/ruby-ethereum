@@ -48,7 +48,7 @@ class SpecialContractTest < Minitest::Test
     msg = Utils.zpad("ethereum", 32)
     v, r, s = Secp256k1.recoverable_sign(msg, priv.encode(:bin))
 
-    sig = Utils.zpad_int(v) + Utils.zpad_int(r) + Utils.zpad_int(s)
+    sig = Utils.zpad_int(Transaction.encode_v(v)) + Utils.zpad_int(r) + Utils.zpad_int(s)
     cd = VM::CallData.new Utils.bytes_to_int_array(msg + sig)
 
     msg = Msg.new 0, cd

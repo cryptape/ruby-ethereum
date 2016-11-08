@@ -1104,7 +1104,7 @@ class ContractsTest < Minitest::Test
     addr = Utils.keccak256(PublicKey.new(pub).encode(:bin)[1..-1])[12..-1]
     assert_equal PrivateKey.new(priv).to_address, addr
 
-    assert_equal Utils.big_endian_to_int(addr), c.test_ecrecover(Utils.big_endian_to_int(msghash), v, r, s)
+    assert_equal Utils.big_endian_to_int(addr), c.test_ecrecover(Utils.big_endian_to_int(msghash), Transaction.encode_v(v), r, s)
   end
 
   SHA256_CODE = <<-EOF
