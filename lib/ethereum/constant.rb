@@ -24,5 +24,7 @@ module Ethereum
     PRIVKEY_ZERO = ("\x00"*32).freeze
     PRIVKEY_ZERO_HEX = ('0'*64).freeze
 
+    CONTRACT_CODE_SIZE_LIMIT = 0x6000
+
   end
 end
