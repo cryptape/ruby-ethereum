@@ -114,12 +114,8 @@ module Ethereum
       if res.true?
         return 1, gas, msg.to if dat.empty?
 
-        gcost = if post_hardfork?(:spurious_dragon)
-                  dat.size > Constant::CONTRACT_CODE_SIZE_LIMIT ?
+        gcost = dat.size > Constant::CONTRACT_CODE_SIZE_LIMIT ?
                     Constant::UINT_MAX : dat.size * Opcodes::GCONTRACTBYTE
-                else
-                  dat.size * Opcodes::GCONTRACTBYTE
-                end
         if gas >= gcost
           gas -= gcost
         else
