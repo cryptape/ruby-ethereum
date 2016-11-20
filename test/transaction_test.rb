@@ -65,3 +65,29 @@ class TransactionFixtureTest < Minitest::Test
   end
 
 end
+
+class TransactionFixtureTest < Minitest::Test
+  include Ethereum
+
+  def bin_to_hex(string)
+    string.unpack("H*")[0]
+  end
+
+  def test_eip155_specification
+    #based on specification in https://github.com/ethereum/EIPs/issues/155#issue-183002027
+    tx = Transaction.new({
+      nonce: 9,
+      gasprice: 21000,
+      startgas: (20 * 10**9),
+      to: '0x3535353535353535353535353535353535353535',
+      value: (10**18),
+      data: '',
+    })
+
+    expected_data = 'ec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080128080'
+    actual_data = bin_to_hex(tx.signing_data(:sign))
+    # => 'e9098252088504a817c800943535353535353535353535353535353535353535880de0b6b3a764000080'
+
+    assert((expected_data == actual_data), "expected signing data did not match actual signing data")
+  end
+end
