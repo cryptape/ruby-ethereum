@@ -40,13 +40,9 @@ module Ethereum
       s: big_endian_int
     )
 
-    V_MIN = 27
-    V_MAX = 28
-
-    EIP155_V_OFFSET = 35
-    EIP155_CHAIN_ID = 1
-    EIP155_V_MIN = EIP155_V_OFFSET + 2 * EIP155_CHAIN_ID
-    EIP155_V_MAX = EIP155_V_MIN + 1
+    V_OFFSET = 27
+    V_ZERO = V_OFFSET
+    V_ONE = V_ZERO + 1
 
     class <<self
       ##
@@ -54,26 +50,6 @@ module Ethereum
       #
       def contract(nonce, gasprice, startgas, endowment, code, v=0, r=0, s=0)
         new nonce, gasprice, startgas, '', endowment, code, v, r, s
-      end
-
-      def encode_v(v, eip155=false)
-        eip155 ? (v + EIP155_V_MIN) : (v + V_MIN)
-      end
-
-      def decode_v(v)
-        return unless v
-        if v == V_MIN || v == V_MAX
-          v - V_MIN
-        elsif v == EIP155_V_MIN || v == EIP155_V_MAX
-          v - EIP155_V_MIN
-        else
-          raise InvalidTransaction, "invalid signature"
-        end
-      end
-
-      def decode_chain_id(v)
-        raise InvalidTransaction, "invalid chain id" if v < EIP155_V_OFFSET+2
-        (v - EIP155_V_OFFSET) / 2
       end
     end
 
@@ -94,7 +70,7 @@ module Ethereum
 
     def sender
       unless @sender
-        v = Transaction.decode_v(self.v)
+        v = decode_v(self.v)
         if v
           raise InvalidTransaction, "Invalid signature values!" if r >= Secp256k1::N || s >= Secp256k1::N || v > 1 || r == 0 || s == 0
 
@@ -126,14 +102,14 @@ module Ethereum
     #
     # A potentially already existing signature would be override.
     #
-    def sign(key, eip155=false)
+    def sign(key)
       raise InvalidTransaction, "Zero privkey cannot sign" if [0, '', Constant::PRIVKEY_ZERO, Constant::PRIVKEY_ZERO_HEX].include?(key)
 
       rawhash = Utils.keccak256 signing_data(:sign)
       key = PrivateKey.new(key).encode(:bin)
 
       vrs = Secp256k1.recoverable_sign rawhash, key
-      self.v = Transaction.encode_v(vrs[0], eip155)
+      self.v = encode_v(vrs[0])
       self.r = vrs[1]
       self.s = vrs[2]
 
@@ -150,29 +126,6 @@ module Ethereum
     #
     def check_low_s
       raise InvalidTransaction, "Invalid signature S value!" if s > Secp256k1::N/2 || s == 0
-    end
-
-    def signing_data(mode)
-      case mode
-      when :sign
-        if v == 0 # use encoding rules before EIP155
-          RLP.encode(self, sedes: UnsignedTransaction)
-        elsif v == EIP155_CHAIN_ID && r == 0 && s == 0 # after EIP155, v is chain_id >= 1
-          RLP.encode(self, sedes: Transaction)
-        else
-          raise InvalidTransaction, "invalid signature"
-        end
-      when :verify
-        if v == V_MIN || v == V_MAX # encoded v before EIP155
-          RLP.encode(self, sedes: UnsignedTransaction)
-        elsif v == EIP155_V_MIN || v == EIP155_V_MAX # after EIP155, v with chain_id encoded in it
-          values = UnsignedTransaction.serializable_fields.keys.map {|k| send k }
-          values += [EIP155_CHAIN_ID, 0, 0]
-          RLP.encode(values, sedes: Transaction.serializable_sedes)
-        end
-      else
-        raise InvalidTransaction, "invalid signature"
-      end
     end
 
     def full_hash
@@ -240,6 +193,81 @@ module Ethereum
       @logger ||= Logger.new 'eth.chain.tx'
     end
 
+    def encode_v(v)
+      v + V_ZERO
+    end
+
+    def decode_v(v)
+      return unless v
+      if v == V_ZERO || v == V_ONE
+        v - V_ZERO
+      else
+        raise InvalidTransaction, "invalid signature"
+      end
+    end
+
+    def signing_data(mode)
+      case mode
+      when :sign
+        if v == 0 # use encoding rules before EIP155
+          RLP.encode(self, sedes: UnsignedTransaction)
+        else
+          raise InvalidTransaction, "invalid signature"
+        end
+      when :verify
+        if v == V_ZERO || v == V_ONE # encoded v before EIP155
+          RLP.encode(self, sedes: UnsignedTransaction)
+        end
+      else
+        raise InvalidTransaction, "invalid signature"
+      end
+    end
+  end
+
+  class EIP155Transaction < Transaction
+    inherit_serializable_fields!
+
+    CHAIN_ID = 1
+    V_OFFSET = 35
+    V_ZERO = V_OFFSET + 2 * CHAIN_ID
+    V_ONE = V_ZERO + 1
+
+    private
+
+    def decode_chain_id(v)
+      raise InvalidTransaction, "invalid chain id" if v < V_OFFSET+2
+      (v - V_OFFSET) / 2
+    end
+
+    def decode_v(v)
+      return unless v
+      if v == V_ZERO || v == V_ONE
+        v - V_ZERO
+      else
+        super(v)
+      end
+    end
+
+    def signing_data(mode)
+      case mode
+      when :sign
+        if v > 0 && r == 0 && s == 0 # after EIP155, v is chain_id >= 1
+          RLP.encode(self, sedes: Transaction)
+        else
+          super(mode)
+        end
+      when :verify
+        if v >= V_ZERO # after EIP155, v with chain_id encoded in it
+          values = UnsignedTransaction.serializable_fields.keys.map {|k| send k }
+          values += [decode_chain_id(v), 0, 0]
+          RLP.encode(values, sedes: self.class.serializable_sedes)
+        else
+          super(mode)
+        end
+      else
+        raise InvalidTransaction, "invalid signature"
+      end
+    end
   end
 
   UnsignedTransaction = Transaction.exclude %i(v r s)

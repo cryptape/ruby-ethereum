@@ -31,13 +31,14 @@ end
 class TransactionFixtureTest < Minitest::Test
   include Ethereum
 
-  run_fixtures "TransactionTests", except: /Homestead/
+  run_fixtures "TransactionTests"
 
   def on_fixture_test(name, data)
     begin
       rlpdata = Utils.decode_hex data['rlp'][2..-1]
-      tx = RLP.decode rlpdata, sedes: Transaction
       blknum = data['blocknumber'].to_i
+      tx_sedes = blknum >= Env::DEFAULT_CONFIG[:spurious_dragon_fork_blknum] ? EIP155Transaction : Transaction
+      tx = RLP.decode rlpdata, sedes: tx_sedes
       tx.check_low_s if blknum >= Env::DEFAULT_CONFIG[:homestead_fork_blknum]
       sender = tx.sender # tx.sender will validate signature
     rescue
