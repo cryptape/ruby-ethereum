@@ -291,13 +291,58 @@ module Ethereum
         end
 
         node
-      else # kv node type
-        update_kv_node(node, key, value)
+      when :leaf
+        update_leaf_node(node, key, value)
+      else
+        update_extension_node(node, key, value)
       end
     end
 
-    # TODO: refactor this crazy tall guy
-    def update_kv_node(node, key, value)
+    def update_leaf_node(node, key, value)
+      node_key = NibbleKey.decode(node[0]).terminate(false)
+
+      common_key = node_key.common_prefix(key)
+      remain_key = key[common_key.size..-1]
+      remain_node_key = node_key[common_key.size..-1]
+
+      if remain_key.empty? && remain_node_key.empty? # target key equals node's key
+        return [node[0], value]
+      elsif remain_node_key.empty?
+        new_node = [BLANK_NODE] * BRANCH_WIDTH
+        new_node[-1] = node[1]
+        new_node[remain_key[0]] = encode_node(
+          [
+            remain_key[1..-1].terminate(true).encode,
+            value
+          ]
+        )
+      else
+        new_node = [BLANK_NODE] * BRANCH_WIDTH
+        new_node[remain_node_key[0]] = encode_node(
+          [
+            remain_node_key[1..-1].terminate(true).encode,
+            node[1]
+          ]
+        )
+
+        if remain_key.empty? # node's key include target key
+          new_node[-1] = value
+        else
+          new_node[remain_key[0]] = encode_node([
+            remain_key[1..-1].terminate(true).encode,
+            value
+          ])
+        end
+      end
+
+      if common_key.empty?
+        new_node
+      else
+        [node_key[0, common_key.size].encode, encode_node(new_node)]
+      end
+    end
+
+    def update_extension_node(node, key, value)
       node_type = get_node_type node
       node_key = NibbleKey.decode(node[0]).terminate(false)
       inner = node_type == :extension
@@ -306,41 +351,24 @@ module Ethereum
       remain_key = key[common_key.size..-1]
       remain_node_key = node_key[common_key.size..-1]
 
-      if remain_key.empty? && remain_node_key.empty? # target key equals node's key
-        if inner
-          new_node = update_and_delete_storage(
-            decode_to_node(node[1]),
-            remain_key,
-            value
-          )
-        else
-          return [node[0], value]
-        end
-      elsif remain_node_key.empty? # target key includes node's key
-        if inner
-          new_node = update_and_delete_storage(
-            decode_to_node(node[1]),
-            remain_key,
-            value
-          )
-        else # node is a leaf, we need to replace it with branch node first
-          new_node = [BLANK_NODE] * BRANCH_WIDTH
-          new_node[-1] = node[1]
-          new_node[remain_key[0]] = encode_node([
-            remain_key[1..-1].terminate(true).encode,
-            value
-          ])
-        end
+      if remain_node_key.empty?
+        new_node = update_and_delete_storage(
+          decode_to_node(node[1]),
+          remain_key,
+          value
+        )
       else
         new_node = [BLANK_NODE] * BRANCH_WIDTH
 
-        if remain_node_key.size == 1 && inner
+        if remain_node_key.size == 1
           new_node[remain_node_key[0]] = node[1]
         else
-          new_node[remain_node_key[0]] = encode_node([
-            remain_node_key[1..-1].terminate(!inner).encode,
-            node[1]
-          ])
+          new_node[remain_node_key[0]] = encode_node(
+            [
+              remain_node_key[1..-1].terminate(false).encode,
+              node[1]
+            ]
+          )
         end
 
         if remain_key.empty? # node's key include target key
