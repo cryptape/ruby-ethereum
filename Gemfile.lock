@@ -34,7 +34,7 @@ GEM
     rake (10.5.0)
     rlp (0.7.3)
     serpent (0.3.0)
-    yard (0.8.7.6)
+    yard (0.9.12)
 
 PLATFORMS
   ruby
@@ -44,7 +44,7 @@ DEPENDENCIES
   rake (~> 10.5)
   ruby-ethereum!
   serpent (~> 0.3)
-  yard (= 0.8.7.6)
+  yard (>= 0.9)
 
 BUNDLED WITH
-   1.11.2
+   1.16.1
